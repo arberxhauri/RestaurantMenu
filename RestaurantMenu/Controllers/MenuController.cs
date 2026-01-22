@@ -17,7 +17,8 @@ public class MenuController : Controller
     [Route("menu/{branchName}")]
     public async Task<IActionResult> Index(string branchName, string lang = "en")
     {
-        branchName = branchName.Trim(" ");
+        branchName = branchName.Trim();
+
         var decodedName = Uri.UnescapeDataString(branchName);
 
         var branch = await _context.Branches
