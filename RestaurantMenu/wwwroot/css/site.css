@@ -1,385 +1,609 @@
-/* =========================================
-   1. IMPORTS & VARIABLES
-   ========================================= */
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap');
-
-:root {
-  /* Brand Colors */
-  --primary-color: #2d3748;      /* Dark Slate */
-  --primary-light: #4a5568;
-  --accent-color: #ed8936;       /* Orange Brand */
-  --accent-hover: #dd6b20;
-
-  /* Semantic Colors */
-  --success: #48bb78;
-  --danger: #f56565;
-  --warning: #ed8936;
-  --info: #4299e1;
-
-  /* Backgrounds */
-  --bg-body: #f7fafc;
-  --bg-card: #ffffff;
-  --bg-sidebar: #1a202c;
-
-  /* Text */
-  --text-main: #2d3748;
-  --text-muted: #718096;
-  --text-light: #e2e8f0;
-
-  /* Borders & Shadows */
-  --border-color: #e2e8f0;
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 1rem;
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
-/* =========================================
-   2. GLOBAL RESETS & TYPOGRAPHY
-   ========================================= */
 html {
-  position: relative;
-  min-height: 100%;
+    scroll-behavior: smooth;
 }
 
 body {
-  font-family: 'Inter', sans-serif;
-  background-color: var(--bg-body);
-  color: var(--text-main);
-  margin-bottom: 60px; /* Footer height */
+    font-family: 'Inter', sans-serif;
+    background: #f7fafc;
+    color: #1a202c;
+    line-height: 1.6;
 }
 
-h1, h2, h3, h4, h5, h6 {
-  font-family: 'Playfair Display', serif;
-  font-weight: 700;
-  color: var(--primary-color);
+/* Header Section */
+.menu-header {
+    position: relative;
+    height: 400px;
+    background: linear-gradient(135deg, @primaryColor, @secondaryColor);
+    color: white;
+    overflow: hidden;
 }
 
-a {
-  color: var(--accent-color);
-  text-decoration: none;
-  transition: all 0.2s ease;
+.menu-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: url('@Model.Banner');
+    background-size: cover;
+    background-position: center;
+    opacity: 0.3;
+    z-index: 0;
 }
 
-a:hover {
-  color: var(--accent-hover);
-  text-decoration: none;
+.header-content {
+    position: relative;
+    z-index: 1;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem;
 }
 
-/* =========================================
-   3. LAYOUT & NAVBAR
-   ========================================= */
-.navbar {
-  background-color: var(--bg-card) !important;
-  box-shadow: var(--shadow-sm);
-  padding: 1rem 1.5rem;
+.restaurant-logo {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 5px solid white;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1.5rem;
+    background: white;
 }
 
-.navbar-brand {
-  font-family: 'Playfair Display', serif;
-  font-weight: 700;
-  font-size: 1.5rem;
-  color: var(--primary-color) !important;
+.restaurant-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 3.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.restaurant-info {
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+}
+
+.info-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.1rem;
+}
+
+/* Language Switcher */
+.language-switcher {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 10;
+}
+
+.language-btn {
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 25px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.language-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+}
+
+.language-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 0.5rem;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    min-width: 150px;
+    display: none;
+    overflow: hidden;
+}
+
+.language-dropdown.show {
+    display: block;
+    animation: fadeInDown 0.3s ease;
+}
+
+.language-dropdown a {
+    display: block;
+    padding: 0.75rem 1rem;
+    color: #2d3748;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.language-dropdown a:hover {
+    background: @primaryColor;
+    color: white;
+}
+
+.language-dropdown a.active {
+    background: @(primaryColor)20;
+    color: @primaryColor;
+    font-weight: 600;
+}
+
+/* Menu Container */
+.menu-container {
+    max-width: 1200px;
+    margin: -50px auto 4rem;
+    padding: 0 2rem;
+    position: relative;
+    z-index: 2;
+}
+
+/* Category Navigation Navbar */
+.category-navbar {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 50px;
+    padding: 0.5rem 1rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    position: sticky;
+    top: 20px;
+    z-index: 100;
+    margin-bottom: 3rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.nav-scroll-btn {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, @primaryColor, @secondaryColor);
+    color: white;
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px @(primaryColor)50;
+}
+
+.nav-scroll-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px @(primaryColor)80;
+}
+
+.nav-scroll-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    transform: scale(1);
+}
+
+.nav-container-wrapper {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+}
+
+.nav-container {
+    display: flex;
+    gap: 0.75rem;
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    scrollbar-width: thin;
+    scrollbar-color: @primaryColor transparent;
+    padding: 0.5rem 0;
+}
+
+.nav-container::-webkit-scrollbar {
+    height: 6px;
+}
+
+.nav-container::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 10px;
+}
+
+.nav-container::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, @primaryColor, @secondaryColor);
+    border-radius: 10px;
+}
+
+.nav-container::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, @secondaryColor, @accentColor);
+}
+
+/* Gradient fade indicators */
+.nav-container-wrapper::before,
+.nav-container-wrapper::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 6px;
+    width: 40px;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.nav-container-wrapper::before {
+    left: 0;
+    background: linear-gradient(to right, rgba(255, 255, 255, 0.95), transparent);
+}
+
+.nav-container-wrapper::after {
+    right: 0;
+    background: linear-gradient(to left, rgba(255, 255, 255, 0.95), transparent);
+}
+
+.nav-container-wrapper.show-left-fade::before {
+    opacity: 1;
+}
+
+.nav-container-wrapper.show-right-fade::after {
+    opacity: 1;
 }
 
 .nav-link {
-  font-weight: 500;
-  color: var(--text-muted) !important;
-  padding: 0.5rem 1rem !important;
-  border-radius: var(--radius-sm);
-  transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: transparent;
+    border: none;
+    border-radius: 25px;
+    color: #718096;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    flex-shrink: 0;
 }
 
-.nav-link:hover, .nav-link.active {
-  color: var(--accent-color) !important;
-  background: rgba(237, 137, 54, 0.1);
+.nav-link:hover,
+.nav-link.active {
+    background: linear-gradient(135deg, @primaryColor, @secondaryColor);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px @(primaryColor)66;
 }
 
-.footer {
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  white-space: nowrap;
-  line-height: 60px;
-  background-color: var(--bg-card);
-  border-top: 1px solid var(--border-color);
-  font-size: 0.9rem;
-  color: var(--text-muted);
+.nav-link i {
+    font-size: 1.1rem;
 }
 
-/* =========================================
-   4. CARDS & CONTAINERS
-   ========================================= */
-.card {
-  background: var(--bg-card);
-  border: none;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  transition: transform 0.2s, box-shadow 0.2s;
-  overflow: hidden;
+/* Category Section */
+.category-section {
+    background: white;
+    border-radius: 20px;
+    padding: 3rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    animation: fadeInUp 0.6s ease-out;
+    scroll-margin-top: 100px;
 }
 
-.card:hover {
-  box-shadow: var(--shadow-lg);
+.category-header {
+    text-align: center;
+    margin-bottom: 3rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 3px solid @primaryColor;
 }
 
-/* Disable hover effect for utility cards (like forms) */
-.card.no-hover:hover {
-  transform: none;
-  box-shadow: var(--shadow-md);
+.category-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #2d3748;
+    margin-bottom: 0.5rem;
 }
 
-.card-header {
-  background: transparent;
-  border-bottom: 1px solid var(--border-color);
-  padding: 1.5rem;
+.category-count {
+    color: #718096;
+    font-size: 1rem;
 }
 
-.card-body {
-  padding: 1.5rem;
+/* Product Card */
+.product-card {
+    display: flex;
+    gap: 2rem;
+    padding: 2rem 0;
+    border-bottom: 1px solid #e2e8f0;
+    transition: all 0.3s ease;
 }
 
-/* =========================================
-   5. FORMS & INPUTS
-   ========================================= */
-.form-control, .form-select {
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: 0.75rem 1rem;
-  font-size: 0.95rem;
-  transition: all 0.2s;
+.product-card:last-child {
+    border-bottom: none;
 }
 
-.form-control:focus, .form-select:focus {
-  border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px rgba(237, 137, 54, 0.15);
+.product-card:hover {
+    transform: translateX(10px);
+    padding-left: 1rem;
+    background: #f7fafc;
+    border-radius: 15px;
+    margin: 0 -1rem;
+    padding-right: 3rem;
 }
 
-.form-label {
-  font-weight: 500;
-  font-size: 0.9rem;
-  color: var(--text-main);
-  margin-bottom: 0.5rem;
+.product-image-wrapper {
+    flex-shrink: 0;
+    width: 150px;
+    height: 150px;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
 }
 
-/* Image Upload Areas (Dashed Box) */
-.image-upload-container {
-  border: 2px dashed var(--border-color);
-  border-radius: var(--radius-lg);
-  background: #fafafa;
-  transition: all 0.2s;
+.product-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
 }
 
-.image-upload-container:hover {
-  border-color: var(--accent-color);
-  background: #fff;
+.product-card:hover .product-image {
+    transform: scale(1.1);
 }
 
-/* =========================================
-   6. BUTTONS
-   ========================================= */
-.btn {
-  padding: 0.6rem 1.2rem;
-  font-weight: 500;
-  border-radius: var(--radius-md);
-  transition: all 0.2s;
+.product-placeholder {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, @(primaryColor)15, @(secondaryColor)15);
+    border: 2px dashed @(primaryColor)40;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: @primaryColor;
+    gap: 0.5rem;
 }
 
-.btn-primary {
-  background-color: var(--primary-color);
-  border-color: var(--primary-color);
+.product-placeholder i {
+    font-size: 3rem;
+    opacity: 0.5;
+    transition: all 0.3s ease;
 }
 
-.btn-primary:hover {
-  background-color: var(--primary-light);
-  border-color: var(--primary-light);
-  transform: translateY(-1px);
+.product-placeholder::after {
+    content: 'No image';
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.4;
 }
 
-.btn-warning {
-  background-color: var(--accent-color);
-  border-color: var(--accent-color);
-  color: white;
+.product-card:hover .product-placeholder {
+    background: linear-gradient(135deg, @(primaryColor)25, @(secondaryColor)25);
+    border-color: @(primaryColor)60;
 }
 
-.btn-warning:hover {
-  background-color: var(--accent-hover);
-  border-color: var(--accent-hover);
-  color: white;
-  transform: translateY(-1px);
+.product-card:hover .product-placeholder i {
+    opacity: 0.8;
+    transform: scale(1.1);
 }
 
-.btn-action {
-  width: 35px;
-  height: 35px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
+.product-details {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
-/* =========================================
-   7. TABLES & LISTS
-   ========================================= */
-.table {
-  vertical-align: middle;
+.product-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 0.75rem;
 }
 
-.table thead th {
-  font-weight: 600;
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-  border-bottom: 2px solid var(--border-color);
-  background-color: #f8fafc;
+.product-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 0.5rem;
 }
 
-.table td {
-  color: var(--text-main);
-  font-size: 0.95rem;
+.product-price {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: @primaryColor;
+    white-space: nowrap;
+    margin-left: 1rem;
 }
 
-/* Sortable / Drag & Drop Styles */
-.sortable-list {
-  list-style: none;
-  padding: 0;
+.product-description {
+    color: #718096;
+    margin-bottom: 0.75rem;
+    line-height: 1.6;
 }
 
-.sortable-item {
-  background: white;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  margin-bottom: 0.5rem;
-  padding: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  transition: all 0.2s;
+.product-nutrition {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #e53e3e;
+    font-size: 0.9rem;
+    font-weight: 500;
 }
 
-.sortable-item:hover {
-  border-color: var(--accent-color);
-  transform: translateX(5px);
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #718096;
 }
 
-/* The ghost class applied by SortableJS while dragging */
-.sortable-ghost {
-  background: #edf2f7;
-  border: 2px dashed var(--text-muted);
-  opacity: 0.5;
+.empty-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
 }
 
-.drag-handle {
-  cursor: grab;
-  color: var(--text-muted);
-  padding: 0.5rem;
+/* Footer */
+.menu-footer {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: #718096;
+    background: white;
+    border-top: 1px solid #e2e8f0;
 }
 
-.drag-handle:active {
-  cursor: grabbing;
+/* Animations */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
-/* =========================================
-   8. SPECIFIC COMPONENTS
-   ========================================= */
-
-/* Language Translation Cards */
-.card-header.bg-info {
-  background: linear-gradient(135deg, #63b3ed, #4299e1) !important;
-  border: none;
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
-/* Status Badges */
-.badge {
-  padding: 0.5em 0.8em;
-  font-weight: 500;
-  border-radius: 20px;
-}
-
-.badge-soft-success {
-  background-color: #c6f6d5;
-  color: #22543d;
-}
-
-.badge-soft-warning {
-  background-color: #feebc8;
-  color: #744210;
-}
-
-/* Dashboard Stats */
-.stat-card {
-  border-left: 4px solid var(--accent-color);
-}
-
-.stat-icon {
-  width: 48px;
-  height: 48px;
-  background: rgba(237, 137, 54, 0.1);
-  color: var(--accent-color);
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.5rem;
-}
-
-/* Auth Pages (Login/Register) */
-.auth-container {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, var(--primary-color) 0%, #1a202c 100%);
-}
-
-.auth-card {
-  width: 100%;
-  max-width: 450px;
-  background: white;
-  padding: 2.5rem;
-  border-radius: var(--radius-lg);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-}
-
-/* =========================================
-   9. UTILITIES
-   ========================================= */
-.text-justify {
-  text-align: justify;
-}
-
-.opacity-75 { opacity: 0.75; }
-.opacity-50 { opacity: 0.50; }
-
-.shadow-lg { box-shadow: var(--shadow-lg) !important; }
-
-/* Image Thumbnail styles */
-.img-thumbnail {
-  padding: 0.25rem;
-  background-color: #fff;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  max-width: 100%;
-  height: auto;
-}
-
-/* Validation Errors */
-.text-danger {
-  font-size: 0.85rem;
-  margin-top: 0.25rem;
-}
-
-/* Media Queries */
+/* Responsive Design */
 @media (max-width: 768px) {
-  .card-body {
-    padding: 1rem;
-  }
+    .restaurant-name {
+        font-size: 2.5rem;
+    }
 
-  .navbar-brand {
-    font-size: 1.25rem;
-  }
+    .menu-container {
+        padding: 0 1rem;
+        margin-top: -30px;
+    }
+
+    .language-switcher {
+        top: 10px;
+        right: 10px;
+    }
+
+    .language-btn {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.9rem;
+    }
+
+    .category-navbar {
+        padding: 0.25rem 0.5rem;
+        top: 10px;
+    }
+
+    .nav-scroll-btn {
+        width: 35px;
+        height: 35px;
+        font-size: 1rem;
+    }
+
+    .nav-link {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+    }
+
+    .nav-container-wrapper::before,
+    .nav-container-wrapper::after {
+        width: 30px;
+    }
+
+    .category-section {
+        padding: 2rem 1.5rem;
+    }
+
+    .category-title {
+        font-size: 2rem;
+    }
+
+    .product-card {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .product-card:hover {
+        transform: none;
+        padding-left: 0;
+        margin: 0;
+        padding-right: 0;
+    }
+
+    .product-image-wrapper {
+        width: 100%;
+        height: 200px;
+    }
+
+    .product-header {
+        flex-direction: column;
+    }
+
+    .product-price {
+        margin-left: 0;
+        margin-top: 0.5rem;
+    }
+
+    .restaurant-info {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .restaurant-name {
+        font-size: 2rem;
+    }
+
+    .menu-header {
+        height: 350px;
+    }
+
+    .restaurant-logo {
+        width: 100px;
+        height: 100px;
+    }
+
+    .category-title {
+        font-size: 1.75rem;
+    }
+
+    .product-name {
+        font-size: 1.5rem;
+    }
+
+    .product-price {
+        font-size: 1.5rem;
+    }
 }
