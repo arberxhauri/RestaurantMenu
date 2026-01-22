@@ -149,6 +149,74 @@
 </div>
 
 @section Scripts {
+    <partial name="_ValidationScriptsPartial"/>
+    <script>
+        // Logo Preview
+        function previewLogo(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                const logoBox = document.querySelector('.logo-upload-box');
+                
+                reader.onload = function(e) {
+                    logoBox.style.backgroundImage = `url('${e.target.result}')`;
+                    logoBox.classList.add('preview');
+                    logoBox.style.backgroundSize = 'contain';
+                    logoBox.style.backgroundColor = '#fff';
+                };
+                
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Banner Preview
+        function previewBanner(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                const bannerBox = document.querySelector('.banner-upload-box');
+                
+                reader.onload = function(e) {
+                    bannerBox.style.backgroundImage = `url('${e.target.result}')`;
+                    bannerBox.classList.add('preview');
+                    bannerBox.style.backgroundSize = 'cover';
+                };
+                
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Add change listeners
+        document.getElementById('logo')?.addEventListener('change', previewLogo);
+        document.getElementById('banner')?.addEventListener('change', previewBanner);
+
+        // Form validation
+        document.querySelector('form')?.addEventListener('submit', function(e) {
+            const name = document.querySelector('input[name="Name"]')?.value;
+            const address = document.querySelector('input[name="Address"]')?.value;
+            
+            if (!name || !address) {
+                e.preventDefault();
+                alert('Please fill in all required fields');
+                return false;
+            }
+        });
+
+        // Language selection counter
+        const checkboxes = document.querySelectorAll('input[name="selectedLanguages"]');
+        checkboxes.forEach(cb => {
+            cb.addEventListener('change', function() {
+                const checked = document.querySelectorAll('input[name="selectedLanguages"]:checked').length;
+                if (checked === 0) {
+                    alert('At least one language must be selected');
+                    this.checked = true;
+                }
+            });
+        });
+    </script>
+}
+
+@section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <style>
         .logo-upload-box, .banner-upload-box {
