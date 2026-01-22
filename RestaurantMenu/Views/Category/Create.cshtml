@@ -138,61 +138,6 @@
     </div>
 </div>
 
-@section Scripts {
-    <partial name="_ValidationScriptsPartial" />
-    <script>
-        // Live preview
-        const nameInput = document.getElementById('Name');
-        const priorityInput = document.getElementById('Priority');
-        const namePreview = document.getElementById('namePreview');
-        const priorityPreview = document.getElementById('priorityPreview');
-
-        nameInput.addEventListener('input', function(e) {
-            namePreview.textContent = e.target.value || 'Category Name';
-            
-            // Add animation effect
-            namePreview.style.transform = 'scale(1.05)';
-            setTimeout(() => {
-                namePreview.style.transform = 'scale(1)';
-            }, 200);
-        });
-        
-        priorityInput.addEventListener('input', function(e) {
-            priorityPreview.textContent = e.target.value || '0';
-            
-            // Add animation effect
-            priorityPreview.parentElement.style.transform = 'scale(1.1)';
-            setTimeout(() => {
-                priorityPreview.parentElement.style.transform = 'scale(1)';
-            }, 200);
-        });
-
-        // Smooth transitions
-        namePreview.style.transition = 'all 0.2s ease';
-        priorityPreview.parentElement.style.transition = 'all 0.2s ease';
-
-        // Form validation
-        document.querySelector('form').addEventListener('submit', function(e) {
-            const name = nameInput.value.trim();
-            
-            if (!name) {
-                e.preventDefault();
-                alert('Please enter a category name');
-                nameInput.focus();
-                return false;
-            }
-        });
-
-        // Auto-focus first translation field when Name is filled
-        nameInput.addEventListener('blur', function() {
-            const firstTranslation = document.querySelector('input[name^="translation_"]');
-            if (this.value && firstTranslation && !firstTranslation.value) {
-                firstTranslation.focus();
-            }
-        });
-    </script>
-}
-
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
