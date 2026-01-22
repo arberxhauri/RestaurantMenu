@@ -31,6 +31,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="View the menu for @Model.Name - Browse our selection of delicious items" />
     <title>@ViewData["Title"]</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -51,6 +52,34 @@
             background: #f7fafc;
             color: #1a202c;
             line-height: 1.6;
+        }
+
+        /* Loading Screen */
+        #pageLoader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: white;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .loader-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid @primaryColor;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @@keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
         /* Header Section */
@@ -412,12 +441,30 @@
         .product-placeholder {
             width: 100%;
             height: 100%;
-            background: linear-gradient(135deg, @primaryColor, @secondaryColor);
+            background: linear-gradient(135deg, @(primaryColor)15, @(secondaryColor)15);
+            border: 2px dashed @(primaryColor)40;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            color: white;
+            color: @primaryColor;
+            gap: 0.5rem;
+        }
+
+        .product-placeholder i {
             font-size: 3rem;
+            opacity: 0.5;
+            transition: all 0.3s ease;
+        }
+
+        .product-card:hover .product-placeholder {
+            background: linear-gradient(135deg, @(primaryColor)25, @(secondaryColor)25);
+            border-color: @(primaryColor)60;
+        }
+
+        .product-card:hover .product-placeholder i {
+            opacity: 0.8;
+            transform: scale(1.1);
         }
 
         .product-details {
@@ -510,7 +557,46 @@
             }
         }
 
-        /* Responsive */
+        /* Print Styles */
+        @@media print {
+            .language-switcher,
+            .category-navbar,
+            .nav-scroll-btn {
+                display: none !important;
+            }
+
+            .menu-header {
+                height: auto;
+                padding: 2rem;
+                page-break-after: avoid;
+            }
+
+            .category-section {
+                page-break-inside: avoid;
+                box-shadow: none;
+                border: 1px solid #e2e8f0;
+                margin-bottom: 1rem;
+            }
+
+            .product-card {
+                page-break-inside: avoid;
+            }
+
+            .product-card:hover {
+                transform: none;
+                background: none;
+            }
+
+            body {
+                background: white;
+            }
+
+            .menu-container {
+                margin-top: 0;
+            }
+        }
+
+        /* Responsive Design */
         @@media (max-width: 768px) {
             .restaurant-name {
                 font-size: 2.5rem;
@@ -563,6 +649,14 @@
             .product-card {
                 flex-direction: column;
                 gap: 1rem;
+                padding: 1.5rem 0;
+            }
+
+            .product-card:hover {
+                transform: none;
+                padding-left: 0;
+                margin: 0;
+                padding-right: 0;
             }
 
             .product-image-wrapper {
@@ -572,6 +666,7 @@
 
             .product-header {
                 flex-direction: column;
+                align-items: flex-start;
             }
 
             .product-price {
@@ -579,314 +674,374 @@
                 margin-top: 0.5rem;
             }
 
+            .product-name {
+                font-size: 1.5rem;
+            }
+
             .restaurant-info {
                 flex-direction: column;
                 gap: 0.75rem;
             }
         }
+
+        @@media (max-width: 480px) {
+            .restaurant-name {
+                font-size: 2rem;
+            }
+
+            .menu-header {
+                height: 350px;
+            }
+
+            .restaurant-logo {
+                width: 100px;
+                height: 100px;
+            }
+
+            .category-title {
+                font-size: 1.75rem;
+            }
+
+            .product-name {
+                font-size: 1.25rem;
+            }
+
+            .product-price {
+                font-size: 1.5rem;
+            }
+
+            .info-item {
+                font-size: 0.95rem;
+            }
+        }
     </style>
 </head>
 <body>
-<!-- Header -->
-<div id="header" class="menu-header">
-    <!-- Language Switcher -->
-    @if (supportedLanguages.Length > 1)
-    {
-        <div class="language-switcher">
-            <button class="language-btn" onclick="toggleLanguageDropdown()">
-                <i class="bi bi-translate"></i>
-                <span>@currentLang.ToUpper()</span>
-                <i class="bi bi-chevron-down" style="font-size: 0.8rem;"></i>
-            </button>
-            <div class="language-dropdown" id="languageDropdown">
-                @foreach (var lang in supportedLanguages)
-                {
-                    <a href="?lang=@lang" class="@(lang == currentLang ? "active" : "")">
-                        @switch (lang)
-                        {
-                            case "en": <text>🇬🇧 English</text> break;
-                            case "sq": <text>🇦🇱 Shqip</text> break;
-                            case "de": <text>🇩🇪 Deutsch</text> break;
-                            case "fr": <text>🇫🇷 Français</text> break;
-                            case "it": <text>🇮🇹 Italiano</text> break;
-                            case "es": <text>🇪🇸 Español</text> break;
-                            case "tr": <text>🇹🇷 Türkçe</text> break;
-                            default: <text>@lang</text> break;
-                        }
-                    </a>
-                }
-            </div>
-        </div>
-    }
-
-    <div class="header-content">
-        @if (!string.IsNullOrEmpty(Model.Logo))
-        {
-            <img src="@Model.Logo" alt="@Model.Name Logo" class="restaurant-logo" />
-        }
-        else
-        {
-            <div class="restaurant-logo d-flex align-items-center justify-content-center" style="background: linear-gradient(135deg, @primaryColor, @secondaryColor);">
-                <span style="font-size: 3rem; font-weight: bold; color: white;">@Model.Name.Substring(0, 1)</span>
-            </div>
-        }
-
-        <h1 class="restaurant-name">@Model.Name</h1>
-
-        <div class="restaurant-info">
-            <div class="info-item">
-                <i class="bi bi-geo-alt-fill"></i>
-                <span>@Model.Address</span>
-            </div>
-            <div class="info-item">
-                <i class="bi bi-telephone-fill"></i>
-                <span>@Model.PhoneNumber</span>
-            </div>
+    <!-- Loading Screen -->
+    <div id="pageLoader">
+        <div style="text-align: center;">
+            <div class="loader-spinner"></div>
+            <p style="color: @primaryColor; font-weight: 600;">Loading Menu...</p>
         </div>
     </div>
-</div>
 
-<!-- Menu Content -->
-<div class="menu-container">
-    <!-- Category Navigation Navbar -->
-    @if (Model.Categories.Any(c => c.Products.Any()))
-    {
-        <nav class="category-navbar">
-            <button class="nav-scroll-btn" id="scrollLeft" disabled>
-                <i class="bi bi-chevron-left"></i>
-            </button>
-
-            <div class="nav-container-wrapper" id="navWrapper">
-                <div class="nav-container" id="navContainer">
-                    <a href="#header" class="nav-link active">
-                        <i class="bi bi-house-door"></i>
-                        <span>All</span>
-                    </a>
-                    @foreach (var category in Model.Categories.Where(c => c.Products.Any()).OrderBy(c => c.Priority))
+    <!-- Header -->
+    <div id="header" class="menu-header">
+        <!-- Language Switcher -->
+        @if (supportedLanguages.Length > 1)
+        {
+            <div class="language-switcher">
+                <button class="language-btn" onclick="toggleLanguageDropdown()">
+                    <i class="bi bi-translate"></i>
+                    <span>@currentLang.ToUpper()</span>
+                    <i class="bi bi-chevron-down" style="font-size: 0.8rem;"></i>
+                </button>
+                <div class="language-dropdown" id="languageDropdown">
+                    @foreach (var lang in supportedLanguages)
                     {
-                        var categorySlug = category.Name.Replace(" ", "-").ToLower();
-                        var categoryName = TranslationHelper.GetTranslation(category.Name, category.NameTranslations, currentLang);
-                        <a href="#@categorySlug" class="nav-link" data-category="@categorySlug">
-                            @categoryName <span style="opacity: 0.7;">(@category.Products.Count)</span>
+                        <a href="?lang=@lang" class="@(lang == currentLang ? "active" : "")">
+                            @switch (lang)
+                            {
+                                case "en": <text>🇬🇧 English</text> break;
+                                case "sq": <text>🇦🇱 Shqip</text> break;
+                                case "de": <text>🇩🇪 Deutsch</text> break;
+                                case "fr": <text>🇫🇷 Français</text> break;
+                                case "it": <text>🇮🇹 Italiano</text> break;
+                                case "es": <text>🇪🇸 Español</text> break;
+                                case "tr": <text>🇹🇷 Türkçe</text> break;
+                                default: <text>@lang</text> break;
+                            }
                         </a>
                     }
                 </div>
             </div>
+        }
 
-            <button class="nav-scroll-btn" id="scrollRight">
-                <i class="bi bi-chevron-right"></i>
-            </button>
-        </nav>
-    }
-
-    @if (!Model.Categories.Any(c => c.Products.Any()))
-    {
-        <div class="category-section">
-            <div class="empty-state">
-                <div class="empty-icon">
-                    <i class="bi bi-inbox"></i>
+        <div class="header-content">
+            @if (!string.IsNullOrEmpty(Model.Logo))
+            {
+                <img src="@Model.Logo" alt="@Model.Name Logo" class="restaurant-logo" />
+            }
+            else
+            {
+                <div class="restaurant-logo d-flex align-items-center justify-content-center" style="background: linear-gradient(135deg, @primaryColor, @secondaryColor);">
+                    <span style="font-size: 3rem; font-weight: bold; color: white;">@Model.Name.Substring(0, 1)</span>
                 </div>
-                <h3>Menu Coming Soon</h3>
-                <p>We're working on adding delicious items to our menu.</p>
+            }
+
+            <h1 class="restaurant-name">@Model.Name</h1>
+
+            <div class="restaurant-info">
+                <div class="info-item">
+                    <i class="bi bi-geo-alt-fill"></i>
+                    <span>@Model.Address</span>
+                </div>
+                <div class="info-item">
+                    <i class="bi bi-telephone-fill"></i>
+                    <span>@Model.PhoneNumber</span>
+                </div>
             </div>
         </div>
-    }
-    else
-    {
-        @foreach (var category in Model.Categories.Where(c => c.Products.Any()).OrderBy(c => c.Priority))
-        {
-            var categorySlug = category.Name.Replace(" ", "-").ToLower();
-            var categoryName = TranslationHelper.GetTranslation(category.Name, category.NameTranslations, currentLang);
+    </div>
 
-            <div id="@categorySlug" class="category-section">
-                <div class="category-header">
-                    <h2 class="category-title">@categoryName</h2>
-                    <p class="category-count">@category.Products.Count @(category.Products.Count == 1 ? "item" : "items")</p>
+    <!-- Menu Content -->
+    <div class="menu-container">
+        <!-- Category Navigation Navbar -->
+        @if (Model.Categories.Any(c => c.Products.Any()))
+        {
+            <nav class="category-navbar">
+                <button class="nav-scroll-btn" id="scrollLeft" disabled>
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+
+                <div class="nav-container-wrapper" id="navWrapper">
+                    <div class="nav-container" id="navContainer">
+                        <a href="#header" class="nav-link active">
+                            <i class="bi bi-house-door"></i>
+                            <span>All</span>
+                        </a>
+                        @foreach (var category in Model.Categories.Where(c => c.Products.Any()).OrderBy(c => c.Priority))
+                        {
+                            var categorySlug = category.Name.Replace(" ", "-").ToLower();
+                            var categoryName = TranslationHelper.GetTranslation(category.Name, category.NameTranslations, currentLang);
+                            <a href="#@categorySlug" class="nav-link" data-category="@categorySlug">
+                                @categoryName <span style="opacity: 0.7;">(@category.Products.Count)</span>
+                            </a>
+                        }
+                    </div>
                 </div>
 
-                <div class="products-list">
-                    @foreach (var product in category.Products.OrderBy(p => p.DisplayOrder))
-                    {
-                        var productName = TranslationHelper.GetTranslation(product.Name, product.NameTranslations, currentLang);
-                        var productDesc = TranslationHelper.GetTranslation(product.Description ?? "", product.DescriptionTranslations, currentLang);
-                        var productNutrition = TranslationHelper.GetTranslation(product.Nutritions ?? "", product.NutritionsTranslations, currentLang);
+                <button class="nav-scroll-btn" id="scrollRight">
+                    <i class="bi bi-chevron-right"></i>
+                </button>
+            </nav>
+        }
 
-                        <div class="product-card">
-                            @if (!string.IsNullOrEmpty(product.Image))
-                            {
+        @if (!Model.Categories.Any(c => c.Products.Any()))
+        {
+            <div class="category-section">
+                <div class="empty-state">
+                    <div class="empty-icon">
+                        <i class="bi bi-inbox"></i>
+                    </div>
+                    <h3>Menu Coming Soon</h3>
+                    <p>We're working on adding delicious items to our menu.</p>
+                </div>
+            </div>
+        }
+        else
+        {
+            @foreach (var category in Model.Categories.Where(c => c.Products.Any()).OrderBy(c => c.Priority))
+            {
+                var categorySlug = category.Name.Replace(" ", "-").ToLower();
+                var categoryName = TranslationHelper.GetTranslation(category.Name, category.NameTranslations, currentLang);
+
+                <div id="@categorySlug" class="category-section">
+                    <div class="category-header">
+                        <h2 class="category-title">@categoryName</h2>
+                        <p class="category-count">@category.Products.Count @(category.Products.Count == 1 ? "item" : "items")</p>
+                    </div>
+
+                    <div class="products-list">
+                        @foreach (var product in category.Products.OrderBy(p => p.DisplayOrder))
+                        {
+                            var productName = TranslationHelper.GetTranslation(product.Name, product.NameTranslations, currentLang);
+                            var productDesc = TranslationHelper.GetTranslation(product.Description ?? "", product.DescriptionTranslations, currentLang);
+                            var productNutrition = TranslationHelper.GetTranslation(product.Nutritions ?? "", product.NutritionsTranslations, currentLang);
+
+                            <div class="product-card">
                                 <div class="product-image-wrapper">
-                                    <img src="@product.Image" alt="@productName" class="product-image"/>
+                                    @if (!string.IsNullOrEmpty(product.Image))
+                                    {
+                                        <img src="@product.Image" alt="@productName" class="product-image"/>
+                                    }
+                                    else
+                                    {
+                                        <div class="product-placeholder">
+                                            <i class="bi bi-card-image"></i>
+                                        </div>
+                                    }
                                 </div>
-                            }
-                            <div class="product-details">
-                                <div class="product-header">
-                                    <div>
-                                        <h3 class="product-name">@productName</h3>
-                                        @if (!string.IsNullOrEmpty(productDesc))
-                                        {
-                                            <p class="product-description">@productDesc</p>
-                                        }
-                                        @if (!string.IsNullOrEmpty(productNutrition))
-                                        {
-                                            <div class="product-nutrition">
-                                                <i class="bi bi-heart-pulse-fill"></i>
-                                                <span>@productNutrition</span>
-                                            </div>
-                                        }
-                                    </div>
-                                    <div class="product-price">
-                                        @ViewBag.CurrencySymbol@product.Price.ToString("N2")
+
+                                <div class="product-details">
+                                    <div class="product-header">
+                                        <div>
+                                            <h3 class="product-name">@productName</h3>
+                                            @if (!string.IsNullOrEmpty(productDesc))
+                                            {
+                                                <p class="product-description">@productDesc</p>
+                                            }
+                                            @if (!string.IsNullOrEmpty(productNutrition))
+                                            {
+                                                <div class="product-nutrition">
+                                                    <i class="bi bi-heart-pulse-fill"></i>
+                                                    <span>@productNutrition</span>
+                                                </div>
+                                            }
+                                        </div>
+                                        <div class="product-price">
+                                            @ViewBag.CurrencySymbol@product.Price.ToString("N2")
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    }
+                        }
+                    </div>
                 </div>
-            </div>
-        }
-    }
-</div>
-
-<!-- Footer -->
-<div class="menu-footer">
-    <p>
-        <i class="bi bi-shop-window me-2"></i>
-        Powered by Restaurant Menu System
-    </p>
-    <small>&copy; @DateTime.Now.Year @Model.Name. All rights reserved.</small>
-</div>
-
-<!-- JavaScript -->
-<script>
-    // Language dropdown toggle
-    function toggleLanguageDropdown() {
-        const dropdown = document.getElementById('languageDropdown');
-        dropdown.classList.toggle('show');
-    }
-
-    // Close dropdown when clicking outside
-    document.addEventListener('click', function(event) {
-        const dropdown = document.getElementById('languageDropdown');
-        const langBtn = document.querySelector('.language-btn');
-
-        if (dropdown && langBtn && !langBtn.contains(event.target) && !dropdown.contains(event.target)) {
-            dropdown.classList.remove('show');
-        }
-    });
-
-    document.addEventListener('DOMContentLoaded', function() {
-        const navLinks = document.querySelectorAll('.nav-link');
-        const sections = document.querySelectorAll('.category-section');
-        const navContainer = document.getElementById('navContainer');
-        const navWrapper = document.getElementById('navWrapper');
-        const scrollLeftBtn = document.getElementById('scrollLeft');
-        const scrollRightBtn = document.getElementById('scrollRight');
-
-        // Scroll buttons functionality
-        if (scrollLeftBtn && scrollRightBtn && navContainer) {
-            scrollLeftBtn.addEventListener('click', function() {
-                navContainer.scrollBy({ left: -200, behavior: 'smooth' });
-            });
-
-            scrollRightBtn.addEventListener('click', function() {
-                navContainer.scrollBy({ left: 200, behavior: 'smooth' });
-            });
-
-            // Update button states and fade indicators
-            function updateScrollButtons() {
-                const scrollLeft = navContainer.scrollLeft;
-                const scrollWidth = navContainer.scrollWidth;
-                const clientWidth = navContainer.clientWidth;
-                const maxScroll = scrollWidth - clientWidth;
-
-                // Update buttons
-                scrollLeftBtn.disabled = scrollLeft <= 0;
-                scrollRightBtn.disabled = scrollLeft >= maxScroll - 1;
-
-                // Update fade indicators
-                if (scrollLeft > 0) {
-                    navWrapper.classList.add('show-left-fade');
-                } else {
-                    navWrapper.classList.remove('show-left-fade');
-                }
-
-                if (scrollLeft < maxScroll - 1) {
-                    navWrapper.classList.add('show-right-fade');
-                } else {
-                    navWrapper.classList.remove('show-right-fade');
-                }
             }
-
-            navContainer.addEventListener('scroll', updateScrollButtons);
-            window.addEventListener('resize', updateScrollButtons);
-            updateScrollButtons(); // Initial check
         }
+    </div>
 
-        // Smooth scroll to sections
-        navLinks.forEach(link => {
-            link.addEventListener('click', function(e) {
-                e.preventDefault();
-                const targetId = this.getAttribute('href').substring(1);
-                const targetElement = document.getElementById(targetId);
+    <!-- Footer -->
+    <div class="menu-footer">
+        <p>
+            <i class="bi bi-shop-window me-2"></i>
+            Powered by Restaurant Menu System
+        </p>
+        <small>&copy; @DateTime.Now.Year @Model.Name. All rights reserved.</small>
+    </div>
 
-                if (targetElement) {
-                    targetElement.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-
-                    // Update active state
-                    updateActiveNav(this);
-
-                    // Scroll active link into view
-                    this.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'nearest',
-                        inline: 'center'
-                    });
-                }
-            });
+    <!-- JavaScript -->
+    <script>
+        // Hide loader when page is fully loaded
+        window.addEventListener('load', function() {
+            const loader = document.getElementById('pageLoader');
+            if (loader) {
+                loader.style.opacity = '0';
+                loader.style.transition = 'opacity 0.3s';
+                setTimeout(() => loader.remove(), 300);
+            }
         });
 
-        // Update active nav on scroll
-        window.addEventListener('scroll', function() {
-            let current = '';
+        // Language dropdown toggle
+        function toggleLanguageDropdown() {
+            const dropdown = document.getElementById('languageDropdown');
+            dropdown.classList.toggle('show');
+        }
 
-            sections.forEach(section => {
-                const sectionTop = section.offsetTop;
-                if (window.scrollY >= (sectionTop - 200)) {
-                    current = section.getAttribute('id');
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const dropdown = document.getElementById('languageDropdown');
+            const langBtn = document.querySelector('.language-btn');
+
+            if (dropdown && langBtn && !langBtn.contains(event.target) && !dropdown.contains(event.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const navLinks = document.querySelectorAll('.nav-link');
+            const sections = document.querySelectorAll('.category-section');
+            const navContainer = document.getElementById('navContainer');
+            const navWrapper = document.getElementById('navWrapper');
+            const scrollLeftBtn = document.getElementById('scrollLeft');
+            const scrollRightBtn = document.getElementById('scrollRight');
+
+            // Scroll buttons functionality
+            if (scrollLeftBtn && scrollRightBtn && navContainer) {
+                scrollLeftBtn.addEventListener('click', function() {
+                    navContainer.scrollBy({ left: -200, behavior: 'smooth' });
+                });
+
+                scrollRightBtn.addEventListener('click', function() {
+                    navContainer.scrollBy({ left: 200, behavior: 'smooth' });
+                });
+
+                // Update button states and fade indicators
+                function updateScrollButtons() {
+                    const scrollLeft = navContainer.scrollLeft;
+                    const scrollWidth = navContainer.scrollWidth;
+                    const clientWidth = navContainer.clientWidth;
+                    const maxScroll = scrollWidth - clientWidth;
+
+                    // Update buttons
+                    scrollLeftBtn.disabled = scrollLeft <= 0;
+                    scrollRightBtn.disabled = scrollLeft >= maxScroll - 1;
+
+                    // Update fade indicators
+                    if (scrollLeft > 0) {
+                        navWrapper.classList.add('show-left-fade');
+                    } else {
+                        navWrapper.classList.remove('show-left-fade');
+                    }
+
+                    if (scrollLeft < maxScroll - 1) {
+                        navWrapper.classList.add('show-right-fade');
+                    } else {
+                        navWrapper.classList.remove('show-right-fade');
+                    }
                 }
-            });
 
+                navContainer.addEventListener('scroll', updateScrollButtons);
+                window.addEventListener('resize', updateScrollButtons);
+                updateScrollButtons(); // Initial check
+            }
+
+            // Smooth scroll to sections
             navLinks.forEach(link => {
-                link.classList.remove('active');
-                const href = link.getAttribute('href').substring(1);
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const targetId = this.getAttribute('href').substring(1);
+                    const targetElement = document.getElementById(targetId);
 
-                if (href === current) {
-                    link.classList.add('active');
+                    if (targetElement) {
+                        targetElement.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
 
-                    // Scroll active link into view in navbar
-                    link.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'nearest',
-                        inline: 'center'
-                    });
+                        // Update active state
+                        updateActiveNav(this);
+
+                        // Scroll active link into view
+                        this.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'nearest',
+                            inline: 'center'
+                        });
+                    }
+                });
+            });
+
+            // Update active nav on scroll
+            window.addEventListener('scroll', function() {
+                let current = '';
+
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop;
+                    if (window.scrollY >= (sectionTop - 200)) {
+                        current = section.getAttribute('id');
+                    }
+                });
+
+                navLinks.forEach(link => {
+                    link.classList.remove('active');
+                    const href = link.getAttribute('href').substring(1);
+
+                    if (href === current) {
+                        link.classList.add('active');
+
+                        // Scroll active link into view in navbar
+                        link.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'nearest',
+                            inline: 'center'
+                        });
+                    }
+                });
+
+                // If at top, activate "All"
+                if (window.scrollY < 300) {
+                    navLinks.forEach(link => link.classList.remove('active'));
+                    navLinks[0].classList.add('active');
                 }
             });
 
-            // If at top, activate "All"
-            if (window.scrollY < 300) {
+            function updateActiveNav(activeLink) {
                 navLinks.forEach(link => link.classList.remove('active'));
-                navLinks[0].classList.add('active');
+                activeLink.classList.add('active');
             }
         });
-
-        function updateActiveNav(activeLink) {
-            navLinks.forEach(link => link.classList.remove('active'));
-            activeLink.classList.add('active');
-        }
-    });
-</script>
+    </script>
 </body>
 </html>
