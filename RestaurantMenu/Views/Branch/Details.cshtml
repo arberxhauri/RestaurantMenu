@@ -1,0 +1,213 @@
+@model Branch
+@{
+    ViewData["Title"] = Model.Name;
+}
+
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a asp-controller="Dashboard" asp-action="Index">
+                        <i class="bi bi-house-fill"></i> Dashboard
+                    </a>
+                </li>
+                <li class="breadcrumb-item active">@Model.Name</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<!-- Branch Header -->
+<div class="row mb-5">
+    <div class="col-12">
+        <div class="card glass-card border-0 shadow-lg">
+            <div class="card-body p-4">
+                <div class="d-flex align-items-center">
+                    @if (!string.IsNullOrEmpty(Model.Logo))
+                    {
+                        <img src="@Model.Logo" alt="@Model.Name" 
+                             class="rounded-circle me-4 shadow" 
+                             style="width: 100px; height: 100px; object-fit: cover;" />
+                    }
+                    else
+                    {
+                        <div class="rounded-circle me-4 d-flex align-items-center justify-content-center shadow" 
+                             style="width: 100px; height: 100px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                            <span class="text-white display-4 fw-bold">@Model.Name.Substring(0, 1)</span>
+                        </div>
+                    }
+                    <div class="flex-grow-1">
+                        <h1 class="display-6 fw-bold mb-2">@Model.Name</h1>
+                        <p class="mb-2">
+                            <i class="bi bi-geo-alt-fill text-danger me-2"></i>@Model.Address
+                        </p>
+                        <p class="mb-0">
+                            <i class="bi bi-telephone-fill text-success me-2"></i>@Model.PhoneNumber
+                        </p>
+                    </div>
+                    <div>
+                        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-warning">
+                            <i class="bi bi-pencil-fill me-2"></i>Edit Branch
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Categories Section -->
+    <div class="col-lg-6">
+        <div class="card border-0 shadow h-100">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="bi bi-bookmark-fill me-2"></i>Categories
+                    </h4>
+                    <a asp-controller="Category" asp-action="Create" asp-route-branchId="@Model.Id" 
+                       class="btn btn-success btn-sm">
+                        <i class="bi bi-plus-circle me-1"></i>Add Category
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                @if (!Model.Categories.Any())
+                {
+                    <div class="text-center py-5">
+                        <i class="bi bi-inbox display-3 text-muted mb-3 d-block"></i>
+                        <p class="text-muted">No categories yet. Add one to organize your menu.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="list-group list-group-flush">
+                        @foreach (var category in Model.Categories.OrderBy(c => c.Priority))
+                        {
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="d-flex align-items-center mb-2">
+                                        <span class="badge bg-primary me-2">#@category.Priority</span>
+                                        <h6 class="mb-0 fw-bold">@category.Name</h6>
+                                    </div>
+                                    <small class="text-muted">
+                                        <i class="bi bi-basket-fill me-1"></i>@category.Products.Count Products
+                                    </small>
+                                </div>
+                                <div class="btn-group">
+                                    <a asp-controller="Category" asp-action="Edit" asp-route-id="@category.Id" 
+                                       class="btn btn-sm btn-warning">
+                                        <i class="bi bi-pencil-fill"></i>
+                                    </a>
+                                    <form asp-controller="Category" asp-action="Delete" asp-route-id="@category.Id" 
+                                          method="post" class="d-inline"
+                                          onsubmit="return confirm('⚠️ Delete this category and all its products?');">
+                                        <button type="submit" class="btn btn-sm btn-danger">
+                                            <i class="bi bi-trash-fill"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Products Section -->
+    <div class="col-lg-6">
+        <div class="card border-0 shadow h-100">
+            <div class="card-header bg-success">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="bi bi-basket-fill me-2"></i>Products
+                    </h4>
+                    <a asp-controller="Product" asp-action="Create" asp-route-branchId="@Model.Id" 
+                       class="btn btn-light btn-sm">
+                        <i class="bi bi-plus-circle me-1"></i>Add Product
+                    </a>
+                </div>
+            </div>
+            <div class="card-body" style="max-height: 600px; overflow-y: auto;">
+                @if (!Model.Categories.Any(c => c.Products.Any()))
+                {
+                    <div class="text-center py-5">
+                        <i class="bi bi-basket display-3 text-muted mb-3 d-block"></i>
+                        <p class="text-muted">No products yet. Start adding items to your menu.</p>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var category in Model.Categories.OrderBy(c => c.Priority).Where(c => c.Products.Any()))
+                    {
+                        <h5 class="mt-4 mb-3 fw-bold text-primary">
+                            <i class="bi bi-chevron-right me-2"></i>@category.Name
+                        </h5>
+                        <div class="row g-3 mb-4">
+                            @foreach (var product in category.Products.OrderBy(p => p.DisplayOrder))
+                            {
+                                <div class="col-12">
+                                    <div class="card glass-card border-0 h-100">
+                                        <div class="card-body p-3">
+                                            <div class="d-flex">
+                                                @if (!string.IsNullOrEmpty(product.Image))
+                                                {
+                                                    <img src="@product.Image" alt="@product.Name" 
+                                                         class="rounded me-3 shadow-sm" 
+                                                         style="width: 80px; height: 80px; object-fit: cover;" />
+                                                }
+                                                else
+                                                {
+                                                    <div class="rounded me-3 d-flex align-items-center justify-content-center" 
+                                                         style="width: 80px; height: 80px; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+                                                        <i class="bi bi-image text-white fs-3"></i>
+                                                    </div>
+                                                }
+                                                <div class="flex-grow-1">
+                                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                                        <h6 class="mb-0 fw-bold">@product.Name</h6>
+                                                        <span class="badge bg-success px-3">$@product.Price.ToString("N2")</span>
+                                                    </div>
+                                                    <p class="mb-2 small text-muted">@product.Description</p>
+                                                    @if (!string.IsNullOrEmpty(product.Nutritions))
+                                                    {
+                                                        <p class="mb-2 small">
+                                                            <i class="bi bi-heart-pulse-fill text-danger me-1"></i>@product.Nutritions
+                                                        </p>
+                                                    }
+                                                    <div class="btn-group btn-group-sm">
+                                                        <a asp-controller="Product" asp-action="Edit" asp-route-id="@product.Id" 
+                                                           class="btn btn-outline-warning">
+                                                            <i class="bi bi-pencil-fill"></i> Edit
+                                                        </a>
+                                                        <form asp-controller="Product" asp-action="Delete" asp-route-id="@product.Id" 
+                                                              method="post" class="d-inline"
+                                                              onsubmit="return confirm('Delete this product?');">
+                                                            <button type="submit" class="btn btn-outline-danger">
+                                                                <i class="bi bi-trash-fill"></i> Delete
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <a asp-controller="Dashboard" asp-action="Index" class="btn btn-secondary">
+            <i class="bi bi-arrow-left me-2"></i>Back to Branches
+        </a>
+    </div>
+</div>

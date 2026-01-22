@@ -1,0 +1,294 @@
+@model Branch
+@{
+    ViewData["Title"] = "Edit Branch";
+}
+
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a asp-controller="Dashboard" asp-action="Index">
+                        <i class="bi bi-grid-fill"></i> Dashboard
+                    </a>
+                </li>
+                <li class="breadcrumb-item active">Edit Branch</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card border-0 shadow-lg">
+            <div class="card-header bg-warning">
+                <h2 class="mb-0">
+                    <i class="bi bi-pencil-square me-2"></i>Edit Branch
+                </h2>
+                <p class="mb-0 mt-2 text-white-50">Update your restaurant branch information</p>
+            </div>
+            <div class="card-body p-4">
+                <form asp-action="Edit" method="post" enctype="multipart/form-data">
+                    <input type="hidden" asp-for="Id" />
+                    <input type="hidden" asp-for="UserId" />
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger mb-4" role="alert"></div>
+                    
+                    <div class="row">
+                        <div class="col-lg-7">
+                            <h5 class="mb-4 fw-bold">
+                                <i class="bi bi-info-circle-fill me-2 text-primary"></i>Branch Information
+                            </h5>
+                            
+                            <div class="mb-4">
+                                <label asp-for="Name" class="form-label">
+                                    <i class="bi bi-building me-2"></i>Branch Name
+                                </label>
+                                <input asp-for="Name" class="form-control form-control-lg" />
+                                <span asp-validation-for="Name" class="text-danger"></span>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label asp-for="Address" class="form-label">
+                                    <i class="bi bi-geo-alt-fill me-2"></i>Address
+                                </label>
+                                <input asp-for="Address" class="form-control form-control-lg" />
+                                <span asp-validation-for="Address" class="text-danger"></span>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-4">
+                                    <label asp-for="PhoneNumber" class="form-label">
+                                        <i class="bi bi-telephone-fill me-2"></i>Phone Number
+                                    </label>
+                                    <input asp-for="PhoneNumber" class="form-control form-control-lg" />
+                                    <span asp-validation-for="PhoneNumber" class="text-danger"></span>
+                                </div>
+
+                                <div class="col-md-6 mb-4">
+                                    <label asp-for="Currency" class="form-label">
+                                        <i class="bi bi-currency-dollar me-2"></i>Currency
+                                    </label>
+                                    <select asp-for="Currency" asp-items="ViewBag.Currencies" class="form-select form-select-lg">
+                                        <option value="">-- Select Currency --</option>
+                                    </select>
+                                    <span asp-validation-for="Currency" class="text-danger"></span>
+                                    <small class="form-text text-muted">
+                                        <i class="bi bi-info-circle me-1"></i>Current: @RestaurantMenu.Helpers.CurrencyHelper.GetCurrencySymbol(Model.Currency)
+                                    </small>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold">
+                                        <i class="bi bi-translate me-2"></i>Menu Languages
+                                    </label>
+                                    <div class="row">
+                                        @{
+                                            var selectedLanguages = ViewBag.SelectedLanguages as string[] ?? new[] { "en" };
+                                        }
+                                        @foreach (var language in RestaurantMenu.Helpers.LanguageHelper.GetAvailableLanguages())
+                                        {
+                                            <div class="col-md-6 col-lg-4 mb-2">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" name="selectedLanguages"
+                                                           value="@language.Value" id="lang_@language.Value"
+                                                           @(selectedLanguages.Contains(language.Value) ? "checked" : "")>
+                                                    <label class="form-check-label" for="lang_@language.Value">
+                                                        @language.Text
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        <i class="bi bi-info-circle me-1"></i>Select languages available for your menu
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-lg-5">
+                            <h5 class="mb-4 fw-bold">
+                                <i class="bi bi-images me-2 text-success"></i>Branding
+                            </h5>
+                            
+                            <div class="mb-4">
+                                <label for="logo" class="form-label">
+                                    <i class="bi bi-badge-tm me-2"></i>Logo
+                                </label>
+                                
+                                @if (!string.IsNullOrEmpty(Model.Logo))
+                                {
+                                    <div class="mb-3 position-relative">
+                                        <img src="@Model.Logo" alt="Current Logo" 
+                                             class="img-fluid rounded shadow" 
+                                             style="width: 100%; max-height: 200px; object-fit: contain; background: #f8f9fa; padding: 1rem;" />
+                                        <div class="position-absolute top-0 end-0 m-2">
+                                            <span class="badge bg-success px-3 py-2">
+                                                <i class="bi bi-check-circle-fill me-1"></i>Current Logo
+                                            </span>
+                                        </div>
+                                    </div>
+                                }
+                                
+                                <div class="logo-upload-box @(string.IsNullOrEmpty(Model.Logo) ? "" : "has-image")" 
+                                     onclick="document.getElementById('logo').click()">
+                                    <i class="bi bi-cloud-upload display-4 text-muted"></i>
+                                    <p class="text-muted mt-2 mb-0">
+                                        @(string.IsNullOrEmpty(Model.Logo) ? "Click to upload logo" : "Click to replace logo")
+                                    </p>
+                                    <small class="text-muted">Square image recommended</small>
+                                </div>
+                                <input type="file" name="logo" id="logo" class="d-none" accept="image/*" onchange="previewLogo(event)" />
+                                <small class="form-text text-muted">
+                                    <i class="bi bi-info-circle me-1"></i>Leave empty to keep current logo
+                                </small>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label for="banner" class="form-label">
+                                    <i class="bi bi-aspect-ratio me-2"></i>Banner
+                                </label>
+                                
+                                @if (!string.IsNullOrEmpty(Model.Banner))
+                                {
+                                    <div class="mb-3 position-relative">
+                                        <img src="@Model.Banner" alt="Current Banner" 
+                                             class="img-fluid rounded shadow" 
+                                             style="width: 100%; height: 150px; object-fit: cover;" />
+                                        <div class="position-absolute top-0 end-0 m-2">
+                                            <span class="badge bg-success px-3 py-2">
+                                                <i class="bi bi-check-circle-fill me-1"></i>Current Banner
+                                            </span>
+                                        </div>
+                                    </div>
+                                }
+                                
+                                <div class="banner-upload-box @(string.IsNullOrEmpty(Model.Banner) ? "" : "has-image")" 
+                                     onclick="document.getElementById('banner').click()">
+                                    <i class="bi bi-cloud-upload display-4 text-muted"></i>
+                                    <p class="text-muted mt-2 mb-0">
+                                        @(string.IsNullOrEmpty(Model.Banner) ? "Click to upload banner" : "Click to replace banner")
+                                    </p>
+                                    <small class="text-muted">16:9 ratio recommended</small>
+                                </div>
+                                <input type="file" name="banner" id="banner" class="d-none" accept="image/*" onchange="previewBanner(event)" />
+                                <small class="form-text text-muted">
+                                    <i class="bi bi-info-circle me-1"></i>Leave empty to keep current banner
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <div class="d-flex gap-3">
+                        <button type="submit" class="btn btn-warning btn-lg flex-fill">
+                            <i class="bi bi-check-circle-fill me-2"></i>Update Branch
+                        </button>
+                        <a asp-controller="Dashboard" asp-action="Index" class="btn btn-secondary btn-lg">
+                            <i class="bi bi-x-circle me-2"></i>Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <style>
+        .logo-upload-box, .banner-upload-box {
+            border: 2px dashed rgba(102, 126, 234, 0.3);
+            border-radius: 15px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+        }
+        
+        .logo-upload-box {
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 200px;
+        }
+        
+        .banner-upload-box {
+            aspect-ratio: 16/9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 150px;
+        }
+        
+        .logo-upload-box:hover, .banner-upload-box:hover {
+            border-color: #667eea;
+            transform: scale(1.02);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+        }
+
+        .logo-upload-box.has-image, .banner-upload-box.has-image {
+            border-color: #0ba360;
+            background: linear-gradient(135deg, rgba(11, 163, 96, 0.1), rgba(60, 186, 146, 0.1));
+        }
+
+        .logo-upload-box.preview, .banner-upload-box.preview {
+            border-color: #fa709a;
+            border-style: solid;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        .logo-upload-box.preview i,
+        .logo-upload-box.preview p,
+        .banner-upload-box.preview i,
+        .banner-upload-box.preview p {
+            display: none;
+        }
+    </style>
+    <script>
+        function previewLogo(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                const logoBox = document.querySelector('.logo-upload-box');
+                
+                reader.onload = function(e) {
+                    logoBox.style.backgroundImage = `url('${e.target.result}')`;
+                    logoBox.classList.add('preview');
+                    logoBox.style.backgroundSize = 'contain';
+                };
+                
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function previewBanner(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                const bannerBox = document.querySelector('.banner-upload-box');
+                
+                reader.onload = function(e) {
+                    bannerBox.style.backgroundImage = `url('${e.target.result}')`;
+                    bannerBox.classList.add('preview');
+                    bannerBox.style.backgroundSize = 'cover';
+                };
+                
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Currency change preview
+        document.getElementById('Currency').addEventListener('change', function(e) {
+            const selectedOption = e.target.options[e.target.selectedIndex];
+            console.log('Selected currency:', selectedOption.value);
+        });
+    </script>
+}

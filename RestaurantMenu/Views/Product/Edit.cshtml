@@ -1,0 +1,370 @@
+@model Product
+@{
+    ViewData["Title"] = "Edit Product";
+    var supportedLanguages = ViewBag.SupportedLanguages as string[] ?? new[] { "en" };
+    var nameTranslations = ViewBag.NameTranslations as Dictionary<string, string> ?? new Dictionary<string, string>();
+    var descTranslations = ViewBag.DescriptionTranslations as Dictionary<string, string> ?? new Dictionary<string, string>();
+    var nutritionTranslations = ViewBag.NutritionTranslations as Dictionary<string, string> ?? new Dictionary<string, string>();
+}
+
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a asp-controller="Dashboard" asp-action="Index">
+                        <i class="bi bi-grid-fill"></i> Dashboard
+                    </a>
+                </li>
+                <li class="breadcrumb-item">
+                    <a asp-controller="Branch" asp-action="Details" asp-route-id="@Model.BranchId">
+                        Branch
+                    </a>
+                </li>
+                <li class="breadcrumb-item active">Edit Product</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card border-0 shadow-lg">
+            <div class="card-header bg-warning">
+                <h2 class="mb-0">
+                    <i class="bi bi-pencil-square me-2"></i>Edit Product
+                </h2>
+                <p class="mb-0 mt-2 text-white-50">Update product information</p>
+            </div>
+            <div class="card-body p-4">
+                <form asp-action="Edit" method="post" enctype="multipart/form-data">
+                    <input type="hidden" asp-for="Id" />
+                    <input type="hidden" asp-for="BranchId" />
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger mb-4" role="alert"></div>
+
+                    <div class="row">
+                        <!-- Left Column -->
+                        <div class="col-lg-7">
+                            <div class="mb-4">
+                                <label asp-for="Name" class="form-label">
+                                    <i class="bi bi-tag-fill me-2"></i>Product Name
+                                </label>
+                                <input asp-for="Name" class="form-control form-control-lg"
+                                       autofocus />
+                                <span asp-validation-for="Name" class="text-danger"></span>
+                            </div>
+
+                            <div class="mb-4">
+                                <label asp-for="Description" class="form-label">
+                                    <i class="bi bi-card-text me-2"></i>Description
+                                </label>
+                                <textarea asp-for="Description" class="form-control" rows="4"></textarea>
+                                <span asp-validation-for="Description" class="text-danger"></span>
+                            </div>
+
+                            <div class="mb-4">
+                                <label asp-for="Nutritions" class="form-label">
+                                    <i class="bi bi-heart-pulse-fill me-2"></i>Nutritional Information (Optional)
+                                </label>
+                                <textarea asp-for="Nutritions" class="form-control" rows="2"></textarea>
+                                <span asp-validation-for="Nutritions" class="text-danger"></span>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-4">
+                                    <label asp-for="CategoryId" class="form-label">
+                                        <i class="bi bi-bookmark-fill me-2"></i>Category
+                                    </label>
+                                    <select asp-for="CategoryId" asp-items="ViewBag.Categories"
+                                            class="form-select form-select-lg"></select>
+                                    <span asp-validation-for="CategoryId" class="text-danger"></span>
+                                </div>
+
+                                <div class="col-md-3 mb-4">
+                                    <label asp-for="Price" class="form-label">
+                                        <i class="bi bi-currency-dollar me-2"></i>Price
+                                    </label>
+                                    <input asp-for="Price" class="form-control form-control-lg"
+                                           type="number" step="0.01" min="0" />
+                                    <span asp-validation-for="Price" class="text-danger"></span>
+                                </div>
+
+                                <div class="col-md-3 mb-4">
+                                    <label asp-for="DisplayOrder" class="form-label">
+                                        <i class="bi bi-sort-numeric-down me-2"></i>Order
+                                    </label>
+                                    <input asp-for="DisplayOrder" class="form-control form-control-lg text-center"
+                                           type="number" min="0" />
+                                    <span asp-validation-for="DisplayOrder" class="text-danger"></span>
+                                </div>
+
+                                @if (supportedLanguages.Length > 1)
+                                {
+                                    <hr class="my-4">
+                                    <h5 class="mb-3 fw-bold">
+                                        <i class="bi bi-translate me-2 text-info"></i>Translations
+                                    </h5>
+
+                                    @foreach (var lang in supportedLanguages.Where(l => l != "en"))
+                                    {
+                                        var nameValue = nameTranslations.ContainsKey(lang) ? nameTranslations[lang] : "";
+                                        var descValue = descTranslations.ContainsKey(lang) ? descTranslations[lang] : "";
+                                        var nutritionValue = nutritionTranslations.ContainsKey(lang) ? nutritionTranslations[lang] : "";
+
+                                        <div class="card mb-3">
+                                            <div class="card-header bg-info text-white">
+                                                @switch (lang)
+                                                {
+                                                    case "sq": <text>🇦🇱 Albanian (Shqip)</text> break;
+                                                    case "de": <text>🇩🇪 German (Deutsch)</text> break;
+                                                    case "fr": <text>🇫🇷 French (Français)</text> break;
+                                                    case "it": <text>🇮🇹 Italian (Italiano)</text> break;
+                                                    case "es": <text>🇪🇸 Spanish (Español)</text> break;
+                                                    case "tr": <text>🇹🇷 Turkish (Türkçe)</text> break;
+                                                    default: <text>@lang</text> break;
+                                                }
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="mb-3">
+                                                    <label class="form-label">Product Name (@lang)</label>
+                                                    <input type="text" name="translation_name_@lang" class="form-control"
+                                                           value="@nameValue"
+                                                           placeholder="Enter translated product name" />
+                                                </div>
+
+                                                <div class="mb-3">
+                                                    <label class="form-label">Description (@lang)</label>
+                                                    <textarea name="translation_description_@lang" class="form-control" rows="2"
+                                                              placeholder="Enter translated description">@descValue</textarea>
+                                                </div>
+
+                                                <div class="mb-3">
+                                                    <label class="form-label">Nutritions (@lang)</label>
+                                                    <input type="text" name="translation_nutritions_@lang" class="form-control"
+                                                           value="@nutritionValue"
+                                                           placeholder="Enter translated nutrition info" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Right Column - Image Upload -->
+                        <div class="col-lg-5">
+                            <div class="mb-4">
+                                <label class="form-label">
+                                    <i class="bi bi-image-fill me-2"></i>Product Image
+                                </label>
+
+                                @if (!string.IsNullOrEmpty(Model.Image))
+                                {
+                                <div class="mb-3 position-relative">
+                                    <img src="@Model.Image" alt="Current Image"
+                                         class="img-fluid rounded shadow"
+                                         style="width: 100%; height: 250px; object-fit: cover;" />
+                                    <div class="position-absolute top-0 end-0 m-2">
+                                            <span class="badge bg-success px-3 py-2">
+                                                <i class="bi bi-check-circle-fill me-1"></i>Current Image
+                                            </span>
+                                    </div>
+                                </div>
+                                }
+
+                                <div class="image-upload-wrapper">
+                                    <div id="imagePreview" class="image-preview-box @(string.IsNullOrEmpty(Model.Image) ? "" : "has-current-image")"
+                                         onclick="document.getElementById('image').click()"
+                                         style="@(string.IsNullOrEmpty(Model.Image) ? "" : $"background-image: url('{Model.Image}');")">
+                                        <div class="upload-placeholder">
+                                            <i class="bi bi-cloud-upload display-2 text-muted mb-2"></i>
+                                            <h6 class="text-muted">Upload New Image</h6>
+                                            <small class="text-muted">Click or drag to replace</small>
+                                        </div>
+                                    </div>
+                                    <input type="file" name="image" id="image" class="d-none"
+                                           accept="image/*" onchange="handleImageSelect(event)" />
+                                </div>
+                                <small class="form-text text-muted">
+                                    <i class="bi bi-info-circle me-1"></i>Leave empty to keep current image
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="d-flex gap-3">
+                        <button type="submit" class="btn btn-warning btn-lg flex-fill">
+                            <i class="bi bi-check-circle-fill me-2"></i>Update Product
+                        </button>
+                        <a asp-controller="Branch" asp-action="Details" asp-route-id="@Model.BranchId"
+                           class="btn btn-secondary btn-lg">
+                            <i class="bi bi-x-circle me-2"></i>Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<partial name="_ValidationScriptsPartial" />
+<style>
+    .image-upload-wrapper {
+        position: relative;
+    }
+
+    .image-preview-box {
+        width: 100%;
+        height: 300px;
+        border: 3px dashed rgba(102, 126, 234, 0.3);
+        border-radius: 20px;
+        background: var(--glass-bg);
+        backdrop-filter: blur(10px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background-size: cover;
+        background-position: center;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .image-preview-box.has-current-image {
+        border-style: solid;
+        border-color: #0ba360;
+        height: 250px;
+    }
+
+    .image-preview-box:hover {
+        border-color: #667eea;
+        transform: scale(1.01);
+    }
+
+    .image-preview-box.has-image {
+        border-style: solid;
+        border-color: #fa709a;
+    }
+
+    .upload-placeholder {
+        text-align: center;
+        padding: 2rem;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 15px;
+        transition: opacity 0.3s ease;
+    }
+
+    .image-preview-box.has-image .upload-placeholder {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .image-remove-btn {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        background: rgba(220, 53, 69, 0.95);
+        color: white;
+        border: none;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        z-index: 10;
+    }
+
+    .image-preview-box.has-image .image-remove-btn {
+        display: flex;
+    }
+
+    .image-remove-btn:hover {
+        background: #dc3545;
+        transform: scale(1.1);
+    }
+</style>
+<script>
+    const imagePreview = document.getElementById('imagePreview');
+    const imageInput = document.getElementById('image');
+
+    function handleImageSelect(event) {
+        const file = event.target.files[0];
+        if (file) {
+            previewImage(file);
+        }
+    }
+
+    function previewImage(file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            imagePreview.style.backgroundImage = `url('${e.target.result}')`;
+            imagePreview.classList.add('has-image');
+
+            if (!document.querySelector('.image-remove-btn')) {
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'image-remove-btn';
+                removeBtn.type = 'button';
+                removeBtn.innerHTML = '<i class="bi bi-x-lg"></i>';
+                removeBtn.onclick = removeImage;
+                imagePreview.appendChild(removeBtn);
+            }
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function removeImage(e) {
+        e.stopPropagation();
+        imagePreview.classList.remove('has-image');
+        imageInput.value = '';
+
+        @if (!string.IsNullOrEmpty(Model.Image))
+        {
+        @:imagePreview.style.backgroundImage = "url('@Model.Image')";
+        }
+        else
+        {
+        @:imagePreview.style.backgroundImage = '';
+        }
+
+        const removeBtn = document.querySelector('.image-remove-btn');
+        if (removeBtn) removeBtn.remove();
+    }
+
+    // Drag and drop
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        imagePreview.addEventListener(eventName, e => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        imagePreview.addEventListener(eventName, () => {
+            imagePreview.style.borderColor = '#667eea';
+            imagePreview.style.transform = 'scale(1.02)';
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        imagePreview.addEventListener(eventName, () => {
+            imagePreview.style.borderColor = '';
+            imagePreview.style.transform = '';
+        });
+    });
+
+    imagePreview.addEventListener('drop', e => {
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) {
+            imageInput.files = e.dataTransfer.files;
+            previewImage(file);
+        }
+    });
+</script>
+}

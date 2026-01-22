@@ -1,0 +1,132 @@
+@model Category
+@{
+    ViewData["Title"] = "Edit Category";
+    var supportedLanguages = ViewBag.SupportedLanguages as string[] ?? new[] { "en" };
+    var existingTranslations = ViewBag.ExistingTranslations as Dictionary<string, string> ?? new Dictionary<string, string>();
+}
+
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a asp-controller="Dashboard" asp-action="Index">
+                        <i class="bi bi-grid-fill"></i> Dashboard
+                    </a>
+                </li>
+                <li class="breadcrumb-item">
+                    <a asp-controller="Branch" asp-action="Details" asp-route-id="@Model.BranchId">
+                        @Model.Branch.Name
+                    </a>
+                </li>
+                <li class="breadcrumb-item active">Edit Category</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-lg">
+            <div class="card-header bg-warning">
+                <h2 class="mb-0">
+                    <i class="bi bi-pencil-square me-2"></i>Edit Category
+                </h2>
+                <p class="mb-0 mt-2 text-white-50">Update category information</p>
+            </div>
+            <div class="card-body p-5">
+                <form asp-action="Edit" method="post">
+                    <input type="hidden" asp-for="Id" />
+                    <input type="hidden" asp-for="BranchId" />
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger mb-4" role="alert"></div>
+                    
+                    <div class="row">
+                        <div class="col-md-8 mb-4">
+                            <label asp-for="Name" class="form-label">
+                                <i class="bi bi-tag-fill me-2"></i>Category Name
+                            </label>
+                            <input asp-for="Name" class="form-control form-control-lg" 
+                                   autofocus />
+                            <span asp-validation-for="Name" class="text-danger"></span>
+                        </div>
+                        
+                        <div class="col-md-4 mb-4">
+                            <label asp-for="Priority" class="form-label">
+                                <i class="bi bi-sort-numeric-down me-2"></i>Display Priority
+                            </label>
+                            <input asp-for="Priority" class="form-control form-control-lg text-center" 
+                                   type="number" min="0" max="999" />
+                            <span asp-validation-for="Priority" class="text-danger"></span>
+                        </div>
+
+                        @if (supportedLanguages.Length > 1)
+                        {
+                            <hr class="my-4">
+                            <h5 class="mb-3 fw-bold">
+                                <i class="bi bi-translate me-2 text-info"></i>Translations
+                            </h5>
+
+                            @foreach (var lang in supportedLanguages.Where(l => l != "en"))
+                            {
+                                var existingValue = existingTranslations.ContainsKey(lang) ? existingTranslations[lang] : "";
+
+                                <div class="card mb-3">
+                                    <div class="card-header bg-info text-white">
+                                        @switch (lang)
+                                        {
+                                            case "sq": <text>🇦🇱 Albanian (Shqip)</text> break;
+                                            case "de": <text>🇩🇪 German (Deutsch)</text> break;
+                                            case "fr": <text>🇫🇷 French (Français)</text> break;
+                                            case "it": <text>🇮🇹 Italian (Italiano)</text> break;
+                                            case "es": <text>🇪🇸 Spanish (Español)</text> break;
+                                            case "tr": <text>🇹🇷 Turkish (Türkçe)</text> break;
+                                            default: <text>@lang</text> break;
+                                        }
+                                    </div>
+                                    <div class="card-body">
+                                        <label class="form-label">Category Name (@lang)</label>
+                                        <input type="text" name="translation_name_@lang" class="form-control"
+                                               value="@existingValue"
+                                               placeholder="Enter translated category name" />
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+
+                    <div class="card glass-card border-0 p-4 mb-4">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="fw-bold mb-2">
+                                    <i class="bi bi-basket-fill me-2"></i>Products in this Category
+                                </h6>
+                                <p class="text-muted mb-0">
+                                    This category contains <strong>@Model.Products.Count</strong> product(s)
+                                </p>
+                            </div>
+                            <span class="badge bg-primary" style="font-size: 1.5rem; padding: 0.75rem 1.25rem;">
+                                @Model.Products.Count
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <div class="d-flex gap-3">
+                        <button type="submit" class="btn btn-warning btn-lg flex-fill">
+                            <i class="bi bi-check-circle-fill me-2"></i>Update Category
+                        </button>
+                        <a asp-controller="Branch" asp-action="Details" asp-route-id="@Model.BranchId" 
+                           class="btn btn-secondary btn-lg">
+                            <i class="bi bi-x-circle me-2"></i>Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

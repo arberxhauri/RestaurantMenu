@@ -1,0 +1,892 @@
+@using RestaurantMenu.Helpers
+@model Branch
+@{
+    ViewData["Title"] = Model.Name + " - Menu";
+    Layout = null;
+
+    // Parse theme colors from JSON
+    var primaryColor = "#f6ad55";
+    var secondaryColor = "#ed8936";
+    var accentColor = "#dd6b20";
+
+    if (!string.IsNullOrEmpty(Model.ThemeColors))
+    {
+        try
+        {
+            var colors = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(Model.ThemeColors);
+            primaryColor = colors.ContainsKey("Primary") ? colors["Primary"] : colors.ContainsKey("primary") ? colors["primary"] : primaryColor;
+            secondaryColor = colors.ContainsKey("Secondary") ? colors["Secondary"] : colors.ContainsKey("secondary") ? colors["secondary"] : secondaryColor;
+            accentColor = colors.ContainsKey("Accent") ? colors["Accent"] : colors.ContainsKey("accent") ? colors["accent"] : accentColor;
+        }
+        catch { /* Use default colors */ }
+    }
+
+    // Get current language
+    var currentLang = ViewBag.CurrentLanguage as string ?? "en";
+    var supportedLanguages = (ViewBag.SupportedLanguages as string[]) ?? new[] { "en" };
+}
+
+<!DOCTYPE html>
+<html lang="@currentLang">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f7fafc;
+            color: #1a202c;
+            line-height: 1.6;
+        }
+
+        /* Header Section */
+        .menu-header {
+            position: relative;
+            height: 400px;
+            background: linear-gradient(135deg, @primaryColor, @secondaryColor);
+            color: white;
+            overflow: hidden;
+        }
+
+        .menu-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url('@Model.Banner');
+            background-size: cover;
+            background-position: center;
+            opacity: 0.3;
+            z-index: 0;
+        }
+
+        .header-content {
+            position: relative;
+            z-index: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .restaurant-logo {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 5px solid white;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            margin-bottom: 1.5rem;
+            background: white;
+        }
+
+        .restaurant-name {
+            font-family: 'Playfair Display', serif;
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .restaurant-info {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        /* Language Switcher */
+        .language-switcher {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 10;
+        }
+
+        .language-btn {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .language-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .language-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 0.5rem;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            min-width: 150px;
+            display: none;
+            overflow: hidden;
+        }
+
+        .language-dropdown.show {
+            display: block;
+            animation: fadeInDown 0.3s ease;
+        }
+
+        .language-dropdown a {
+            display: block;
+            padding: 0.75rem 1rem;
+            color: #2d3748;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .language-dropdown a:hover {
+            background: @primaryColor;
+            color: white;
+        }
+
+        .language-dropdown a.active {
+            background: @(primaryColor)20;
+            color: @primaryColor;
+            font-weight: 600;
+        }
+
+        /* Menu Container */
+        .menu-container {
+            max-width: 1200px;
+            margin: -50px auto 4rem;
+            padding: 0 2rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Category Navigation Navbar */
+        .category-navbar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 50px;
+            padding: 0.5rem 1rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 20px;
+            z-index: 100;
+            margin-bottom: 3rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-scroll-btn {
+            flex-shrink: 0;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, @primaryColor, @secondaryColor);
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px @(primaryColor)50;
+        }
+
+        .nav-scroll-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px @(primaryColor)80;
+        }
+
+        .nav-scroll-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            transform: scale(1);
+        }
+
+        .nav-container-wrapper {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .nav-container {
+            display: flex;
+            gap: 0.75rem;
+            overflow-x: auto;
+            scroll-behavior: smooth;
+            scrollbar-width: thin;
+            scrollbar-color: @primaryColor transparent;
+            padding: 0.5rem 0;
+        }
+
+        .nav-container::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .nav-container::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 10px;
+        }
+
+        .nav-container::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, @primaryColor, @secondaryColor);
+            border-radius: 10px;
+        }
+
+        .nav-container::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, @secondaryColor, @accentColor);
+        }
+
+        /* Gradient fade indicators */
+        .nav-container-wrapper::before,
+        .nav-container-wrapper::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 6px;
+            width: 40px;
+            pointer-events: none;
+            z-index: 1;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .nav-container-wrapper::before {
+            left: 0;
+            background: linear-gradient(to right, rgba(255, 255, 255, 0.95), transparent);
+        }
+
+        .nav-container-wrapper::after {
+            right: 0;
+            background: linear-gradient(to left, rgba(255, 255, 255, 0.95), transparent);
+        }
+
+        .nav-container-wrapper.show-left-fade::before {
+            opacity: 1;
+        }
+
+        .nav-container-wrapper.show-right-fade::after {
+            opacity: 1;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            background: transparent;
+            border: none;
+            border-radius: 25px;
+            color: #718096;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            white-space: nowrap;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .nav-link:hover,
+        .nav-link.active {
+            background: linear-gradient(135deg, @primaryColor, @secondaryColor);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px @(primaryColor)66;
+        }
+
+        .nav-link i {
+            font-size: 1.1rem;
+        }
+
+        /* Category Section */
+        .category-section {
+            background: white;
+            border-radius: 20px;
+            padding: 3rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            animation: fadeInUp 0.6s ease-out;
+            scroll-margin-top: 100px;
+        }
+
+        .category-header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 3px solid @primaryColor;
+        }
+
+        .category-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 0.5rem;
+        }
+
+        .category-count {
+            color: #718096;
+            font-size: 1rem;
+        }
+
+        /* Product Card */
+        .product-card {
+            display: flex;
+            gap: 2rem;
+            padding: 2rem 0;
+            border-bottom: 1px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+
+        .product-card:last-child {
+            border-bottom: none;
+        }
+
+        .product-card:hover {
+            transform: translateX(10px);
+            padding-left: 1rem;
+            background: #f7fafc;
+            border-radius: 15px;
+            margin: 0 -1rem;
+            padding-right: 3rem;
+        }
+
+        .product-image-wrapper {
+            flex-shrink: 0;
+            width: 150px;
+            height: 150px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .product-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .product-card:hover .product-image {
+            transform: scale(1.1);
+        }
+
+        .product-placeholder {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, @primaryColor, @secondaryColor);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 3rem;
+        }
+
+        .product-details {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .product-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 0.75rem;
+        }
+
+        .product-name {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 0.5rem;
+        }
+
+        .product-price {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: @primaryColor;
+            white-space: nowrap;
+            margin-left: 1rem;
+        }
+
+        .product-description {
+            color: #718096;
+            margin-bottom: 0.75rem;
+            line-height: 1.6;
+        }
+
+        .product-nutrition {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #e53e3e;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #718096;
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        /* Footer */
+        .menu-footer {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: #718096;
+            background: white;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        /* Animations */
+        @@keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @@keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Responsive */
+        @@media (max-width: 768px) {
+            .restaurant-name {
+                font-size: 2.5rem;
+            }
+
+            .menu-container {
+                padding: 0 1rem;
+                margin-top: -30px;
+            }
+
+            .language-switcher {
+                top: 10px;
+                right: 10px;
+            }
+
+            .language-btn {
+                padding: 0.4rem 0.8rem;
+                font-size: 0.9rem;
+            }
+
+            .category-navbar {
+                padding: 0.25rem 0.5rem;
+                top: 10px;
+            }
+
+            .nav-scroll-btn {
+                width: 35px;
+                height: 35px;
+                font-size: 1rem;
+            }
+
+            .nav-link {
+                padding: 0.5rem 1rem;
+                font-size: 0.9rem;
+            }
+
+            .nav-container-wrapper::before,
+            .nav-container-wrapper::after {
+                width: 30px;
+            }
+
+            .category-section {
+                padding: 2rem 1.5rem;
+            }
+
+            .category-title {
+                font-size: 2rem;
+            }
+
+            .product-card {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .product-image-wrapper {
+                width: 100%;
+                height: 200px;
+            }
+
+            .product-header {
+                flex-direction: column;
+            }
+
+            .product-price {
+                margin-left: 0;
+                margin-top: 0.5rem;
+            }
+
+            .restaurant-info {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+<!-- Header -->
+<div id="header" class="menu-header">
+    <!-- Language Switcher -->
+    @if (supportedLanguages.Length > 1)
+    {
+        <div class="language-switcher">
+            <button class="language-btn" onclick="toggleLanguageDropdown()">
+                <i class="bi bi-translate"></i>
+                <span>@currentLang.ToUpper()</span>
+                <i class="bi bi-chevron-down" style="font-size: 0.8rem;"></i>
+            </button>
+            <div class="language-dropdown" id="languageDropdown">
+                @foreach (var lang in supportedLanguages)
+                {
+                    <a href="?lang=@lang" class="@(lang == currentLang ? "active" : "")">
+                        @switch (lang)
+                        {
+                            case "en": <text>🇬🇧 English</text> break;
+                            case "sq": <text>🇦🇱 Shqip</text> break;
+                            case "de": <text>🇩🇪 Deutsch</text> break;
+                            case "fr": <text>🇫🇷 Français</text> break;
+                            case "it": <text>🇮🇹 Italiano</text> break;
+                            case "es": <text>🇪🇸 Español</text> break;
+                            case "tr": <text>🇹🇷 Türkçe</text> break;
+                            default: <text>@lang</text> break;
+                        }
+                    </a>
+                }
+            </div>
+        </div>
+    }
+
+    <div class="header-content">
+        @if (!string.IsNullOrEmpty(Model.Logo))
+        {
+            <img src="@Model.Logo" alt="@Model.Name Logo" class="restaurant-logo" />
+        }
+        else
+        {
+            <div class="restaurant-logo d-flex align-items-center justify-content-center" style="background: linear-gradient(135deg, @primaryColor, @secondaryColor);">
+                <span style="font-size: 3rem; font-weight: bold; color: white;">@Model.Name.Substring(0, 1)</span>
+            </div>
+        }
+
+        <h1 class="restaurant-name">@Model.Name</h1>
+
+        <div class="restaurant-info">
+            <div class="info-item">
+                <i class="bi bi-geo-alt-fill"></i>
+                <span>@Model.Address</span>
+            </div>
+            <div class="info-item">
+                <i class="bi bi-telephone-fill"></i>
+                <span>@Model.PhoneNumber</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Menu Content -->
+<div class="menu-container">
+    <!-- Category Navigation Navbar -->
+    @if (Model.Categories.Any(c => c.Products.Any()))
+    {
+        <nav class="category-navbar">
+            <button class="nav-scroll-btn" id="scrollLeft" disabled>
+                <i class="bi bi-chevron-left"></i>
+            </button>
+
+            <div class="nav-container-wrapper" id="navWrapper">
+                <div class="nav-container" id="navContainer">
+                    <a href="#header" class="nav-link active">
+                        <i class="bi bi-house-door"></i>
+                        <span>All</span>
+                    </a>
+                    @foreach (var category in Model.Categories.Where(c => c.Products.Any()).OrderBy(c => c.Priority))
+                    {
+                        var categorySlug = category.Name.Replace(" ", "-").ToLower();
+                        var categoryName = TranslationHelper.GetTranslation(category.Name, category.NameTranslations, currentLang);
+                        <a href="#@categorySlug" class="nav-link" data-category="@categorySlug">
+                            @categoryName <span style="opacity: 0.7;">(@category.Products.Count)</span>
+                        </a>
+                    }
+                </div>
+            </div>
+
+            <button class="nav-scroll-btn" id="scrollRight">
+                <i class="bi bi-chevron-right"></i>
+            </button>
+        </nav>
+    }
+
+    @if (!Model.Categories.Any(c => c.Products.Any()))
+    {
+        <div class="category-section">
+            <div class="empty-state">
+                <div class="empty-icon">
+                    <i class="bi bi-inbox"></i>
+                </div>
+                <h3>Menu Coming Soon</h3>
+                <p>We're working on adding delicious items to our menu.</p>
+            </div>
+        </div>
+    }
+    else
+    {
+        @foreach (var category in Model.Categories.Where(c => c.Products.Any()).OrderBy(c => c.Priority))
+        {
+            var categorySlug = category.Name.Replace(" ", "-").ToLower();
+            var categoryName = TranslationHelper.GetTranslation(category.Name, category.NameTranslations, currentLang);
+
+            <div id="@categorySlug" class="category-section">
+                <div class="category-header">
+                    <h2 class="category-title">@categoryName</h2>
+                    <p class="category-count">@category.Products.Count @(category.Products.Count == 1 ? "item" : "items")</p>
+                </div>
+
+                <div class="products-list">
+                    @foreach (var product in category.Products.OrderBy(p => p.DisplayOrder))
+                    {
+                        var productName = TranslationHelper.GetTranslation(product.Name, product.NameTranslations, currentLang);
+                        var productDesc = TranslationHelper.GetTranslation(product.Description ?? "", product.DescriptionTranslations, currentLang);
+                        var productNutrition = TranslationHelper.GetTranslation(product.Nutritions ?? "", product.NutritionsTranslations, currentLang);
+
+                        <div class="product-card">
+                            @if (!string.IsNullOrEmpty(product.Image))
+                            {
+                                <div class="product-image-wrapper">
+                                    <img src="@product.Image" alt="@productName" class="product-image"/>
+                                </div>
+                            }
+                            <div class="product-details">
+                                <div class="product-header">
+                                    <div>
+                                        <h3 class="product-name">@productName</h3>
+                                        @if (!string.IsNullOrEmpty(productDesc))
+                                        {
+                                            <p class="product-description">@productDesc</p>
+                                        }
+                                        @if (!string.IsNullOrEmpty(productNutrition))
+                                        {
+                                            <div class="product-nutrition">
+                                                <i class="bi bi-heart-pulse-fill"></i>
+                                                <span>@productNutrition</span>
+                                            </div>
+                                        }
+                                    </div>
+                                    <div class="product-price">
+                                        @ViewBag.CurrencySymbol@product.Price.ToString("N2")
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<!-- Footer -->
+<div class="menu-footer">
+    <p>
+        <i class="bi bi-shop-window me-2"></i>
+        Powered by Restaurant Menu System
+    </p>
+    <small>&copy; @DateTime.Now.Year @Model.Name. All rights reserved.</small>
+</div>
+
+<!-- JavaScript -->
+<script>
+    // Language dropdown toggle
+    function toggleLanguageDropdown() {
+        const dropdown = document.getElementById('languageDropdown');
+        dropdown.classList.toggle('show');
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(event) {
+        const dropdown = document.getElementById('languageDropdown');
+        const langBtn = document.querySelector('.language-btn');
+
+        if (dropdown && langBtn && !langBtn.contains(event.target) && !dropdown.contains(event.target)) {
+            dropdown.classList.remove('show');
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const navLinks = document.querySelectorAll('.nav-link');
+        const sections = document.querySelectorAll('.category-section');
+        const navContainer = document.getElementById('navContainer');
+        const navWrapper = document.getElementById('navWrapper');
+        const scrollLeftBtn = document.getElementById('scrollLeft');
+        const scrollRightBtn = document.getElementById('scrollRight');
+
+        // Scroll buttons functionality
+        if (scrollLeftBtn && scrollRightBtn && navContainer) {
+            scrollLeftBtn.addEventListener('click', function() {
+                navContainer.scrollBy({ left: -200, behavior: 'smooth' });
+            });
+
+            scrollRightBtn.addEventListener('click', function() {
+                navContainer.scrollBy({ left: 200, behavior: 'smooth' });
+            });
+
+            // Update button states and fade indicators
+            function updateScrollButtons() {
+                const scrollLeft = navContainer.scrollLeft;
+                const scrollWidth = navContainer.scrollWidth;
+                const clientWidth = navContainer.clientWidth;
+                const maxScroll = scrollWidth - clientWidth;
+
+                // Update buttons
+                scrollLeftBtn.disabled = scrollLeft <= 0;
+                scrollRightBtn.disabled = scrollLeft >= maxScroll - 1;
+
+                // Update fade indicators
+                if (scrollLeft > 0) {
+                    navWrapper.classList.add('show-left-fade');
+                } else {
+                    navWrapper.classList.remove('show-left-fade');
+                }
+
+                if (scrollLeft < maxScroll - 1) {
+                    navWrapper.classList.add('show-right-fade');
+                } else {
+                    navWrapper.classList.remove('show-right-fade');
+                }
+            }
+
+            navContainer.addEventListener('scroll', updateScrollButtons);
+            window.addEventListener('resize', updateScrollButtons);
+            updateScrollButtons(); // Initial check
+        }
+
+        // Smooth scroll to sections
+        navLinks.forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href').substring(1);
+                const targetElement = document.getElementById(targetId);
+
+                if (targetElement) {
+                    targetElement.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+
+                    // Update active state
+                    updateActiveNav(this);
+
+                    // Scroll active link into view
+                    this.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'nearest',
+                        inline: 'center'
+                    });
+                }
+            });
+        });
+
+        // Update active nav on scroll
+        window.addEventListener('scroll', function() {
+            let current = '';
+
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (window.scrollY >= (sectionTop - 200)) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                const href = link.getAttribute('href').substring(1);
+
+                if (href === current) {
+                    link.classList.add('active');
+
+                    // Scroll active link into view in navbar
+                    link.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'nearest',
+                        inline: 'center'
+                    });
+                }
+            });
+
+            // If at top, activate "All"
+            if (window.scrollY < 300) {
+                navLinks.forEach(link => link.classList.remove('active'));
+                navLinks[0].classList.add('active');
+            }
+        });
+
+        function updateActiveNav(activeLink) {
+            navLinks.forEach(link => link.classList.remove('active'));
+            activeLink.classList.add('active');
+        }
+    });
+</script>
+</body>
+</html>

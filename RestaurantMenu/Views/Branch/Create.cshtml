@@ -1,0 +1,182 @@
+@model Branch
+@{
+    ViewData["Title"] = "Create Branch";
+}
+
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a asp-controller="Dashboard" asp-action="Index">
+                        <i class="bi bi-grid-fill"></i> Dashboard
+                    </a>
+                </li>
+                <li class="breadcrumb-item active">Create Branch</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card border-0 shadow-lg">
+            <div class="card-header">
+                <h2 class="mb-0">
+                    <i class="bi bi-shop-window me-2"></i>Create New Branch
+                </h2>
+                <p class="mb-0 mt-2 text-white-50">Set up a new restaurant location</p>
+            </div>
+            <div class="card-body p-4">
+                <form asp-action="Create" method="post" enctype="multipart/form-data">
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger mb-4" role="alert"></div>
+
+                    <div class="row">
+                        <div class="col-lg-7">
+                            <h5 class="mb-4 fw-bold">
+                                <i class="bi bi-info-circle-fill me-2 text-primary"></i>Branch Information
+                            </h5>
+
+                            <div class="mb-4">
+                                <label asp-for="Name" class="form-label">
+                                    <i class="bi bi-building me-2"></i>Branch Name
+                                </label>
+                                <input asp-for="Name" class="form-control form-control-lg"
+                                       placeholder="e.g., Downtown Location" autofocus />
+                                <span asp-validation-for="Name" class="text-danger"></span>
+                            </div>
+
+                            <div class="mb-4">
+                                <label asp-for="Address" class="form-label">
+                                    <i class="bi bi-geo-alt-fill me-2"></i>Address
+                                </label>
+                                <input asp-for="Address" class="form-control form-control-lg"
+                                       placeholder="123 Main Street, City, State" />
+                                <span asp-validation-for="Address" class="text-danger"></span>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label">
+                                    <i class="bi bi-translate me-2"></i>Menu Languages
+                                </label>
+                                <div class="row">
+                                    @foreach (var language in RestaurantMenu.Helpers.LanguageHelper.GetAvailableLanguages())
+                                    {
+                                        <div class="col-md-6 col-lg-4 mb-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="selectedLanguages"
+                                                       value="@language.Value" id="lang_@language.Value"
+                                                       @(language.Value == "en" ? "checked" : "")>
+                                                <label class="form-check-label" for="lang_@language.Value">
+                                                    @language.Text
+                                                </label>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                                <small class="form-text text-muted">
+                                    <i class="bi bi-info-circle me-1"></i>Select languages available for your menu
+                                </small>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-4">
+                                    <label asp-for="PhoneNumber" class="form-label">
+                                        <i class="bi bi-telephone-fill me-2"></i>Phone Number
+                                    </label>
+                                    <input asp-for="PhoneNumber" class="form-control form-control-lg"
+                                           placeholder="+1 (555) 123-4567" />
+                                    <span asp-validation-for="PhoneNumber" class="text-danger"></span>
+                                </div>
+
+                                <div class="col-md-6 mb-4">
+                                    <label asp-for="Currency" class="form-label">
+                                        <i class="bi bi-currency-dollar me-2"></i>Currency
+                                    </label>
+                                    <select asp-for="Currency" asp-items="ViewBag.Currencies" class="form-select form-select-lg">
+                                        <option value="">-- Select Currency --</option>
+                                    </select>
+                                    <span asp-validation-for="Currency" class="text-danger"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-5">
+                            <h5 class="mb-4 fw-bold">
+                                <i class="bi bi-images me-2 text-success"></i>Branding
+                            </h5>
+
+                            <div class="mb-4">
+                                <label for="logo" class="form-label">
+                                    <i class="bi bi-badge-tm me-2"></i>Logo
+                                </label>
+                                <div class="logo-upload-box" onclick="document.getElementById('logo').click()">
+                                    <i class="bi bi-image display-4 text-muted"></i>
+                                    <p class="text-muted mt-2 mb-0">Click to upload logo</p>
+                                    <small class="text-muted">Square image recommended</small>
+                                </div>
+                                <input type="file" name="logo" id="logo" class="d-none" accept="image/*" />
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="banner" class="form-label">
+                                    <i class="bi bi-aspect-ratio me-2"></i>Banner
+                                </label>
+                                <div class="banner-upload-box" onclick="document.getElementById('banner').click()">
+                                    <i class="bi bi-image display-4 text-muted"></i>
+                                    <p class="text-muted mt-2 mb-0">Click to upload banner</p>
+                                    <small class="text-muted">16:9 ratio recommended</small>
+                                </div>
+                                <input type="file" name="banner" id="banner" class="d-none" accept="image/*" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="d-flex gap-3">
+                        <button type="submit" class="btn btn-primary btn-lg flex-fill">
+                            <i class="bi bi-check-circle-fill me-2"></i>Create Branch
+                        </button>
+                        <a asp-controller="Dashboard" asp-action="Index" class="btn btn-secondary btn-lg">
+                            <i class="bi bi-x-circle me-2"></i>Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <style>
+        .logo-upload-box, .banner-upload-box {
+            border: 2px dashed rgba(102, 126, 234, 0.3);
+            border-radius: 15px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--glass-bg);
+        }
+
+        .logo-upload-box {
+            aspect-ratio: 1;
+        }
+
+        .banner-upload-box {
+            aspect-ratio: 16/9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo-upload-box:hover, .banner-upload-box:hover {
+            border-color: #667eea;
+            transform: scale(1.02);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+        }
+    </style>
+}

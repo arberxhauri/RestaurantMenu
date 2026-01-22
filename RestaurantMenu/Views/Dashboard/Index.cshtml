@@ -1,0 +1,222 @@
+@model IEnumerable<Branch>
+@{
+    ViewData["Title"] = "My Branches";
+}
+
+<div class="row mb-5">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="display-5 fw-bold mb-2">
+                    <i class="bi bi-grid-3x3-gap-fill text-primary me-3"></i>My Branches
+                </h1>
+                <p class="text-muted">Manage your restaurant branches and menus</p>
+            </div>
+            @if (ViewBag.CanCreateBranch)
+            {
+                <a asp-controller="Branch" asp-action="Create" class="btn btn-primary btn-lg">
+                    <i class="bi bi-plus-circle me-2"></i>Create New Branch
+                </a>
+            }
+            else
+            {
+                <span class="badge bg-warning text-dark fs-6 py-3 px-4">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Branch Limit Reached (@Model.Count()/@ViewBag.MaxBranches)
+                </span>
+            }
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="row g-4 mb-5">
+            <div class="col-md-4">
+                <div class="card glass-card border-0">
+                    <div class="card-body text-center p-4">
+                        <div class="rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" 
+                             style="width: 80px; height: 80px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                            <i class="bi bi-shop-window fs-1 text-white"></i>
+                        </div>
+                        <h3 class="display-4 fw-bold mb-0">@Model.Count()</h3>
+                        <p class="text-muted mb-0">Total Branches</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card glass-card border-0">
+                    <div class="card-body text-center p-4">
+                        <div class="rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" 
+                             style="width: 80px; height: 80px; background: linear-gradient(135deg, #0ba360 0%, #3cba92 100%);">
+                            <i class="bi bi-bookmark-fill fs-1 text-white"></i>
+                        </div>
+                        <h3 class="display-4 fw-bold mb-0">@Model.Sum(b => b.Categories.Count)</h3>
+                        <p class="text-muted mb-0">Categories</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card glass-card border-0">
+                    <div class="card-body text-center p-4">
+                        <div class="rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" 
+                             style="width: 80px; height: 80px; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+                            <i class="bi bi-basket-fill fs-1 text-white"></i>
+                        </div>
+                        <h3 class="display-4 fw-bold mb-0">@Model.Sum(b => b.Categories.Sum(c => c.Products.Count))</h3>
+                        <p class="text-muted mb-0">Products</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="row">
+        <div class="col-12">
+            <div class="card glass-card border-0 text-center py-5">
+                <div class="card-body">
+                    <div class="mb-4">
+                        <i class="bi bi-inbox display-1 text-muted"></i>
+                    </div>
+                    <h3 class="mb-3">No Branches Yet</h3>
+                    <p class="text-muted mb-4">Get started by creating your first branch to manage your restaurant menu.</p>
+                    <a asp-controller="Branch" asp-action="Create" class="btn btn-primary btn-lg">
+                        <i class="bi bi-plus-circle me-2"></i>Create Your First Branch
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="row g-4">
+        @foreach (var branch in Model)
+        {
+            <div class="col-md-6 col-lg-4 fade-in">
+                <div class="card branch-card h-100 border-0 shadow">
+                    <div class="position-relative overflow-hidden" style="height: 220px;">
+                        @if (!string.IsNullOrEmpty(branch.Banner))
+                        {
+                            <img src="@branch.Banner" class="w-100 h-100 object-fit-cover" alt="@branch.Name" />
+                        }
+                        else
+                        {
+                            <div class="w-100 h-100 d-flex align-items-center justify-content-center" 
+                                 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                                <span class="text-white display-1 fw-bold">@branch.Name.Substring(0, 1)</span>
+                            </div>
+                        }
+                        <div class="position-absolute top-0 end-0 m-3">
+                            <span class="badge bg-dark bg-opacity-75 px-3 py-2">
+                                <i class="bi bi-bookmark-fill me-1"></i> @branch.Categories.Count Categories
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            @if (!string.IsNullOrEmpty(branch.Logo))
+                            {
+                                <img src="@branch.Logo" alt="@branch.Name Logo" 
+                                     class="rounded-circle me-3" style="width: 50px; height: 50px; object-fit: cover;" />
+                            }
+                            else
+                            {
+                                <div class="rounded-circle me-3 d-flex align-items-center justify-content-center" 
+                                     style="width: 50px; height: 50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                                    <span class="text-white fw-bold">@branch.Name.Substring(0, 1)</span>
+                                </div>
+                            }
+                            <div class="flex-grow-1">
+                                <h5 class="card-title mb-1 fw-bold">@branch.Name</h5>
+                                <small class="text-muted">
+                                    <i class="bi bi-geo-alt-fill me-1"></i>@branch.Address.Substring(0, Math.Min(30, branch.Address.Length))@(branch.Address.Length > 30 ? "..." : "")
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-telephone-fill me-2 text-primary"></i>
+                                <span>@branch.PhoneNumber</span>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-basket-fill me-2 text-success"></i>
+                                <span>@branch.Categories.Sum(c => c.Products.Count) Products</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-footer bg-transparent border-0 p-3">
+                        <div class="d-grid gap-2">
+                            <a asp-controller="Branch" asp-action="Details" asp-route-id="@branch.Id" 
+                               class="btn btn-primary">
+                                <i class="bi bi-gear-fill me-2"></i>Manage Menu
+                            </a>
+                            <div class="btn-group" role="group">
+                                <a asp-controller="Branch" asp-action="Edit" asp-route-id="@branch.Id" 
+                                   class="btn btn-outline-warning">
+                                    <i class="bi bi-pencil-fill me-1"></i>Edit
+                                </a>
+                                <form asp-controller="Branch" asp-action="Delete" asp-route-id="@branch.Id" 
+                                      method="post" class="flex-fill"
+                                      onsubmit="return confirm('⚠️ Are you sure you want to delete this branch? This action cannot be undone.');">
+                                    <button type="submit" class="btn btn-outline-danger w-100">
+                                        <i class="bi bi-trash-fill me-1"></i>Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.1/Sortable.min.js"></script>
+    <script>
+        // Initialize drag and drop for categories
+        document.querySelectorAll('.sortable-categories').forEach(function(el) {
+            new Sortable(el, {
+                animation: 150,
+                handle: '.drag-handle',
+                ghostClass: 'sortable-ghost',
+                onEnd: function(evt) {
+                    const branchId = evt.from.dataset.branchId;
+                    const categoryIds = Array.from(evt.from.children).map(item => item.dataset.categoryId);
+                    
+                    // Send AJAX request to update priorities
+                    fetch('/Category/UpdatePriorities', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                        },
+                        body: JSON.stringify({ categoryIds: categoryIds })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            console.log('Priorities updated');
+                        }
+                    });
+                }
+            });
+        });
+    </script>
+    
+    <style>
+        .drag-handle {
+            cursor: move;
+            color: #718096;
+            font-size: 1.2rem;
+        }
+        
+        .sortable-ghost {
+            opacity: 0.4;
+            background: #f7fafc;
+        }
+    </style>
+}

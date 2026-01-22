@@ -1,0 +1,155 @@
+@model Category
+@{
+    ViewData["Title"] = "Create Category";
+    var supportedLanguages = ViewBag.SupportedLanguages as string[] ?? new[] { "en" };
+}
+
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a asp-controller="Dashboard" asp-action="Index">
+                        <i class="bi bi-grid-fill"></i> Dashboard
+                    </a>
+                </li>
+                <li class="breadcrumb-item">
+                    <a asp-controller="Branch" asp-action="Details" asp-route-id="@ViewBag.BranchId">
+                        @ViewBag.BranchName
+                    </a>
+                </li>
+                <li class="breadcrumb-item active">Create Category</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-lg">
+            <div class="card-header bg-success">
+                <h2 class="mb-0">
+                    <i class="bi bi-bookmark-plus-fill me-2"></i>Create New Category
+                </h2>
+                <p class="mb-0 mt-2 text-white-50">Organize your menu items into categories</p>
+            </div>
+            <div class="card-body p-5">
+                <form asp-action="Create" method="post">
+                    <input type="hidden" asp-for="BranchId" value="@ViewBag.BranchId" />
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger mb-4" role="alert"></div>
+                    
+                    <div class="row">
+                        <div class="col-md-8 mb-4">
+                            <label asp-for="Name" class="form-label">
+                                <i class="bi bi-tag-fill me-2"></i>Category Name
+                            </label>
+                            <input asp-for="Name" class="form-control form-control-lg" 
+                                   placeholder="e.g., Appetizers, Main Course, Desserts, Beverages" 
+                                   autofocus />
+                            <span asp-validation-for="Name" class="text-danger"></span>
+                            <small class="form-text text-muted">
+                                <i class="bi bi-info-circle me-1"></i>Choose a clear, descriptive name
+                            </small>
+                        </div>
+                        
+                        <div class="col-md-4 mb-4">
+                            <label asp-for="Priority" class="form-label">
+                                <i class="bi bi-sort-numeric-down me-2"></i>Display Priority
+                            </label>
+                            <input asp-for="Priority" class="form-control form-control-lg text-center" 
+                                   type="number" min="0" max="999" value="0" />
+                            <span asp-validation-for="Priority" class="text-danger"></span>
+                            <small class="form-text text-muted">
+                                <i class="bi bi-arrow-down me-1"></i>Lower = appears first
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info d-flex align-items-start mb-4" role="alert">
+                        <i class="bi bi-lightbulb-fill fs-4 me-3 mt-1"></i>
+                        <div>
+                            <h6 class="alert-heading mb-2">Priority Tips</h6>
+                            <ul class="mb-0 ps-3">
+                                <li>Categories with lower priority numbers appear first</li>
+                                <li>Example: Appetizers (0), Main Course (10), Desserts (20)</li>
+                                <li>Leave gaps between numbers for easy reordering later</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    @if (supportedLanguages.Length > 1)
+                    {
+                        <hr class="my-4">
+                        <h5 class="mb-3 fw-bold">
+                            <i class="bi bi-translate me-2 text-info"></i>Translations
+                        </h5>
+
+                        @foreach (var lang in supportedLanguages.Where(l => l != "en"))
+                        {
+                            <div class="card mb-3">
+                                <div class="card-header bg-info text-white">
+                                    @switch (lang)
+                                    {
+                                        case "sq": <text>🇦🇱 Albanian (Shqip)</text> break;
+                                        case "de": <text>🇩🇪 German (Deutsch)</text> break;
+                                        case "fr": <text>🇫🇷 French (Français)</text> break;
+                                        case "it": <text>🇮🇹 Italian (Italiano)</text> break;
+                                        case "es": <text>🇪🇸 Spanish (Español)</text> break;
+                                        case "tr": <text>🇹🇷 Turkish (Türkçe)</text> break;
+                                        default: <text>@lang</text> break;
+                                    }
+                                </div>
+                                <div class="card-body">
+                                    <label class="form-label">Category Name (@lang)</label>
+                                    <input type="text" name="translation_name_@lang" class="form-control"
+                                           placeholder="Enter translated category name" />
+                                </div>
+                            </div>
+                        }
+                    }
+
+                    <!-- Preview Section -->
+                    <div class="card glass-card border-0 p-4 mb-4">
+                        <h6 class="fw-bold mb-3">
+                            <i class="bi bi-eye-fill me-2"></i>Preview
+                        </h6>
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-primary me-3" style="font-size: 1rem; padding: 0.5rem 1rem;">
+                                #<span id="priorityPreview">0</span>
+                            </span>
+                            <h5 class="mb-0 fw-bold" id="namePreview">Category Name</h5>
+                        </div>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <div class="d-flex gap-3">
+                        <button type="submit" class="btn btn-success btn-lg flex-fill">
+                            <i class="bi bi-check-circle-fill me-2"></i>Create Category
+                        </button>
+                        <a asp-controller="Branch" asp-action="Details" asp-route-id="@ViewBag.BranchId" 
+                           class="btn btn-secondary btn-lg">
+                            <i class="bi bi-x-circle me-2"></i>Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        // Live preview
+        document.getElementById('Name').addEventListener('input', function(e) {
+            const preview = document.getElementById('namePreview');
+            preview.textContent = e.target.value || 'Category Name';
+        });
+        
+        document.getElementById('Priority').addEventListener('input', function(e) {
+            const preview = document.getElementById('priorityPreview');
+            preview.textContent = e.target.value || '0';
+        });
+    </script>
+}
