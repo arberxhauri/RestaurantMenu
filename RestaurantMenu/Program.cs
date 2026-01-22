@@ -20,11 +20,11 @@ builder.Services.AddScoped<SoftDeleteInterceptor>();
 
 // 3. DbContext with RETRY POLICY
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(connectionString, sqlOptions =>
+    options.UseNpgsql(connectionString, sqlOptions =>
         sqlOptions.EnableRetryOnFailure(
             maxRetryCount: 5,
             maxRetryDelay: TimeSpan.FromSeconds(30),
-            errorNumbersToAdd: null))
+            errorCodesToAdd: null))
     .AddInterceptors(builder.Services.BuildServiceProvider().GetRequiredService<SoftDeleteInterceptor>()));
 
 builder.Services.AddScoped<ColorExtractionService>();
