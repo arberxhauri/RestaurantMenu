@@ -1242,7 +1242,7 @@
 
         // Unique key for this specific restaurant branch so data doesn't clash
         const STORAGE_KEY = 'menu_fav_' + '@Model.Name.Replace(" ", "_")';
-        const CURRENCY_SYMBOL = '@ViewBag.CurrencySymbol';
+        const CURRENCY_SYMBOL = '@Html.Raw(ViewBag.CurrencySymbol)';
 
         // State
         let favorites = [];
@@ -1442,9 +1442,6 @@
                     <span class="fw-bold text-primary" id="orderTotal">@ViewBag.CurrencySymbol 0.00</span>
                 </div>
                 <div class="d-grid gap-2">
-                    <button class="btn btn-dark rounded-pill py-2" onclick="window.print()">
-                        <i class="bi bi-printer me-2"></i> Print List
-                    </button>
                     <button class="btn btn-outline-danger rounded-pill py-2" onclick="clearFavorites()">
                         Clear List
                     </button>
