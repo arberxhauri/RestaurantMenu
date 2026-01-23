@@ -5,6 +5,7 @@ using RestaurantMenu;
 using RestaurantMenu.Models;
 using System.Globalization;
 using RestaurantMenu.Services;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -64,6 +65,21 @@ builder.Services.AddAuthorization(options =>
 });
 
 var app = builder.Build();
+
+// Pick disk mount path (set on Render). Default for local dev.
+var diskMount = Environment.GetEnvironmentVariable("DISK_MOUNT_PATH") ?? "/var/data";
+
+// This is where ALL uploaded images will live (persistent disk)
+var persistentImagesRoot = Path.Combine(diskMount, "images");
+Directory.CreateDirectory(persistentImagesRoot);
+
+// Serve persistent images at /images/...
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(persistentImagesRoot),
+    RequestPath = "/images"
+});
+
 
 // Configure pipeline
 if (!app.Environment.IsDevelopment())

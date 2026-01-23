@@ -24,6 +24,9 @@ namespace RestaurantMenu.Controllers;
             _userManager = userManager;
             _webHostEnvironment = webHostEnvironment;
         }
+        
+        private string DiskMountPath =>
+            Environment.GetEnvironmentVariable("DISK_MOUNT_PATH") ?? "/var/data";
 
         [HttpGet]
         public async Task<IActionResult> Create(int branchId)
@@ -267,10 +270,11 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
 
         private async Task<string> SaveImage(IFormFile file)
         {
-            var uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "images", "products");
+            var uploadsFolder = Path.Combine(DiskMountPath, "images", "products");
             Directory.CreateDirectory(uploadsFolder);
 
-            var uniqueFileName = Guid.NewGuid().ToString() + "_" + Path.GetFileName(file.FileName);
+            var safeFileName = Path.GetFileName(file.FileName);
+            var uniqueFileName = $"{Guid.NewGuid()}_{safeFileName}";
             var filePath = Path.Combine(uploadsFolder, uniqueFileName);
 
             using (var fileStream = new FileStream(filePath, FileMode.Create))
@@ -281,9 +285,12 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
             return $"/images/products/{uniqueFileName}";
         }
 
-        private void DeleteImage(string imagePath)
+        private void DeleteImage(string imageUrl)
         {
-            var fullPath = Path.Combine(_webHostEnvironment.WebRootPath, imagePath.TrimStart('/'));
+            var relative = imageUrl.TrimStart('/');
+            if (!relative.StartsWith("images/")) return;
+
+            var fullPath = Path.Combine(DiskMountPath, relative.Replace('/', Path.DirectorySeparatorChar));
             if (System.IO.File.Exists(fullPath))
             {
                 System.IO.File.Delete(fullPath);

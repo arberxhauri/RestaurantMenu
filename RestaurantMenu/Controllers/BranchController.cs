@@ -15,18 +15,24 @@ namespace RestaurantMenu.Controllers;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IWebHostEnvironment _webHostEnvironment;
         private readonly ColorExtractionService _colorService;
+        private readonly IConfiguration _config;
         
         public BranchController(
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
             IWebHostEnvironment webHostEnvironment,
-            ColorExtractionService colorService)
+            ColorExtractionService colorService,
+            IConfiguration config)
         {
             _context = context;
             _userManager = userManager;
             _webHostEnvironment = webHostEnvironment;
             _colorService = colorService;
+            _config = config;
         }
+        
+        private string DiskMountPath =>
+            Environment.GetEnvironmentVariable("DISK_MOUNT_PATH") ?? "/var/data";
 
         [HttpGet]
         public async Task<IActionResult> Create()
@@ -266,10 +272,12 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
 
         private async Task<string> SaveImage(IFormFile file, string folder)
         {
-            var uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "images", folder);
+            // Save to persistent disk: /var/data/images/<folder>/
+            var uploadsFolder = Path.Combine(DiskMountPath, "images", folder);
             Directory.CreateDirectory(uploadsFolder);
 
-            var uniqueFileName = Guid.NewGuid().ToString() + "_" + file.FileName;
+            var safeFileName = Path.GetFileName(file.FileName);
+            var uniqueFileName = $"{Guid.NewGuid()}_{safeFileName}";
             var filePath = Path.Combine(uploadsFolder, uniqueFileName);
 
             using (var fileStream = new FileStream(filePath, FileMode.Create))
@@ -277,14 +285,19 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
                 await file.CopyToAsync(fileStream);
             }
 
+            // Public URL served by Program.cs static files mapping
             return $"/images/{folder}/{uniqueFileName}";
         }
 
-        private void DeleteImage(string imagePath)
+        private void DeleteImage(string imageUrl)
         {
             try
             {
-                var fullPath = Path.Combine(_webHostEnvironment.WebRootPath, imagePath.TrimStart('/'));
+                // imageUrl is like "/images/logos/abc.png"
+                var relative = imageUrl.TrimStart('/'); // "images/logos/abc.png"
+                if (!relative.StartsWith("images/")) return;
+
+                var fullPath = Path.Combine(DiskMountPath, relative.Replace('/', Path.DirectorySeparatorChar));
                 if (System.IO.File.Exists(fullPath))
                 {
                     System.IO.File.Delete(fullPath);
@@ -292,7 +305,7 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
             }
             catch
             {
-                // Ignore errors if file doesn't exist
+                // ignore
             }
         }
         
