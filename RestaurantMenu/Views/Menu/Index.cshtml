@@ -137,19 +137,23 @@
         }
 
         .restaurant-info {
-            display: flex;
-            gap: 2rem;
-            justify-content: center;
-            flex-wrap: wrap;
-            margin-top: 1rem;
-        }
+    display: flex;
+    flex-direction: column;        /* stack items */
+    align-items: center;           /* center horizontally */
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    text-align: center;
+}
 
-        .info-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 1.1rem;
-        }
+.info-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;       /* center icon + text */
+    gap: 0.5rem;
+    font-size: 1.1rem;
+}
+
 
         /* Language Switcher */
         .language-switcher {
@@ -416,6 +420,10 @@
             border-radius: 15px;
             margin: 0 -1rem;
             padding-right: 3rem;
+        }
+
+        .product-card.no-image {
+            gap: 0;              /* removes the empty image spacing */
         }
 
         .product-image-wrapper {
@@ -849,19 +857,13 @@
                             var productDesc = TranslationHelper.GetTranslation(product.Description ?? "", product.DescriptionTranslations, currentLang);
                             var productNutrition = TranslationHelper.GetTranslation(product.Nutritions ?? "", product.NutritionsTranslations, currentLang);
 
-                            <div class="product-card">
+                            <div class="product-card @(string.IsNullOrEmpty(product.Image) ? "no-image" : "")">
+                                @if (!string.IsNullOrEmpty(product.Image))
+                                {
                                 <div class="product-image-wrapper">
-                                    @if (!string.IsNullOrEmpty(product.Image))
-                                    {
-                                        <img src="@product.Image" alt="@productName" class="product-image"/>
-                                    }
-                                    else
-                                    {
-                                        <div class="product-placeholder">
-                                            <i class="bi bi-card-image"></i>
-                                        </div>
-                                    }
+                                    <img src="@product.Image" alt="@productName" class="product-image" />
                                 </div>
+                                }
 
                                 <div class="product-details">
                                     <div class="product-header">
