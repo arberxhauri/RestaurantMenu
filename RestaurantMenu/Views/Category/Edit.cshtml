@@ -16,7 +16,7 @@
                 </li>
                 <li class="breadcrumb-item">
                     <a asp-controller="Branch" asp-action="Details" asp-route-id="@Model.BranchId">
-                        @Model.Branch.Name
+                        @(Model.Branch?.Name ?? "Branch")
                     </a>
                 </li>
                 <li class="breadcrumb-item active">Edit Category</li>
@@ -101,11 +101,11 @@
                                     <i class="bi bi-basket-fill me-2"></i>Products in this Category
                                 </h6>
                                 <p class="text-muted mb-0">
-                                    This category contains <strong>@Model.Products.Count</strong> product(s)
+                                    This category contains <strong>@(Model.Products?.Count ?? 0)</strong> product(s)
                                 </p>
                             </div>
                             <span class="badge bg-primary" style="font-size: 1.5rem; padding: 0.75rem 1.25rem;">
-                                @Model.Products.Count
+                                @(Model.Products?.Count ?? 0)
                             </span>
                         </div>
                     </div>
