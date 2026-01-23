@@ -90,6 +90,7 @@ namespace RestaurantMenu.Controllers
             var user = await _userManager.GetUserAsync(User);
             var category = await _context.Categories
                 .Include(c => c.Branch)
+                .Include(c => c.Products)
                 .FirstOrDefaultAsync(c => c.Id == id && c.Branch.UserId == user.Id && !c.Branch.IsDeleted);
 
             if (category == null)
