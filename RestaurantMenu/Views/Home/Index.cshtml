@@ -568,7 +568,7 @@
                             @foreach (var branch in branches.Where(b => !string.IsNullOrEmpty(b.Logo)))
                             {
                                 <div class="swiper-slide">
-                                    <a asp-action="Index" asp-controller="Menu" asp-route-branchName="@branch.Name" target="_blank">
+                                    <a asp-action="Index" asp-controller="Menu" asp-route-branchName="@branch.Name.Replace(" ", "")" target="_blank">
                                         <img src="@branch.Logo" alt="@branch.Name" class="partner-logo" title="@branch.Name" />
                                     </a>
                                 </div>
