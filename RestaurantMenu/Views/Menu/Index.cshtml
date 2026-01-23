@@ -906,198 +906,202 @@
     </style>
 </head>
 <body>
-    <!-- Loading Screen -->
-    <div id="pageLoader">
-        <div style="text-align: center;">
-            <div class="loader-spinner"></div>
-            <p style="color: @primaryColor; font-weight: 600;">Loading Menu...</p>
+
+<div style="display:none" id="debugBanner">@Model.Banner</div>
+<!-- Loading Screen -->
+<div id="pageLoader">
+    <div style="text-align: center;">
+        <div class="loader-spinner"></div>
+        <p style="color: @primaryColor; font-weight: 600;">Loading Menu...</p>
+    </div>
+</div>
+
+<!-- Header -->
+<div id="header" class="menu-header">
+    <!-- Language Switcher -->
+    @if (supportedLanguages.Length > 1)
+    {
+        <div class="language-switcher">
+            <button class="language-btn" onclick="toggleLanguageDropdown()">
+                <i class="bi bi-translate"></i>
+                <span>@currentLang.ToUpper()</span>
+                <i class="bi bi-chevron-down" style="font-size: 0.8rem;"></i>
+            </button>
+            <div class="language-dropdown" id="languageDropdown">
+                @foreach (var lang in supportedLanguages)
+                {
+                    <a href="?lang=@lang" class="@(lang == currentLang ? "active" : "")">
+                        @switch (lang)
+                        {
+                            case "en": <text>🇬🇧 English</text> break;
+                            case "sq": <text>🇦🇱 Shqip</text> break;
+                            case "de": <text>🇩🇪 Deutsch</text> break;
+                            case "fr": <text>🇫🇷 Français</text> break;
+                            case "it": <text>🇮🇹 Italiano</text> break;
+                            case "es": <text>🇪🇸 Español</text> break;
+                            case "tr": <text>🇹🇷 Türkçe</text> break;
+                            default:
+                                <text>@lang</text>
+                                break;
+                        }
+                    </a>
+                }
+            </div>
+        </div>
+    }
+
+    <div class="header-content">
+        @if (!string.IsNullOrEmpty(Model.Logo))
+        {
+            <img src="@Model.Logo" alt="@Model.Name Logo" class="restaurant-logo"/>
+        }
+        else
+        {
+            <div class="restaurant-logo d-flex align-items-center justify-content-center" style="background: linear-gradient(135deg, @primaryColor, @secondaryColor);">
+                <span style="font-size: 3rem; font-weight: bold; color: white;">@Model.Name.Substring(0, 1)</span>
+            </div>
+        }
+
+        <h1 class="restaurant-name">@Model.Name</h1>
+
+        <div class="restaurant-info">
+            <div class="info-item">
+                <i class="bi bi-geo-alt-fill"></i>
+                <span>@Model.Address</span>
+            </div>
+            <div class="info-item">
+                <i class="bi bi-telephone-fill"></i>
+                <span>@Model.PhoneNumber</span>
+            </div>
         </div>
     </div>
+</div>
 
-    <!-- Header -->
-    <div id="header" class="menu-header">
-        <!-- Language Switcher -->
-        @if (supportedLanguages.Length > 1)
-        {
-            <div class="language-switcher">
-                <button class="language-btn" onclick="toggleLanguageDropdown()">
-                    <i class="bi bi-translate"></i>
-                    <span>@currentLang.ToUpper()</span>
-                    <i class="bi bi-chevron-down" style="font-size: 0.8rem;"></i>
-                </button>
-                <div class="language-dropdown" id="languageDropdown">
-                    @foreach (var lang in supportedLanguages)
+<!-- Menu Content -->
+<div class="menu-container">
+    <!-- Category Navigation Navbar -->
+    @if (Model.Categories.Any(c => c.Products.Any()))
+    {
+        <nav class="category-navbar">
+            <button class="nav-scroll-btn" id="scrollLeft" disabled>
+                <i class="bi bi-chevron-left"></i>
+            </button>
+
+            <div class="nav-container-wrapper" id="navWrapper">
+                <div class="nav-container" id="navContainer">
+                    <a href="#header" class="nav-link active">
+                        <i class="bi bi-house-door"></i>
+                        <span>All</span>
+                    </a>
+                    @foreach (var category in Model.Categories.Where(c => c.Products.Any()).OrderBy(c => c.Priority))
                     {
-                        <a href="?lang=@lang" class="@(lang == currentLang ? "active" : "")">
-                            @switch (lang)
-                            {
-                                case "en": <text>🇬🇧 English</text> break;
-                                case "sq": <text>🇦🇱 Shqip</text> break;
-                                case "de": <text>🇩🇪 Deutsch</text> break;
-                                case "fr": <text>🇫🇷 Français</text> break;
-                                case "it": <text>🇮🇹 Italiano</text> break;
-                                case "es": <text>🇪🇸 Español</text> break;
-                                case "tr": <text>🇹🇷 Türkçe</text> break;
-                                default: <text>@lang</text> break;
-                            }
+                        var categorySlug = category.Name.Replace(" ", "-").ToLower();
+                        var categoryName = TranslationHelper.GetTranslation(category.Name, category.NameTranslations, currentLang);
+                        <a href="#@categorySlug" class="nav-link" data-category="@categorySlug">
+                            @categoryName <span style="opacity: 0.7;">(@category.Products.Count)</span>
                         </a>
                     }
                 </div>
             </div>
-        }
 
-        <div class="header-content">
-            @if (!string.IsNullOrEmpty(Model.Logo))
-            {
-                <img src="@Model.Logo" alt="@Model.Name Logo" class="restaurant-logo" />
-            }
-            else
-            {
-                <div class="restaurant-logo d-flex align-items-center justify-content-center" style="background: linear-gradient(135deg, @primaryColor, @secondaryColor);">
-                    <span style="font-size: 3rem; font-weight: bold; color: white;">@Model.Name.Substring(0, 1)</span>
-                </div>
-            }
+            <button class="nav-scroll-btn" id="scrollRight">
+                <i class="bi bi-chevron-right"></i>
+            </button>
+        </nav>
+    }
 
-            <h1 class="restaurant-name">@Model.Name</h1>
-
-            <div class="restaurant-info">
-                <div class="info-item">
-                    <i class="bi bi-geo-alt-fill"></i>
-                    <span>@Model.Address</span>
+    @if (!Model.Categories.Any(c => c.Products.Any()))
+    {
+        <div class="category-section">
+            <div class="empty-state">
+                <div class="empty-icon">
+                    <i class="bi bi-inbox"></i>
                 </div>
-                <div class="info-item">
-                    <i class="bi bi-telephone-fill"></i>
-                    <span>@Model.PhoneNumber</span>
-                </div>
+                <h3>Menu Coming Soon</h3>
+                <p>We're working on adding delicious items to our menu.</p>
             </div>
         </div>
-    </div>
-
-    <!-- Menu Content -->
-    <div class="menu-container">
-        <!-- Category Navigation Navbar -->
-        @if (Model.Categories.Any(c => c.Products.Any()))
+    }
+    else
+    {
+        @foreach (var category in Model.Categories.Where(c => c.Products.Any()).OrderBy(c => c.Priority))
         {
-            <nav class="category-navbar">
-                <button class="nav-scroll-btn" id="scrollLeft" disabled>
-                    <i class="bi bi-chevron-left"></i>
-                </button>
+            var categorySlug = category.Name.Replace(" ", "-").ToLower();
+            var categoryName = TranslationHelper.GetTranslation(category.Name, category.NameTranslations, currentLang);
 
-                <div class="nav-container-wrapper" id="navWrapper">
-                    <div class="nav-container" id="navContainer">
-                        <a href="#header" class="nav-link active">
-                            <i class="bi bi-house-door"></i>
-                            <span>All</span>
-                        </a>
-                        @foreach (var category in Model.Categories.Where(c => c.Products.Any()).OrderBy(c => c.Priority))
-                        {
-                            var categorySlug = category.Name.Replace(" ", "-").ToLower();
-                            var categoryName = TranslationHelper.GetTranslation(category.Name, category.NameTranslations, currentLang);
-                            <a href="#@categorySlug" class="nav-link" data-category="@categorySlug">
-                                @categoryName <span style="opacity: 0.7;">(@category.Products.Count)</span>
-                            </a>
-                        }
-                    </div>
+            <div id="@categorySlug" class="category-section">
+                <div class="category-header">
+                    <h2 class="category-title">@categoryName</h2>
+                    <p class="category-count">@category.Products.Count @(category.Products.Count == 1 ? "item" : "items")</p>
                 </div>
 
-                <button class="nav-scroll-btn" id="scrollRight">
-                    <i class="bi bi-chevron-right"></i>
-                </button>
-            </nav>
-        }
+                <div class="products-list">
+                    @foreach (var product in category.Products.OrderBy(p => p.DisplayOrder))
+                    {
+                        var productName = TranslationHelper.GetTranslation(product.Name, product.NameTranslations, currentLang);
+                        var productDesc = TranslationHelper.GetTranslation(product.Description ?? "", product.DescriptionTranslations, currentLang);
+                        var productNutrition = TranslationHelper.GetTranslation(product.Nutritions ?? "", product.NutritionsTranslations, currentLang);
 
-        @if (!Model.Categories.Any(c => c.Products.Any()))
-        {
-            <div class="category-section">
-                <div class="empty-state">
-                    <div class="empty-icon">
-                        <i class="bi bi-inbox"></i>
-                    </div>
-                    <h3>Menu Coming Soon</h3>
-                    <p>We're working on adding delicious items to our menu.</p>
+                        <div class="product-card @(string.IsNullOrEmpty(product.Image) ? "no-image" : "")">
+                            @if (!string.IsNullOrEmpty(product.Image))
+                            {
+                                <div class="product-image-wrapper">
+                                    <img src="@product.Image" alt="@productName" class="product-image"/>
+                                </div>
+                            }
+
+                            <div class="product-details">
+                                <div class="product-header">
+                                    <div style="flex: 1;"> <!-- Added flex: 1 to push price/heart to right -->
+                                        <h3 class="product-name">@productName</h3>
+                                        @if (!string.IsNullOrEmpty(productDesc))
+                                        {
+                                            <p class="product-description">@productDesc</p>
+                                        }
+                                        @if (!string.IsNullOrEmpty(productNutrition))
+                                        {
+                                            <div class="product-nutrition">
+                                                <i class="bi bi-heart-pulse-fill"></i>
+                                                <span>@productNutrition</span>
+                                            </div>
+                                        }
+                                    </div>
+
+                                    <!-- Price and Heart Container -->
+                                    <div class="d-flex align-items-center">
+                                        <div class="product-price">
+                                            @ViewBag.CurrencySymbol@product.Price.ToString("N2")
+                                        </div>
+
+                                        <!-- NEW: Heart Button -->
+                                        <button class="btn-heart"
+                                                onclick="toggleFavorite(this, '@product.Id', '@JavaScriptEncoder.Default.Encode(productName)', @product.Price)"
+                                                aria-label="Save to list">
+                                            <i class="bi bi-heart"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    }
                 </div>
             </div>
         }
-        else
-        {
-            @foreach (var category in Model.Categories.Where(c => c.Products.Any()).OrderBy(c => c.Priority))
-            {
-                var categorySlug = category.Name.Replace(" ", "-").ToLower();
-                var categoryName = TranslationHelper.GetTranslation(category.Name, category.NameTranslations, currentLang);
+    }
+</div>
 
-                <div id="@categorySlug" class="category-section">
-                    <div class="category-header">
-                        <h2 class="category-title">@categoryName</h2>
-                        <p class="category-count">@category.Products.Count @(category.Products.Count == 1 ? "item" : "items")</p>
-                    </div>
+<!-- Footer -->
+<div class="menu-footer">
+    <p>
+        <i class="bi bi-shop-window me-2"></i>
+        Powered by Restaurant Menu System
+    </p>
+    <small>&copy; @DateTime.Now.Year @Model.Name. All rights reserved.</small>
+</div>
 
-                    <div class="products-list">
-                        @foreach (var product in category.Products.OrderBy(p => p.DisplayOrder))
-                        {
-                            var productName = TranslationHelper.GetTranslation(product.Name, product.NameTranslations, currentLang);
-                            var productDesc = TranslationHelper.GetTranslation(product.Description ?? "", product.DescriptionTranslations, currentLang);
-                            var productNutrition = TranslationHelper.GetTranslation(product.Nutritions ?? "", product.NutritionsTranslations, currentLang);
-
-                            <div class="product-card @(string.IsNullOrEmpty(product.Image) ? "no-image" : "")">
-                                @if (!string.IsNullOrEmpty(product.Image))
-                                {
-                                <div class="product-image-wrapper">
-                                    <img src="@product.Image" alt="@productName" class="product-image" />
-                                </div>
-                                }
-
-                                <div class="product-details">
-                                    <div class="product-header">
-                                        <div style="flex: 1;"> <!-- Added flex: 1 to push price/heart to right -->
-                                            <h3 class="product-name">@productName</h3>
-                                            @if (!string.IsNullOrEmpty(productDesc))
-                                            {
-                                                <p class="product-description">@productDesc</p>
-                                            }
-                                            @if (!string.IsNullOrEmpty(productNutrition))
-                                            {
-                                                <div class="product-nutrition">
-                                                    <i class="bi bi-heart-pulse-fill"></i>
-                                                    <span>@productNutrition</span>
-                                                </div>
-                                            }
-                                        </div>
-    
-                                        <!-- Price and Heart Container -->
-                                        <div class="d-flex align-items-center">
-                                            <div class="product-price">
-                                                @ViewBag.CurrencySymbol@product.Price.ToString("N2")
-                                            </div>
-        
-                                            <!-- NEW: Heart Button -->
-                                            <button class="btn-heart" 
-                                                    onclick="toggleFavorite(this, '@product.Id', '@JavaScriptEncoder.Default.Encode(productName)', @product.Price)"
-                                                    aria-label="Save to list">
-                                                <i class="bi bi-heart"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                </div>
-                            </div>
-                        }
-                    </div>
-                </div>
-            }
-        }
-    </div>
-
-    <!-- Footer -->
-    <div class="menu-footer">
-        <p>
-            <i class="bi bi-shop-window me-2"></i>
-            Powered by Restaurant Menu System
-        </p>
-        <small>&copy; @DateTime.Now.Year @Model.Name. All rights reserved.</small>
-    </div>
-
-    <!-- JavaScript -->
-    <script>
+<!-- JavaScript -->
+<script>
         // Hide loader when page is fully loaded
         window.addEventListener('load', function() {
             const loader = document.getElementById('pageLoader');
@@ -1413,41 +1417,41 @@
         initFavorites();
 
     </script>
-    <!-- Floating View Order Button -->
-    <button class="fab-order" id="fabOrder" onclick="openOrderModal()">
-        <div class="fab-count" id="fabCount">0</div>
-        <span>My Selection</span>
-        <i class="bi bi-arrow-right"></i>
-    </button>
+<!-- Floating View Order Button -->
+<button class="fab-order" id="fabOrder" onclick="openOrderModal()">
+    <div class="fab-count" id="fabCount">0</div>
+    <span>My Selection</span>
+    <i class="bi bi-arrow-right"></i>
+</button>
 
-    <!-- Order Sidebar/Modal -->
-    <div class="order-modal-overlay" id="orderModal">
-        <div class="order-modal">
-            <div class="order-header">
-                <h3 class="m-0" style="font-family: 'Playfair Display', serif;">Your Selection</h3>
-                <button type="button" class="btn-close" onclick="closeOrderModal()"></button>
-            </div>
-        
-            <div class="order-content" id="orderList">
-                <!-- Items will be injected here via JS -->
-                <div class="text-center text-muted mt-5">
-                    <i class="bi bi-heart" style="font-size: 2rem;"></i>
-                    <p class="mt-3">Your list is empty</p>
-                </div>
-            </div>
+<!-- Order Sidebar/Modal -->
+<div class="order-modal-overlay" id="orderModal">
+    <div class="order-modal">
+        <div class="order-header">
+            <h3 class="m-0" style="font-family: 'Playfair Display', serif;">Your Selection</h3>
+            <button type="button" class="btn-close" onclick="closeOrderModal()"></button>
+        </div>
 
-            <div class="order-footer">
-                <div class="d-flex justify-content-between mb-3">
-                    <span class="fw-bold">Total Estimate</span>
-                    <span class="fw-bold text-primary" id="orderTotal">@ViewBag.CurrencySymbol 0.00</span>
-                </div>
-                <div class="d-grid gap-2">
-                    <button class="btn btn-outline-danger rounded-pill py-2" onclick="clearFavorites()">
-                        Clear List
-                    </button>
-                </div>
+        <div class="order-content" id="orderList">
+            <!-- Items will be injected here via JS -->
+            <div class="text-center text-muted mt-5">
+                <i class="bi bi-heart" style="font-size: 2rem;"></i>
+                <p class="mt-3">Your list is empty</p>
+            </div>
+        </div>
+
+        <div class="order-footer">
+            <div class="d-flex justify-content-between mb-3">
+                <span class="fw-bold">Total Estimate</span>
+                <span class="fw-bold text-primary" id="orderTotal">@ViewBag.CurrencySymbol 0.00</span>
+            </div>
+            <div class="d-grid gap-2">
+                <button class="btn btn-outline-danger rounded-pill py-2" onclick="clearFavorites()">
+                    Clear List
+                </button>
             </div>
         </div>
     </div>
+</div>
 </body>
 </html>
