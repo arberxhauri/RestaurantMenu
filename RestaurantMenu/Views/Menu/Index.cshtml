@@ -967,11 +967,19 @@
         <div class="restaurant-info">
             <div class="info-item">
                 <i class="bi bi-geo-alt-fill"></i>
-                <span>@Model.Address</span>
+                <a
+                    href="https://www.google.com/maps/search/?api=1&query=@Uri.EscapeDataString(Model.Address)"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    @Model.Address
+                </a>
             </div>
             <div class="info-item">
                 <i class="bi bi-telephone-fill"></i>
-                <span>@Model.PhoneNumber</span>
+                <a href="tel:@Model.PhoneNumber">
+                    @Model.PhoneNumber
+                </a>
             </div>
         </div>
     </div>
