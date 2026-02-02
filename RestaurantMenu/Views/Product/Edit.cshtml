@@ -160,17 +160,20 @@
 
                                 @if (!string.IsNullOrEmpty(Model.Image))
                                 {
-                                <div class="mb-3 position-relative">
-                                    <img src="@Model.Image" alt="Current Image"
-                                         class="img-fluid rounded shadow"
-                                         style="width: 100%; height: 250px; object-fit: cover;" />
-                                    <div class="position-absolute top-0 end-0 m-2">
-                                            <span class="badge bg-success px-3 py-2">
-                                                <i class="bi bi-check-circle-fill me-1"></i>Current Image
-                                            </span>
+                                    <div class="d-flex gap-2 mb-3">
+                                        <form asp-controller="Product" asp-action="RemoveImage" method="post" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@Model.Id" />
+                                            <input type="hidden" name="returnTo" value="edit" />
+                                            <button type="submit"
+                                                    class="btn btn-danger btn-sm"
+                                                    onclick="return confirm('Delete the current product image?');">
+                                                <i class="bi bi-trash-fill me-1"></i>Delete Image
+                                            </button>
+                                        </form>
                                     </div>
-                                </div>
                                 }
+
 
                                 <div class="image-upload-wrapper">
                                     <div id="imagePreview" class="image-preview-box @(string.IsNullOrEmpty(Model.Image) ? "" : "has-current-image")"

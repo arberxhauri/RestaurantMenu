@@ -296,4 +296,36 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
                 System.IO.File.Delete(fullPath);
             }
         }
+        
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RemoveImage(int id, string? returnTo = null)
+        {
+            var user = await _userManager.GetUserAsync(User);
+
+            var product = await _context.Products
+                .Include(p => p.Category)
+                .ThenInclude(c => c.Branch)
+                .FirstOrDefaultAsync(p => p.Id == id
+                                          && p.Category.Branch.UserId == user.Id
+                                          && !p.Category.Branch.IsDeleted);
+
+            if (product == null)
+                return NotFound();
+
+            if (!string.IsNullOrEmpty(product.Image))
+            {
+                DeleteImage(product.Image);
+                product.Image = null;
+                await _context.SaveChangesAsync();
+                TempData["Success"] = "Product image deleted successfully!";
+            }
+
+            // returnTo = "edit" or "branch"
+            if (returnTo == "branch")
+                return RedirectToAction("Details", "Branch", new { id = product.BranchId });
+
+            return RedirectToAction("Edit", new { id = product.Id });
+        }
+
     }
