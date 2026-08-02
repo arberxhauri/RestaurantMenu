@@ -4,9 +4,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RestaurantMenu.Models;
 
+using RestaurantMenu.Filters;
 namespace RestaurantMenu.Controllers;
 
 [Authorize(Roles = "OWNER")]
+[NoIndex]
 public class DashboardController : Controller
 {
     private readonly ApplicationDbContext _context;

@@ -7,9 +7,11 @@ using Microsoft.EntityFrameworkCore;
 using RestaurantMenu.Models;
 using RestaurantMenu.ViewModels;
 
+using RestaurantMenu.Filters;
 namespace RestaurantMenu.Controllers;
 
 [Authorize(Roles = "ADMIN")]
+    [NoIndex]
     public class AdminController : Controller
     {
         private readonly UserManager<ApplicationUser> _userManager;

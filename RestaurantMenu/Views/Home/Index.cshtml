@@ -18,9 +18,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Digital menus, your website, table bookings and day-to-day management — all sharing one set of data. Change a price once and it lands everywhere in seconds." />
-    <title>@ViewData["Title"] · My Quick Menu</title>
-    <link rel="icon" type="image/png" href="~/logo.png" />
+    @await Html.PartialAsync("_SeoMeta", (SeoMetadata)ViewData["Seo"]!)
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -968,7 +966,7 @@
                         <a class="partner-card"
                            asp-controller="Menu"
                            asp-action="Index"
-                           asp-route-branchName="@branch.Name.Replace(" ", "")"
+                           asp-route-branchName="@SeoService.Slug(branch.Name)"
                            target="_blank"
                            rel="noopener"
                            title="@branch.Name">

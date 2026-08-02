@@ -6,9 +6,11 @@ using Microsoft.EntityFrameworkCore;
 using RestaurantMenu.Helpers;
 using RestaurantMenu.Models;
 
+using RestaurantMenu.Filters;
 namespace RestaurantMenu.Controllers;
 
 [Authorize(Roles = "OWNER")]
+    [NoIndex]
     public class ProductController : Controller
     {
         private readonly ApplicationDbContext _context;

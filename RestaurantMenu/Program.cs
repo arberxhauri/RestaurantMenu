@@ -6,6 +6,7 @@ using RestaurantMenu.Models;
 using System.Globalization;
 using RestaurantMenu.Services;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -48,6 +49,24 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 // 5. Controllers
 builder.Services.AddControllersWithViews();
 
+// 5a. SEO. Render terminates TLS at its proxy and forwards plain HTTP, so without
+// this the app sees Scheme == "http" and every canonical, og:url and sitemap entry
+// would advertise an http:// URL that immediately redirects — a needless hop that
+// also splits signals between the two schemes. KnownProxies is cleared because
+// Render's proxy address is not fixed and not knowable ahead of time.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
+// Generate lowercase URLs so links, canonicals and the sitemap agree on one spelling.
+builder.Services.Configure<RouteOptions>(options => options.LowercaseUrls = true);
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<SeoService>();
+
 // 6. Cookie settings
 builder.Services.ConfigureApplicationCookie(options =>
 {
@@ -65,6 +84,10 @@ builder.Services.AddAuthorization(options =>
 });
 
 var app = builder.Build();
+
+// Must run before anything reads Request.Scheme or Request.Host — including
+// UseHttpsRedirection and every SEO URL the views build.
+app.UseForwardedHeaders();
 
 // Pick disk mount path (set on Render). Default for local dev.
 var diskMount = Environment.GetEnvironmentVariable("DISK_MOUNT_PATH") ?? "/var/data";

@@ -4,8 +4,10 @@ using Microsoft.AspNetCore.Mvc;
 using RestaurantMenu.Models;
 using RestaurantMenu.ViewModels;
 
+using RestaurantMenu.Filters;
 namespace RestaurantMenu.Controllers;
 
+[NoIndex]
 public class AccountController : Controller
     {
         private readonly SignInManager<ApplicationUser> _signInManager;

@@ -1,0 +1,77 @@
+@model SeoMetadata
+@*
+    Every <head> tag that search engines and social scrapers read.
+    Include this inside <head>, after <meta charset> and the viewport tag.
+*@
+<title>@Model.Title</title>
+<meta name="description" content="@Model.Description" />
+
+@if (Model.NoIndex)
+{
+    <meta name="robots" content="noindex, nofollow" />
+}
+else
+{
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+}
+
+@if (!string.IsNullOrEmpty(Model.CanonicalUrl))
+{
+    <link rel="canonical" href="@Model.CanonicalUrl" />
+}
+
+@foreach (var alternate in Model.Alternates)
+{
+    <link rel="alternate" hreflang="@alternate.Language" href="@alternate.Url" />
+}
+@if (Model.Alternates.Count > 0)
+{
+    var fallback = Model.Alternates.FirstOrDefault(a => a.Language == SeoService.DefaultLanguage)
+                   ?? Model.Alternates[0];
+    <link rel="alternate" hreflang="x-default" href="@fallback.Url" />
+}
+
+<meta property="og:type" content="@Model.OgType" />
+<meta property="og:title" content="@Model.Title" />
+<meta property="og:description" content="@Model.Description" />
+<meta property="og:site_name" content="My Quick Menu" />
+<meta property="og:locale" content="@Model.Locale" />
+@if (!string.IsNullOrEmpty(Model.CanonicalUrl))
+{
+    <meta property="og:url" content="@Model.CanonicalUrl" />
+}
+@if (!string.IsNullOrEmpty(Model.ImageUrl))
+{
+    <meta property="og:image" content="@Model.ImageUrl" />
+    <meta property="og:image:alt" content="@(Model.ImageAlt ?? Model.Title)" />
+}
+
+<meta name="twitter:card" content="@(string.IsNullOrEmpty(Model.ImageUrl) ? "summary" : "summary_large_image")" />
+<meta name="twitter:title" content="@Model.Title" />
+<meta name="twitter:description" content="@Model.Description" />
+@if (!string.IsNullOrEmpty(Model.ImageUrl))
+{
+    <meta name="twitter:image" content="@Model.ImageUrl" />
+    <meta name="twitter:image:alt" content="@(Model.ImageAlt ?? Model.Title)" />
+}
+
+@if (!string.IsNullOrEmpty(Model.ThemeColor))
+{
+    <meta name="theme-color" content="@Model.ThemeColor" />
+}
+
+@if (!string.IsNullOrEmpty(Model.FaviconUrl))
+{
+    <link rel="icon" href="@Model.FaviconUrl" />
+    <link rel="apple-touch-icon" href="@Model.FaviconUrl" />
+}
+
+@if (!string.IsNullOrEmpty(Model.JsonLd))
+{
+    @*
+        Raw is safe here: StructuredData serialises with the default System.Text.Json
+        encoder, which escapes < > & into \uXXXX so restaurant-supplied names and
+        descriptions cannot close this script element.
+    *@
+    <script type="application/ld+json">@Html.Raw(Model.JsonLd)</script>
+}

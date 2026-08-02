@@ -6,9 +6,11 @@ using RestaurantMenu.Helpers;
 using RestaurantMenu.Models;
 using RestaurantMenu.Services;
 
+using RestaurantMenu.Filters;
 namespace RestaurantMenu.Controllers;
 
 [Authorize(Roles = "OWNER")]
+    [NoIndex]
     public class BranchController : Controller
     {
         private readonly ApplicationDbContext _context;

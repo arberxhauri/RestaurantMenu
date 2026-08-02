@@ -25,6 +25,11 @@
     // Get current language
     var currentLang = ViewBag.CurrentLanguage as string ?? "en";
     var supportedLanguages = (ViewBag.SupportedLanguages as string[]) ?? new[] { "en" };
+
+    // Built in MenuController; the theme colour is only known here, after the
+    // branch's palette has been parsed above.
+    var seo = (SeoMetadata)ViewData["Seo"]!;
+    seo.ThemeColor = primaryColor;
 }
 
 <!DOCTYPE html>
@@ -32,12 +37,10 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="View the menu for @Model.Name - Browse our selection of delicious items" />
-    <title>@ViewData["Title"]</title>
+    @await Html.PartialAsync("_SeoMeta", seo)
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <link rel="icon" type="image" href="@Model.Logo" />
     <style>
         * {
             margin: 0;

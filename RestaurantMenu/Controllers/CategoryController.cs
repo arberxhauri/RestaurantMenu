@@ -5,9 +5,11 @@ using Microsoft.EntityFrameworkCore;
 using RestaurantMenu.Helpers;
 using RestaurantMenu.Models;
 
+using RestaurantMenu.Filters;
 namespace RestaurantMenu.Controllers
 {
     [Authorize]
+    [NoIndex]
     public class CategoryController : Controller
     {
         private readonly ApplicationDbContext _context;
