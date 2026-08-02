@@ -2,3 +2,8 @@ bin/
 obj/
 .idea/
 *.user
+
+# macOS metadata. AppleDouble "._*" sidecars appear when the repo lives on a
+# non-HFS volume; committing them breaks the build (MSB1011 and CS2015).
+._*
+.DS_Store

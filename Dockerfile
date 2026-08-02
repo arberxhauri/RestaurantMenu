@@ -14,9 +14,9 @@ RUN dotnet restore RestaurantMenu.sln
 # Copy the rest of the code (if any additional files)
 # (optional if everything is already copied)
 
-# Build and publish the project
-WORKDIR /app/RestaurantMenu
-RUN dotnet publish -c Release -o /out
+# Build and publish the project. Name the .csproj explicitly so the build does
+# not depend on exactly one project file being present in the directory.
+RUN dotnet publish RestaurantMenu/RestaurantMenu.csproj -c Release -o /out
 
 # -------- Runtime Stage --------
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
