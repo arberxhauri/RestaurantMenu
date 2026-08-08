@@ -2056,6 +2056,58 @@ input[asp-for="DisplayOrder"] {
     color: var(--primary-dark);
 }
 
+.footer .fourcs-credit {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.5rem 0.75rem 0.5rem 0.55rem;
+    color: var(--primary-dark);
+    background: linear-gradient(135deg, rgba(249, 115, 22, 0.09), rgba(255, 255, 255, 0.75));
+    border: 1px solid rgba(249, 115, 22, 0.22);
+    border-radius: 999px;
+    font-size: 0.86rem;
+    font-weight: 500;
+    text-decoration: none;
+    box-shadow: 0 7px 18px rgba(15, 23, 42, 0.07);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.footer .fourcs-credit:hover {
+    color: var(--primary-dark);
+    border-color: var(--accent-orange);
+    box-shadow: 0 10px 24px rgba(249, 115, 22, 0.18);
+    transform: translateY(-2px);
+}
+
+.footer .fourcs-credit:focus-visible {
+    outline: 3px solid rgba(249, 115, 22, 0.3);
+    outline-offset: 3px;
+}
+
+.footer .fourcs-credit-icon {
+    display: grid;
+    width: 1.9rem;
+    height: 1.9rem;
+    place-items: center;
+    color: white;
+    background: var(--accent-orange);
+    border-radius: 50%;
+    box-shadow: 0 4px 10px rgba(249, 115, 22, 0.3);
+}
+
+.footer .fourcs-credit strong,
+.footer .fourcs-credit-arrow {
+    color: var(--accent-orange);
+}
+
+.footer .fourcs-credit-arrow {
+    transition: transform 0.2s ease;
+}
+
+.footer .fourcs-credit:hover .fourcs-credit-arrow {
+    transform: translate(2px, -2px);
+}
+
 /* Font Weight Utility */
 .fw-500 {
     font-weight: 500;
@@ -2157,4 +2209,3 @@ main {
     color: var(--accent-orange) !important;
     background: rgba(249, 115, 22, 0.1);
 }
-
