@@ -514,6 +514,43 @@
         .footer-links { display: flex; align-items: center; flex-wrap: wrap; gap: 26px; font-size: 14px; color: var(--muted-2); }
         .footer-links a { color: var(--muted-2); }
         .footer-links a:hover { color: var(--ink); }
+        .landing-fourcs-credit {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 11px 7px 8px;
+            color: var(--ink) !important;
+            background: #fff;
+            border: 1px solid #DED2C5;
+            border-radius: 999px;
+            box-shadow: 0 6px 18px #2318130D;
+            transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+        }
+        .landing-fourcs-credit:hover {
+            color: var(--ink) !important;
+            border-color: var(--orange);
+            box-shadow: 0 9px 22px #D55C1324;
+            transform: translateY(-2px);
+        }
+        .landing-fourcs-credit:focus-visible {
+            outline: 3px solid #D55C1340;
+            outline-offset: 3px;
+        }
+        .landing-fourcs-spark {
+            display: grid;
+            width: 25px;
+            height: 25px;
+            place-items: center;
+            flex: none;
+            color: #fff;
+            background: var(--orange);
+            border-radius: 50%;
+            font-size: 12px;
+            box-shadow: 0 4px 10px #D55C1340;
+        }
+        .landing-fourcs-credit strong { color: var(--orange); font-weight: 700; }
+        .landing-fourcs-arrow { color: var(--orange); transition: transform .18s ease; }
+        .landing-fourcs-credit:hover .landing-fourcs-arrow { transform: translate(2px, -2px); }
 
         /* ---------- Responsive ---------- */
         @@media (max-width: 1000px) {
@@ -582,6 +619,8 @@
         @@media (prefers-reduced-motion: reduce) {
             html { scroll-behavior: auto; }
             .partner-card:hover { transform: none; }
+            .landing-fourcs-credit:hover,
+            .landing-fourcs-credit:hover .landing-fourcs-arrow { transform: none; }
         }
     </style>
 </head>
@@ -1025,6 +1064,15 @@
                 }
                 <a asp-controller="Home" asp-action="Privacy">Privacy</a>
                 <a asp-controller="Home" asp-action="Privacy">Terms</a>
+                <a class="landing-fourcs-credit"
+                   href="https://4cs.al/"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   aria-label="Developed by 4CS — visit 4cs.al">
+                    <span class="landing-fourcs-spark" aria-hidden="true">&#10022;</span>
+                    <span>Developed by <strong>4CS</strong></span>
+                    <span class="landing-fourcs-arrow" aria-hidden="true">&#8599;</span>
+                </a>
                 <span>&copy; @DateTime.Now.Year My Quick Menu</span>
             </div>
         </div>
