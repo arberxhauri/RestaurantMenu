@@ -22,7 +22,9 @@
     // From the table QR code (?t=14). Kept on the language links so switching language keeps the table.
     var table = ViewBag.Table as int?;
     var tableLabel = table == null ? null : TableText.Label(table.Value, currentLang);
-    var tableQuery = table == null ? "" : $"&t={table}";
+    var tableCode = ViewBag.TableCode as string;
+    var tableQuery = table == null ? "" : $"&t={table}" + (tableCode == null ? "" : $"&k={tableCode}");
+
 
     // Allergens & dietary tags. The filter button only appears once the restaurant has
     // declared something, otherwise every filter would empty the menu.
@@ -71,6 +73,27 @@
         "tr" => new { Search = "Menüde ara", NoResults = "Eşleşen yemek yok", Items = "ürün", Item = "ürün", List = "Listeniz", Empty = "Listeniz boş", EmptyHint = "Yemekleri + düğmesiyle ekleyin", Total = "Tahmini toplam", Clear = "Listeyi temizle", Save = "Listeye ekle", Saved = "Listede", Close = "Kapat", Soon = "Menü çok yakında", SoonHint = "Restoran yemeklerini ekliyor.", Nutrition = "Besin değerleri", Show = "Garsona gösterin", SoldOut = "Tükendi" },
         _ => new { Search = "Search the menu", NoResults = "No dishes match", Items = "items", Item = "item", List = "Your list", Empty = "Your list is empty", EmptyHint = "Add dishes with the + button", Total = "Estimated total", Clear = "Clear list", Save = "Add to list", Saved = "On your list", Close = "Close", Soon = "Menu coming soon", SoonHint = "The restaurant is adding its dishes.", Nutrition = "Nutrition", Show = "Show this to your server", SoldOut = "Sold out" }
     };
+
+    // Table ordering (MenuController.OrderingStateAsync): "on", or why the list can't be
+    // sent ("paused", "closed", "oldcode"); null when this visit isn't at an ordering table.
+    var ordering = ViewBag.Ordering as string;
+    var ot = OrderText.For(currentLang);
+    var orderConfig = System.Text.Json.JsonSerializer.Serialize(new
+    {
+        state = ordering,
+        orderUrl = Url.Action("Order", "Menu"),
+        ordersUrl = Url.Action("Orders", "Menu"),
+        branch = Model.Id,
+        table,
+        code = tableCode,
+        lang = currentLang,
+        words = new
+        {
+            send = ot.Send, sending = ot.Sending, orderNumber = ot.OrderNumber, notNow = ot.NotNow,
+            busy = ot.Busy, network = ot.Network, unavailable = ot.Unavailable, yourOrders = ot.YourOrders,
+            item = ui.Item, items = ui.Items
+        }
+    });
 }
 
 <!DOCTYPE html>
@@ -424,7 +447,7 @@
     @* Floating summary of the guest's list. Hidden until something is saved. *@
     <button class="m-fab" type="button" data-fab hidden aria-haspopup="dialog">
         <span class="m-fab-count tabular" data-fab-count>0</span>
-        <span>@ui.List</span>
+        <span data-fab-label>@ui.List</span>
         <span class="m-fab-total tabular" data-fab-total></span>
     </button>
 
@@ -466,16 +489,55 @@
             {
                 <p class="m-list-table"><i class="ph-fill ph-armchair" aria-hidden="true"></i>@tableLabel</p>
             }
-            <p class="m-list-hint">@ui.Show</p>
-            <ul class="m-list" data-list aria-live="polite"></ul>
-            <div class="m-list-foot" data-list-foot>
-                <div class="m-list-total">
-                    <span>@ui.Total</span>
-                    <strong class="tabular" data-list-total></strong>
+
+            @* Shown right after an order is sent, instead of the (now empty) list. *@
+            <div class="m-order-done" data-order-done hidden>
+                <i class="ph-fill ph-check-circle" aria-hidden="true"></i>
+                <h3>@ot.Sent</h3>
+                <p data-order-done-text></p>
+                <button class="m-btn m-btn--ghost" type="button" data-close data-order-more>@ot.AddMore</button>
+            </div>
+
+            <section class="m-orders" data-orders hidden aria-labelledby="ordersTitle">
+                <h3 id="ordersTitle">@ot.YourOrders</h3>
+                <ul data-orders-list aria-live="polite"></ul>
+            </section>
+
+            <div data-list-body>
+                @if (ordering == "on")
+                {
+                    <p class="m-list-hint">@ot.Hint</p>
+                }
+                else if (ordering != null)
+                {
+                    <p class="m-order-off"><i class="ph ph-info" aria-hidden="true"></i>@(ordering switch { "closed" => ot.Closed, "oldcode" => ot.OldCode, _ => ot.Unavailable })</p>
+                    <p class="m-list-hint">@ui.Show</p>
+                }
+                else
+                {
+                    <p class="m-list-hint">@ui.Show</p>
+                }
+                <ul class="m-list" data-list aria-live="polite"></ul>
+                <div class="m-list-foot" data-list-foot>
+                    <div class="m-list-total">
+                        <span>@(ordering == "on" ? ot.Total : ui.Total)</span>
+                        <strong class="tabular" data-list-total></strong>
+                    </div>
+                    @if (ordering == "on")
+                    {
+                        <label class="m-order-note">
+                            <span>@ot.NoteLabel</span>
+                            <textarea data-order-note maxlength="@OrderRules.MaxNote" rows="2" placeholder="@ot.NotePlaceholder" enterkeyhint="done"></textarea>
+                        </label>
+                        <p class="m-order-error" data-order-error role="alert" hidden></p>
+                        <button class="m-btn m-btn--brand m-btn--block" type="button" data-order-send>
+                            <i class="ph ph-paper-plane-tilt" aria-hidden="true"></i><span data-order-send-label>@ot.Send</span>
+                        </button>
+                    }
+                    <button class="m-btn m-btn--ghost" type="button" data-clear>
+                        <i class="ph ph-trash" aria-hidden="true"></i>@ui.Clear
+                    </button>
                 </div>
-                <button class="m-btn m-btn--ghost" type="button" data-clear>
-                    <i class="ph ph-trash" aria-hidden="true"></i>@ui.Clear
-                </button>
             </div>
         </div>
     </dialog>
@@ -521,6 +583,8 @@
         </dialog>
     }
 
+    @* JSON for menu.js; the serializer escapes <, > and & so nothing here can close the tag. *@
+    <script type="application/json" id="orderConfig">@Html.Raw(orderConfig)</script>
     <script src="~/js/menu.js" asp-append-version="true" defer></script>
 </body>
 </html>

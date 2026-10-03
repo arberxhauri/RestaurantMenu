@@ -18,6 +18,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<ProductOptionGroup> ProductOptionGroups { get; set; }
     public DbSet<ProductOption> ProductOptions { get; set; }
     public DbSet<BranchMember> BranchMembers { get; set; }
+    public DbSet<DiningTable> Tables { get; set; }
+    public DbSet<Order> Orders { get; set; }
+    public DbSet<OrderItem> OrderItems { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -115,6 +118,41 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.HasOne(m => m.Branch).WithMany(b => b.Members).HasForeignKey(m => m.BranchId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(m => m.User).WithMany().HasForeignKey(m => m.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(m => !m.Branch!.IsDeleted && !m.User!.IsDeleted);
+        });
+
+        // Table ordering. Tables and orders follow their branch's soft delete. Orders keep
+        // copies of everything they show, so dishes and tables may change or go.
+        builder.Entity<DiningTable>(e =>
+        {
+            e.HasIndex(t => new { t.BranchId, t.Number }).IsUnique();
+            e.HasOne(t => t.Branch).WithMany(b => b.Tables).HasForeignKey(t => t.BranchId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(t => t.Name).HasMaxLength(40);
+            e.Property(t => t.Code).HasMaxLength(12);
+            e.HasQueryFilter(t => !t.Branch!.IsDeleted);
+        });
+        builder.Entity<Order>(e =>
+        {
+            e.HasIndex(o => o.PublicId).IsUnique();
+            e.HasIndex(o => new { o.BranchId, o.ClientRequestId }).IsUnique();
+            e.HasIndex(o => new { o.BranchId, o.OrderDay, o.Number }).IsUnique();
+            e.HasIndex(o => new { o.BranchId, o.Status, o.CreatedUtc });
+            e.HasIndex(o => o.CreatedUtc); // retention cleanup
+            e.HasOne(o => o.Branch).WithMany().HasForeignKey(o => o.BranchId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<DiningTable>().WithMany().HasForeignKey(o => o.TableId).OnDelete(DeleteBehavior.SetNull);
+            e.Property(o => o.TableName).HasMaxLength(40);
+            e.Property(o => o.Note).HasMaxLength(200);
+            e.Property(o => o.Language).HasMaxLength(8);
+            e.Property(o => o.Total).HasPrecision(18, 2);
+            e.HasQueryFilter(o => !o.Branch!.IsDeleted);
+        });
+        builder.Entity<OrderItem>(e =>
+        {
+            e.HasOne(i => i.Order).WithMany(o => o.Items).HasForeignKey(i => i.OrderId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(i => i.Name).HasMaxLength(200);
+            e.Property(i => i.Options).HasMaxLength(500);
+            e.Property(i => i.OptionIds).HasMaxLength(200);
+            e.Property(i => i.UnitPrice).HasPrecision(18, 2);
+            e.HasQueryFilter(i => !i.Order!.Branch!.IsDeleted);
         });
 
         // Decimal precision for Price

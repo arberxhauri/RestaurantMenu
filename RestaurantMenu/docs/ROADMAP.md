@@ -178,8 +178,24 @@ Managers and waiters update the menu with their own login.
 
 ## Bigger bets (the products the landing page sells)
 
-### 14. Table ordering (3 to 4 weeks)
-`Order`, `OrderItem` (with options), `Table`. "Your list" gets a "Send to kitchen" button when the menu was opened with `?t=`. A kitchen display page `/kitchen/{branch}` updates live via **SignalR**, with statuses New → Preparing → Served. Optional online payment later (Stripe, or a local acquirer for Albania).
+### 14. Table ordering: done
+Guests at a table send their list to the kitchen; the kitchen display updates live.
+
+- **Data** (migration `AddTableOrdering`, additive): `DiningTable { Number, Name (area), Code }`, `Order { PublicId, ClientRequestId, TableNumber, TableName, Number (daily), OrderDay, Status, Note, Language, Total }`, `OrderItem { ProductId, Name, Options, OptionIds, UnitPrice, Quantity }`. Orders copy everything they show, so editing or deleting dishes and tables never changes them. `Branch.OrderingEnabled`, `OrdersPaused`, and a daily order counter. Orders older than `Orders:RetentionDays` (default 400) are deleted by the daily cleanup.
+- **Table codes:** each table's QR code carries its number and a secret 6-character code (`?t=12&k=7QX4MP`). Only a valid code can send orders, so typing `?t=12` at home isn't enough. QR codes and print runs include the code for tables that are set up. Older printouts (number only) still open the menu and show "show your list to your server". "New code" (one table or all) stops old printouts and links.
+- **Placing an order** (`POST /menu/order`, `Services/OrderService`, rules in `Helpers/OrderRules`, unit-tested): prices and option prices always come from the menu, never from the phone. The order is refused (with a message in the guest's language) when ordering is off or paused, outside opening hours, when a dish is sold out or its category isn't served now (naming the dishes), or when choices don't match the dish's option rules. Identical lines are merged, the note becomes one line of at most 200 characters, and limits apply: 40 lines, 20 per line, 100 items, 64 KB. The phone sends a request id, so a retry after a lost response never orders twice. Order numbers restart daily and come from one atomic update, so simultaneous orders never share a number (tested with 28 at once). Limits: 8 orders per table per 10 minutes, and 40 per network address (`Orders__RateLimitPerIp`; restaurant guests often share one Wi-Fi address).
+- **Guest menu:** at an ordering table, "Your list" shows a note field and **Send to kitchen**, then "Sent to the kitchen · Order #12". The phone remembers its orders for 12 hours and shows their status (Received, Being prepared, Served, Cancelled), checking every 10 seconds while one is open. With an empty list the floating button follows the newest order. Everything is in the menu's 7 languages.
+- **Kitchen display** `/kitchen/{branch}` (Editor and up, new `BranchPermission.Kitchen`): three columns (New, Preparing, Done for the last 3 hours) with large type for a tablet or wall screen, tabs on phones. Cards show the table and area, order number and time, minutes waiting ("Late" after 5 minutes new or 20 preparing), dishes with choices, the note and the total. Buttons: Start, Served, Back to new, Undo, Restore, Cancel. Other features:
+  - **Pause orders:** guests are asked to order with their server.
+  - **Sound:** a chime on new orders.
+  - **Full screen**, and the screen is kept awake.
+  - **Light and dark:** follows the device.
+
+  Live through **SignalR** (`/hubs/kitchen`, `Hubs/KitchenHub`). Screens join their branch after the same access check as the page, and every change goes through the server. Two screens tapping at once can't undo each other: the second gets "Another screen already moved…". The list is reloaded on start, after every reconnect and every 30 seconds, so a missed push never leaves a screen wrong. Losing the network shows at once ("Offline · waiting for the network").
+- **Tables & ordering page** (`/branch/{id}/tables`, Manager and up): switch ordering on or off, add tables by range with an optional area, rename, remove, new code per table or for all, download a table's QR code, open the table's menu to test, orders per table over 30 days, and print the QR codes. The branch page links to it and, while ordering is on, to the kitchen.
+- **Also fixed:** an emptied guest list kept showing the old total and Clear button; visually-hidden labels inside scrolling tables widened pages on phones (Tables, and the admin owner list); oversized posts were logged as server errors.
+- **Hosting:** Render supports WebSockets on every plan, nothing to set up. For more than one app instance, add a SignalR backplane (Redis).
+- **Later:** online payment (Stripe, or a local acquirer for Albania); "call the waiter / bring the bill" buttons; a printer ticket per order; order history and sales on Insights (feeds the management system).
 
 ### 15. Bookings (2 to 3 weeks)
 `ReservationSettings` (slot length, covers per slot, lead time), `Reservation { Name, Phone, Guests, StartsAt, Status }`. A public widget at `/book/{slug}` (the landing's slot-picker tile is already the UI), owner calendar view, SMS confirmations through Twilio or a local SMS gateway, and no-show tracking.

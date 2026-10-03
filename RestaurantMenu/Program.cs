@@ -124,6 +124,11 @@ builder.Services.AddScoped<QrCodeService>();
 builder.Services.AddScoped<IBranchAccess, BranchAccess>();
 builder.Services.AddTransient<InviteMailer>();
 
+// Table ordering: guests' orders go to kitchen displays live over SignalR (WebSockets,
+// with fallbacks). One app instance: with several, add a backplane (e.g. Redis).
+builder.Services.AddScoped<OrderService>();
+builder.Services.AddSignalR();
+
 // Menu analytics: anonymous events (no cookies, no IP or device stored), owner reports,
 // and a daily cleanup of old events.
 builder.Services.AddSingleton<MenuAnalytics>();
@@ -155,6 +160,14 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("forgot-password", context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 8, Window = TimeSpan.FromMinutes(15), QueueLimit = 0 }));
+
+    // Table orders, per client address. Generous because a restaurant's guests often share
+    // one Wi-Fi address; each table is limited separately as well (OrderService).
+    // Orders__RateLimitPerIp raises it for a very busy venue on one connection.
+    var ordersPerIp = Math.Max(5, builder.Configuration.GetValue("Orders:RateLimitPerIp", 40));
+    options.AddPolicy("orders", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = ordersPerIp, Window = TimeSpan.FromMinutes(10), QueueLimit = 0 }));
 
     // People get a page that explains, not a bare 429.
     options.OnRejected = (context, _) =>
@@ -224,6 +237,8 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // Custom menu route BEFORE default
+app.MapHub<RestaurantMenu.Hubs.KitchenHub>("/hubs/kitchen");
+
 app.MapControllerRoute(
     name: "menu",
     pattern: "menu/{branchName}",

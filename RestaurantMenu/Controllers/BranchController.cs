@@ -400,11 +400,13 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
                 return BadRequest("Format must be svg or png.");
             }
 
-            var link = _qr.MenuLink(branch, table);
+            var code = table == null ? null
+                : await _context.Tables.Where(t => t.BranchId == branch.Id && t.Number == table).Select(t => t.Code).FirstOrDefaultAsync();
+            var link = _qr.MenuLink(branch, table, code);
             var fileName = $"{SeoService.Slug(branch.Name)}-{(table == null ? "menu" : $"table-{table}")}-qr.{format}";
 
-            // The code changes only when the branch is renamed, so let the browser keep it for a while.
-            Response.Headers.CacheControl = "private, max-age=3600";
+            // Changes when the branch is renamed or the table gets a new ordering code.
+            Response.Headers.CacheControl = "private, no-cache";
 
             var (bytes, contentType) = format == "png"
                 ? (_qr.Png(link), "image/png")
@@ -465,11 +467,24 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
                 for (var t = from; t <= to; t++) tables.Add(t);
             }
 
+            // Tables set up for ordering get their code into the link, so the printed card
+            // can send orders. The others open the menu with the table number only.
+            var numbers = tables.Where(t => t != null).Select(t => t!.Value).ToList();
+            var codes = await _context.Tables.AsNoTracking()
+                .Where(t => t.BranchId == branch.Id && numbers.Contains(t.Number))
+                .ToDictionaryAsync(t => t.Number, t => t.Code);
+            if (branch.OrderingEnabled && !noTables && numbers.Count > codes.Count)
+            {
+                var missing = numbers.Where(n => !codes.ContainsKey(n)).ToList();
+                var tablesNotice = $"{TableRanges(missing)} {(missing.Count == 1 ? "isn't" : "aren't")} set up for ordering, so {(missing.Count == 1 ? "its card opens" : "their cards open")} the menu without ordering. Add them on the Tables page first.";
+                notice = notice == null ? tablesNotice : $"{notice} {tablesNotice}";
+            }
+
             // One SVG per distinct link: whole-menu copies are all the same code.
             var svgByLink = new Dictionary<string, string>();
             var cards = tables.Select(t =>
             {
-                var link = _qr.MenuLink(branch, t);
+                var link = _qr.MenuLink(branch, t, t != null && codes.TryGetValue(t.Value, out var c) ? c : null);
                 if (!svgByLink.TryGetValue(link, out var svg))
                 {
                     svg = _qr.Svg(link);
@@ -496,6 +511,22 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
                 Notice = notice,
                 Cards = cards
             });
+        }
+
+        /// <summary>"Table 4", "Tables 4 to 9", "Tables 2, 4 to 9 and 12".</summary>
+        public static string TableRanges(IReadOnlyList<int> numbers)
+        {
+            var parts = new List<string>();
+            var sorted = numbers.Distinct().OrderBy(n => n).ToList();
+            for (var i = 0; i < sorted.Count;)
+            {
+                var j = i;
+                while (j + 1 < sorted.Count && sorted[j + 1] == sorted[j] + 1) j++;
+                parts.Add(j == i ? $"{sorted[i]}" : j == i + 1 ? $"{sorted[i]}, {sorted[j]}" : $"{sorted[i]} to {sorted[j]}");
+                i = j + 1;
+            }
+            var text = parts.Count <= 1 ? parts.FirstOrDefault() ?? "" : string.Join(", ", parts.Take(parts.Count - 1)) + " and " + parts[^1];
+            return (sorted.Count == 1 ? "Table " : "Tables ") + text;
         }
 
         // The primary colour extracted from the logo, only if it is a plain hex colour,

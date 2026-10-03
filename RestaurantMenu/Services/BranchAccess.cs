@@ -21,11 +21,13 @@ public enum BranchPermission
     View,
     /// <summary>Add and edit dishes, sold out, recommend, reorder dishes, photos, translate (Editor and up).</summary>
     EditDishes,
+    /// <summary>The kitchen display: see table orders, move them along, pause new orders (Editor and up).</summary>
+    Kitchen,
     /// <summary>Delete and restore dishes (Manager and up).</summary>
     DeleteDishes,
     /// <summary>Create, edit, delete and reorder categories (Manager and up).</summary>
     EditCategories,
-    /// <summary>Branch details, opening hours, brand (Manager and up).</summary>
+    /// <summary>Branch details, opening hours, brand, tables and ordering (Manager and up).</summary>
     EditBranch,
     /// <summary>Insights (Manager and up).</summary>
     ViewInsights,
@@ -74,7 +76,7 @@ public class BranchAccess : IBranchAccess
     /// <summary>The lowest role that has a permission. The single permission table.</summary>
     public static BranchRole Required(BranchPermission permission) => permission switch
     {
-        BranchPermission.View or BranchPermission.EditDishes => BranchRole.Editor,
+        BranchPermission.View or BranchPermission.EditDishes or BranchPermission.Kitchen => BranchRole.Editor,
         BranchPermission.DeleteDishes or BranchPermission.EditCategories or BranchPermission.EditBranch
             or BranchPermission.ViewInsights or BranchPermission.Print => BranchRole.Manager,
         _ => BranchRole.Owner
@@ -86,23 +88,28 @@ public class BranchAccess : IBranchAccess
     {
         if (_userId == null) return BranchRole.None;
         if (_cache.TryGetValue(branchId, out var cached)) return cached;
+        var role = await RoleOfAsync(_db, _userId, branchId);
+        _cache[branchId] = role;
+        return role;
+    }
 
-        var info = await _db.Branches.AsNoTracking()
+    /// <summary>A given user's role on a branch, for places without the current request (the kitchen hub).</summary>
+    public static async Task<BranchRole> RoleOfAsync(ApplicationDbContext db, string userId, int branchId)
+    {
+        var info = await db.Branches.AsNoTracking()
             .Where(b => b.Id == branchId)
             .Select(b => new
             {
                 b.UserId,
-                Member = b.Members!.Where(m => m.UserId == _userId).Select(m => (BranchMemberRole?)m.Role).FirstOrDefault()
+                Member = b.Members!.Where(m => m.UserId == userId).Select(m => (BranchMemberRole?)m.Role).FirstOrDefault()
             })
             .FirstOrDefaultAsync();
 
-        var role = info == null ? BranchRole.None
-            : info.UserId == _userId ? BranchRole.Owner
+        return info == null ? BranchRole.None
+            : info.UserId == userId ? BranchRole.Owner
             : info.Member == BranchMemberRole.Manager ? BranchRole.Manager
             : info.Member == BranchMemberRole.Editor ? BranchRole.Editor
             : BranchRole.None;
-        _cache[branchId] = role;
-        return role;
     }
 
     public async Task<bool> CanAsync(int branchId, BranchPermission permission) =>

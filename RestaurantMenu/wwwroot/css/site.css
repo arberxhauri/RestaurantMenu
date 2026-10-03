@@ -1041,3 +1041,27 @@ a.chip--link:hover { background: var(--accent-soft); color: var(--accent); }
 .admin-tools .panel { margin: 0; }
 .admin-tools .chip { display: inline-flex; margin-right: 6px; vertical-align: 1px; }
 .chip--ok { background: var(--ok-soft); color: var(--ok); }
+
+/* ---------- Tables & ordering ---------- */
+.tables-layout { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 16px; }
+.tables-layout .panel { margin: 0; }
+.ordering-switch { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.ordering-switch .form-check-label { font-weight: 600; }
+.ordering-steps { list-style: none; margin: 16px 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.ordering-steps li { display: flex; gap: 10px; align-items: flex-start; color: var(--ink-2); }
+.ordering-steps i { font-size: 20px; color: var(--accent); margin-top: 1px; }
+.tables-add { display: grid; grid-template-columns: 1fr 1fr 1.4fr auto; gap: 10px; align-items: end; margin-bottom: 10px; }
+.tables-add .btn { min-height: 38px; }
+.optional { color: var(--ink-3); font-weight: 400; font-size: 13px; }
+.panel-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.tables-table th[scope="row"] { font: 700 18px/1 var(--font-display); }
+.tables-table .limit-form .form-control { width: 180px; text-align: left; font-family: var(--font-body); }
+@media (max-width: 575.98px) {
+    .tables-add { grid-template-columns: 1fr 1fr; }
+    .tables-add-name { grid-column: 1 / -1; }
+    .tables-add .btn { grid-column: 1 / -1; }
+}
+
+/* Visually hidden labels inside a scrolling table are absolutely positioned; without a
+   positioned scroll box they escape its clipping and widen the whole page on phones. */
+.table-responsive { position: relative; }

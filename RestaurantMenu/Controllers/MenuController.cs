@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using RestaurantMenu.Filters;
 using RestaurantMenu.Helpers;
 using RestaurantMenu.Models;
 using RestaurantMenu.Services;
@@ -12,16 +13,18 @@ public class MenuController : Controller
     private readonly ApplicationDbContext _context;
     private readonly SeoService _seo;
     private readonly MenuAnalytics _analytics;
+    private readonly OrderService _orders;
 
-    public MenuController(ApplicationDbContext context, SeoService seo, MenuAnalytics analytics)
+    public MenuController(ApplicationDbContext context, SeoService seo, MenuAnalytics analytics, OrderService orders)
     {
         _context = context;
         _seo = seo;
         _analytics = analytics;
+        _orders = orders;
     }
 
     [Route("menu/{branchName}")]
-    public async Task<IActionResult> Index(string branchName, string lang = "en", int? t = null)
+    public async Task<IActionResult> Index(string branchName, string lang = "en", int? t = null, string? k = null)
     {
         branchName = branchName.Trim();
 
@@ -53,6 +56,9 @@ public class MenuController : Controller
         // ?t= is the table the guest's QR code was printed for. Anything out of range is
         // ignored rather than shown, so a mistyped link still opens the menu.
         var table = SeoService.ValidTable(t);
+        // k is the table's ordering code from its QR code. Only letters and digits are kept,
+        // so it can go back into links as is.
+        var code = table == null || string.IsNullOrEmpty(k) || k.Length > 12 || !k.All(char.IsAsciiLetterOrDigit) ? null : k;
 
         // The lookup above is case- and space-insensitive, so one menu is reachable at
         // several spellings. Send every variant to the one canonical URL with a 301 so
@@ -60,7 +66,7 @@ public class MenuController : Controller
         var canonicalSlug = SeoService.Slug(branch.Name);
         if (!string.Equals(decodedName, canonicalSlug, StringComparison.Ordinal))
         {
-            return RedirectPermanent(_seo.MenuUrl(branch.Name, lang, table));
+            return RedirectPermanent(_seo.MenuUrl(branch.Name, lang, table, code));
         }
 
         // Collected before any are hidden: a guest may have saved a dish to their list
@@ -85,6 +91,8 @@ public class MenuController : Controller
         ViewBag.CurrencySymbol = CurrencyHelper.GetCurrencySymbol(branch.Currency);
         ViewBag.CurrentLanguage = lang;
         ViewBag.Table = table;
+        ViewBag.TableCode = code;
+        ViewBag.Ordering = await OrderingStateAsync(branch, table, code);
         ViewBag.SupportedLanguages = supportedLanguages;
         ViewBag.ThemeColors = branch.ThemeColors;
 
@@ -155,6 +163,70 @@ public class MenuController : Controller
 
         await _analytics.RecordAsync(b, type.Value, p, language);
         return NoContent();
+    }
+
+    /// <summary>
+    /// Whether this page may send orders: "on", or why not ("paused", "closed", "oldcode").
+    /// Null when ordering isn't part of this visit (no table, or ordering is off).
+    /// </summary>
+    private async Task<string?> OrderingStateAsync(Branch branch, int? table, string? code)
+    {
+        if (table == null || !branch.OrderingEnabled) return null;
+        var row = await _context.Tables.AsNoTracking().FirstOrDefaultAsync(x => x.BranchId == branch.Id && x.Number == table);
+        if (row == null || !OrderRules.CodeMatches(row.Code, code)) return "oldcode";
+        if (branch.OrdersPaused) return "paused";
+        if (branch.HoursEnabled && !OpeningHours.GetStatus(branch.OpeningHours ?? new List<BranchHours>(),
+                OpeningHours.Zone(branch.TimeZone), DateTime.UtcNow).IsOpen) return "closed";
+        return "on";
+    }
+
+    /// <summary>
+    /// A table's order from menu.js (JSON, see <see cref="OrderRequest"/>). Anonymous: the
+    /// table code from the QR code is the permission. Prices come from the menu, never
+    /// from the phone. 200 with the order, or 422 with a message in the guest's language.
+    /// </summary>
+    [HttpPost("menu/order")]
+    [EnableRateLimiting("orders")]
+    [MaxBodySize(64 * 1024)]
+    public async Task<IActionResult> Order([FromBody] OrderRequest? request)
+    {
+        if (request == null)
+        {
+            return UnprocessableEntity(new { ok = false, problem = "invalid", message = OrderText.For(null).Changed });
+        }
+
+        var result = await _orders.PlaceAsync(request, DateTime.UtcNow);
+        if (result.Order == null)
+        {
+            var problem = result.Problem!.Value.ToString();
+            return UnprocessableEntity(new
+            {
+                ok = false,
+                problem = char.ToLowerInvariant(problem[0]) + problem[1..],
+                message = result.Message,
+                unavailable = result.Unavailable
+            });
+        }
+
+        var o = result.Order;
+        return Ok(new
+        {
+            ok = true,
+            order = new GuestOrder(o.PublicId, o.Number, o.TableNumber, KitchenOrder.StatusId(o.Status),
+                OrderText.Status(o.Status, request.Lang), o.Total, o.Items.Sum(i => i.Quantity))
+        });
+    }
+
+    /// <summary>Status of the guest's own orders: ids=guid,guid (up to 10, from this phone's storage).</summary>
+    [HttpGet("menu/orders")]
+    [EnableRateLimiting("menu-events")]
+    public async Task<IActionResult> Orders(string? ids, string? lang)
+    {
+        var list = (ids ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(x => Guid.TryParse(x, out var g) ? g : Guid.Empty)
+            .Where(g => g != Guid.Empty).Distinct().Take(10).ToList();
+        Response.Headers.CacheControl = "no-store";
+        return Ok(await _orders.GuestStatusAsync(list, lang));
     }
 
     private SeoMetadata BuildSeo(Branch branch, string language, string[] supportedLanguages)

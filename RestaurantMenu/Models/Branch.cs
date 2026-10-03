@@ -34,4 +34,14 @@ public class Branch : ISoftDeletable
 
     // Staff who help run this branch (Team on Branch Details).
     public ICollection<BranchMember>? Members { get; set; }
+
+    // Table ordering: guests at a set-up table (Tables page) send their list to the
+    // kitchen display. OrdersPaused is the kitchen's "not taking orders right now".
+    public bool OrderingEnabled { get; set; }
+    public bool OrdersPaused { get; set; }
+    // Daily order numbers (#1, #2…), handed out by one atomic UPDATE so orders arriving
+    // at the same moment never share a number (OrderService.NextNumberAsync).
+    public int OrderCounter { get; set; }
+    public DateOnly? OrderCounterDay { get; set; }
+    public ICollection<DiningTable>? Tables { get; set; }
 }

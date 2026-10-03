@@ -71,7 +71,8 @@ public class SeoService
     /// <paramref name="table"/> (?t=) is the table a QR code was printed for. It never
     /// goes into canonical or hreflang URLs, which always call this without it.
     /// </summary>
-    public string MenuUrl(string branchName, string? language = null, int? table = null)
+    /// <paramref name="code"/> (&amp;k=) is the table's ordering code, only with a table.
+    public string MenuUrl(string branchName, string? language = null, int? table = null, string? code = null)
     {
         var url = $"{BaseUrl}/menu/{Uri.EscapeDataString(Slug(branchName))}";
         var query = new List<string>(2);
@@ -82,6 +83,10 @@ public class SeoService
         if (table != null)
         {
             query.Add($"t={table}");
+            if (!string.IsNullOrEmpty(code))
+            {
+                query.Add($"k={Uri.EscapeDataString(code)}");
+            }
         }
         return query.Count == 0 ? url : $"{url}?{string.Join("&", query)}";
     }

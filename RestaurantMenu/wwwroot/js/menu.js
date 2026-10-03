@@ -1,5 +1,7 @@
 /* Public menu: category scroll-spy, search, dish sheet, and the guest's saved list.
-   The list lives only in this guest's browser (localStorage). */
+   The list lives only in this guest's browser (localStorage). At a table set up for
+   ordering (QR code with ?t= and k=), the list can be sent to the kitchen, and the
+   phone follows its orders' status. */
 (function () {
     'use strict';
 
@@ -60,7 +62,29 @@
     }
     function persist() {
         try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) { /* not fatal */ }
+        requestId = null; // a changed list is a new order
     }
+
+    /* ---------- Table ordering: config and this phone's orders ---------- */
+    var ORDER = {};
+    try { ORDER = JSON.parse((document.getElementById('orderConfig') || {}).textContent || '{}') || {}; } catch (e) { ORDER = {}; }
+    var OW = ORDER.words || {};
+    var ORDERS_KEY = 'menu_orders_' + (ORDER.branch || BRANCH_ID);
+    var ORDER_TTL = 12 * 3600 * 1000; // a phone shows its orders for 12 hours
+    var requestId = null;              // kept across retries of the same list, so a retry never orders twice
+    var myOrders = [];
+    function loadOrders() {
+        try {
+            var raw = JSON.parse(localStorage.getItem(ORDERS_KEY) || '[]');
+            var cutoff = Date.now() - ORDER_TTL;
+            myOrders = Array.isArray(raw) ? raw.filter(function (o) { return o && o.id && o.t > cutoff; }) : [];
+        } catch (e) { myOrders = []; }
+    }
+    function saveOrders() {
+        try { localStorage.setItem(ORDERS_KEY, JSON.stringify(myOrders.slice(0, 10))); } catch (e) { /* not fatal */ }
+    }
+    function isFinal(o) { return o.status === 'served' || o.status === 'cancelled'; }
+    loadOrders();
     function find(key) { return list.find(function (i) { return i.key === key; }); }
     function listed(id) { return list.some(function (i) { return i.id === id; }); }
 
@@ -113,6 +137,34 @@
     var fab = document.querySelector('[data-fab]');
     var fabCount = document.querySelector('[data-fab-count]');
     var fabTotal = document.querySelector('[data-fab-total]');
+    var fabLabel = document.querySelector('[data-fab-label]');
+    var fabLabelText = fabLabel ? fabLabel.textContent : '';
+    var sendBtn = document.querySelector('[data-order-send]');
+    var sending = false;
+
+    function renderOrders() {
+        var box = document.querySelector('[data-orders]');
+        if (!box) return;
+        var ul = box.querySelector('[data-orders-list]');
+        ul.textContent = '';
+        box.hidden = myOrders.length === 0;
+        myOrders.slice(0, 5).forEach(function (o) {
+            var li = document.createElement('li');
+            var name = document.createElement('strong');
+            name.textContent = (OW.orderNumber || '#{0}').replace('{0}', o.n);
+            var meta = document.createElement('small');
+            meta.textContent = o.count + ' ' + (o.count === 1 ? OW.item : OW.items) + ' · ' + fmt(o.total);
+            var st = document.createElement('span');
+            st.className = 'm-order-status m-order-status--' + o.status;
+            st.textContent = o.statusText;
+            var text = document.createElement('div');
+            text.appendChild(name);
+            text.appendChild(meta);
+            li.appendChild(text);
+            li.appendChild(st);
+            ul.appendChild(li);
+        });
+    }
     var listEl = document.querySelector('[data-list]');
     var listFoot = document.querySelector('[data-list-foot]');
     var listTotal = document.querySelector('[data-list-total]');
@@ -132,10 +184,15 @@
         });
 
         if (fab) {
-            fab.hidden = list.length === 0;
-            fabCount.textContent = count();
-            fabTotal.textContent = fmt(total());
+            // With an empty list, the button follows the newest order instead ("#12 · Being prepared").
+            var latest = list.length === 0 ? myOrders[0] : null;
+            fab.hidden = list.length === 0 && !latest;
+            fabCount.textContent = latest ? '#' + latest.n : count();
+            fabLabel.textContent = latest ? latest.statusText : fabLabelText;
+            fabTotal.textContent = latest ? '' : fmt(total());
         }
+        renderOrders();
+        if (sendBtn) sendBtn.disabled = sending || list.length === 0;
 
         if (!listEl) return;
         listEl.textContent = '';
@@ -376,7 +433,113 @@
     });
 
     var listSheet = document.querySelector('[data-list-sheet]');
-    if (fab) fab.addEventListener('click', function () { render(); openSheet(listSheet); });
+    var listBody = document.querySelector('[data-list-body]');
+    var doneBox = document.querySelector('[data-order-done]');
+    function showDone(show) {
+        if (!doneBox) return;
+        doneBox.hidden = !show;
+        if (listBody) listBody.hidden = show;
+    }
+    if (fab) fab.addEventListener('click', function () { showDone(false); render(); openSheet(listSheet); pollOrders(); });
+    if (listSheet) listSheet.addEventListener('close', function () { showDone(false); });
+
+    /* ---------- Send to kitchen ---------- */
+    var noteEl = document.querySelector('[data-order-note]');
+    var errorEl = document.querySelector('[data-order-error]');
+    function showError(text) {
+        if (!errorEl) return;
+        errorEl.textContent = text || '';
+        errorEl.hidden = !text;
+    }
+    function uuid() {
+        if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+        var b = new Uint8Array(16);
+        (window.crypto || window.msCrypto).getRandomValues(b);
+        b[6] = (b[6] & 15) | 64; b[8] = (b[8] & 63) | 128;
+        var h = Array.prototype.map.call(b, function (x) { return (x + 256).toString(16).slice(1); }).join('');
+        return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20);
+    }
+    function setSending(on) {
+        sending = on;
+        if (!sendBtn) return;
+        sendBtn.disabled = on || list.length === 0;
+        sendBtn.querySelector('[data-order-send-label]').textContent = on ? OW.sending : OW.send;
+    }
+    if (sendBtn) sendBtn.addEventListener('click', function () {
+        if (sending || !list.length) return;
+        showError('');
+        // Sold-out dishes can't be sent: say which, and let the guest remove them.
+        var gone = list.filter(function (i) { return isSoldOut(i.id); });
+        if (gone.length) {
+            showError(OW.notNow.replace('{0}', gone.map(function (i) { return i.name; }).join(', ')));
+            return;
+        }
+        if (!requestId) requestId = uuid();
+        var payload = {
+            branch: ORDER.branch, table: ORDER.table, code: ORDER.code, requestId: requestId, lang: ORDER.lang,
+            note: noteEl ? noteEl.value : '',
+            items: list.map(function (i) {
+                // key is "dishId" or "dishId:optionId-optionId" (see addWithOptions).
+                var parts = i.key.split(':');
+                return { id: Number(i.id), qty: i.qty, options: parts[1] ? parts[1].split('-').map(Number) : [] };
+            })
+        };
+        setSending(true);
+        fetch(ORDER.orderUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(payload)
+        }).then(function (r) {
+            if (r.status === 429) { showError(OW.busy); return; }
+            if (r.status !== 200 && r.status !== 422) throw new Error('HTTP ' + r.status);
+            return r.json().then(function (data) {
+                if (!data.ok) { showError(data.message || OW.unavailable); return; }
+                var o = data.order;
+                myOrders = myOrders.filter(function (x) { return x.id !== o.id; });
+                myOrders.unshift({ id: o.id, n: o.number, table: o.table, status: o.status, statusText: o.statusText, total: o.total, count: o.count, t: Date.now() });
+                saveOrders();
+                list = [];
+                persist();
+                if (noteEl) noteEl.value = '';
+                document.querySelector('[data-order-done-text]').textContent =
+                    (OW.orderNumber || '#{0}').replace('{0}', o.number) + ' · ' + o.statusText;
+                showDone(true);
+                render();
+                schedulePoll();
+            });
+        }).catch(function () {
+            showError(OW.network); // same requestId on retry: the kitchen never gets it twice
+        }).then(function () { setSending(false); });
+    });
+
+    /* ---------- Order status: polled while this phone has open orders ---------- */
+    var pollTimer = null;
+    function schedulePoll() {
+        clearTimeout(pollTimer);
+        if (myOrders.some(function (o) { return !isFinal(o); })) pollTimer = setTimeout(pollOrders, 10000);
+    }
+    function pollOrders() {
+        clearTimeout(pollTimer);
+        if (!ORDER.ordersUrl || !myOrders.length || document.visibilityState !== 'visible') return;
+        var ids = myOrders.slice(0, 10).map(function (o) { return o.id; }).join(',');
+        fetch(ORDER.ordersUrl + '?ids=' + encodeURIComponent(ids) + '&lang=' + encodeURIComponent(ORDER.lang || ''), { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+            .then(function (rows) {
+                rows.forEach(function (row) {
+                    myOrders.forEach(function (o) {
+                        if (o.id === row.id) { o.status = row.status; o.statusText = row.statusText; o.total = row.total; o.count = row.count; }
+                    });
+                });
+                // Orders the server no longer knows (deleted with their branch) drop off.
+                myOrders = myOrders.filter(function (o) { return rows.some(function (row) { return row.id === o.id; }); });
+                saveOrders();
+                render();
+            })
+            .catch(function () { /* try again on the next tick */ })
+            .then(schedulePoll);
+    }
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') pollOrders(); });
+    if (myOrders.length) pollOrders();
     var clearBtn = document.querySelector('[data-clear]');
     if (clearBtn) clearBtn.addEventListener('click', function () {
         if (!window.confirm(clearBtn.textContent.trim() + '?')) return;

@@ -1,0 +1,118 @@
+@model Branch
+@{
+    // Full-screen page for a tablet or screen in the kitchen: no sidebar, large type.
+    Layout = null;
+    var canManage = ViewBag.CanManage == true;
+    var tableCount = (int)ViewBag.TableCount;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <meta name="theme-color" content="#16181A" />
+    <title>Kitchen - @Model.Name</title>
+    <link rel="icon" href="~/favicon.ico" />
+    <partial name="_HeadAssets" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/kitchen.css" asp-append-version="true" />
+</head>
+<body class="kitchen-page"
+      data-branch="@Model.Id"
+      data-orders-url="@Url.Action("Orders", "Kitchen", new { id = Model.Id })"
+      data-status-url="@Url.Content($"~/kitchen/{Model.Id}/orders/")"
+      data-pause-url="@Url.Action("Pause", "Kitchen", new { id = Model.Id })"
+      data-hub-url="@Url.Content("~/hubs/kitchen")"
+      data-currency="@ViewBag.Currency"
+      data-title="Kitchen · @Model.Name">
+    @Html.AntiForgeryToken()
+
+    <header class="k-bar">
+        <a class="k-back" asp-controller="Branch" asp-action="Details" asp-route-id="@Model.Id" aria-label="Back to @Model.Name">
+            <i class="ph ph-arrow-left" aria-hidden="true"></i>
+        </a>
+        <div class="k-title">
+            <h1>Kitchen</h1>
+            <span>@Model.Name</span>
+        </div>
+        <span class="k-conn" data-conn="connecting" role="status" aria-live="polite">
+            <span class="k-conn-dot" aria-hidden="true"></span><span data-conn-text>Connecting…</span>
+        </span>
+        <div class="k-tools">
+            <button type="button" class="k-tool" data-sound aria-pressed="false">
+                <i class="ph ph-speaker-slash" aria-hidden="true"></i><span>Sound off</span>
+            </button>
+            <button type="button" class="k-tool" data-pause aria-pressed="@(Model.OrdersPaused ? "true" : "false")" @(Model.OrderingEnabled ? "" : "hidden")>
+                <i class="ph @(Model.OrdersPaused ? "ph-play" : "ph-pause")" aria-hidden="true"></i><span>@(Model.OrdersPaused ? "Resume orders" : "Pause orders")</span>
+            </button>
+            <button type="button" class="k-tool k-tool--icon" data-fullscreen aria-label="Full screen" title="Full screen">
+                <i class="ph ph-corners-out" aria-hidden="true"></i>
+            </button>
+        </div>
+    </header>
+
+    <div class="k-banner k-banner--warn" data-paused-banner @(Model.OrdersPaused && Model.OrderingEnabled ? "" : "hidden")>
+        <i class="ph ph-pause-circle" aria-hidden="true"></i>
+        <p><strong>New orders are paused.</strong> Guests are asked to order with their server. Orders already sent stay below.</p>
+    </div>
+    <div class="k-banner k-banner--info" data-off-banner @(Model.OrderingEnabled ? "hidden" : "")>
+        <i class="ph ph-info" aria-hidden="true"></i>
+        <p>
+            <strong>Table ordering is off for this branch.</strong>
+            @if (canManage)
+            {
+                <span>Switch it on and set up your tables on <a asp-controller="Tables" asp-action="Index" asp-route-id="@Model.Id">Tables &amp; ordering</a>.</span>
+            }
+            else
+            {
+                <span>A manager or the owner can switch it on.</span>
+            }
+        </p>
+    </div>
+    @if (Model.OrderingEnabled && tableCount == 0)
+    {
+        <div class="k-banner k-banner--info">
+            <i class="ph ph-info" aria-hidden="true"></i>
+            <p><strong>No tables are set up yet,</strong> so no orders can arrive. @if (canManage) { <a asp-controller="Tables" asp-action="Index" asp-route-id="@Model.Id">Add tables</a> }</p>
+        </div>
+    }
+    <div class="k-banner k-banner--warn" data-sound-banner hidden>
+        <i class="ph ph-speaker-high" aria-hidden="true"></i>
+        <p><strong>Tap anywhere to allow sound.</strong> Browsers block it until the screen is touched once.</p>
+    </div>
+    <div class="k-banner k-banner--danger" data-denied-banner hidden>
+        <i class="ph ph-lock" aria-hidden="true"></i>
+        <p><strong>You no longer have access to this branch's orders.</strong> <a asp-controller="Dashboard" asp-action="Index">Back to my branches</a></p>
+    </div>
+
+    <nav class="k-tabs" aria-label="Order columns">
+        <button type="button" data-tab="new" aria-pressed="true">New <span class="k-count" data-count="new">0</span></button>
+        <button type="button" data-tab="preparing" aria-pressed="false">Preparing <span class="k-count" data-count="preparing">0</span></button>
+        <button type="button" data-tab="done" aria-pressed="false">Done <span class="k-count" data-count="done">0</span></button>
+    </nav>
+
+    <main class="k-board" id="main" data-show="new">
+        <section class="k-col" data-col="new" aria-labelledby="col-new">
+            <h2 id="col-new">New <span class="k-count" data-count="new">0</span></h2>
+            <div class="k-list" data-list="new"></div>
+            <p class="k-empty" data-empty="new"><i class="ph ph-bell-simple" aria-hidden="true"></i>New orders appear here the moment a table sends them.</p>
+        </section>
+        <section class="k-col" data-col="preparing" aria-labelledby="col-preparing">
+            <h2 id="col-preparing">Preparing <span class="k-count" data-count="preparing">0</span></h2>
+            <div class="k-list" data-list="preparing"></div>
+            <p class="k-empty" data-empty="preparing"><i class="ph ph-cooking-pot" aria-hidden="true"></i>Nothing on the stove.</p>
+        </section>
+        <section class="k-col k-col--done" data-col="done" aria-labelledby="col-done">
+            <h2 id="col-done">Done <span class="k-sub">last 3 hours</span></h2>
+            <div class="k-list" data-list="done"></div>
+            <p class="k-empty" data-empty="done"><i class="ph ph-check-circle" aria-hidden="true"></i>Served orders show here for 3 hours.</p>
+        </section>
+    </main>
+
+    <div class="k-toast" data-toast role="status" aria-live="polite" hidden></div>
+
+    <script src="~/lib/microsoft-signalr/signalr.min.js"></script>
+    <script src="~/js/kitchen.js" asp-append-version="true"></script>
+</body>
+</html>

@@ -50,6 +50,18 @@
         <a class="btn btn-outline-secondary btn-sm" href="@menuUrl" target="_blank" rel="noopener">
             <i class="ph ph-arrow-square-out" aria-hidden="true"></i>Live menu
         </a>
+        @if (Model.OrderingEnabled && Can(BranchPermission.Kitchen))
+        {
+            <a class="btn btn-primary btn-sm" asp-controller="Kitchen" asp-action="Index" asp-route-id="@Model.Id">
+                <i class="ph ph-cooking-pot" aria-hidden="true"></i>Kitchen
+            </a>
+        }
+        @if (Can(BranchPermission.EditBranch))
+        {
+            <a class="btn btn-outline-secondary btn-sm" asp-controller="Tables" asp-action="Index" asp-route-id="@Model.Id">
+                <i class="ph ph-armchair" aria-hidden="true"></i>Tables &amp; ordering
+            </a>
+        }
         @if (Can(BranchPermission.ViewInsights))
         {
             <a class="btn btn-outline-secondary btn-sm" asp-action="Insights" asp-route-id="@Model.Id">

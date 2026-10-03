@@ -1,0 +1,154 @@
+@using RestaurantMenu.Controllers
+@using RestaurantMenu.Services
+@model TablesPage
+@{
+    var branch = Model.Branch;
+    var tables = Model.Tables;
+    ViewData["Title"] = "Tables & ordering - " + branch.Name;
+    var counts = (Dictionary<int, int>)ViewBag.OrderCounts;
+    var links = (Dictionary<int, string>)ViewBag.Links;
+    var printFrom = TempData["PrintFrom"] as int? ?? (tables.Count > 0 ? tables[0].Number : 1);
+    var printTo = TempData["PrintTo"] as int? ?? (tables.Count > 0 ? tables[^1].Number : 10);
+    var nextFree = tables.Count == 0 ? 1 : tables[^1].Number + 1;
+}
+
+<ol class="crumbs">
+    <li><a asp-controller="Dashboard" asp-action="Index">My branches</a></li>
+    <li><a asp-controller="Branch" asp-action="Details" asp-route-id="@branch.Id">@branch.Name</a></li>
+    <li aria-current="page">Tables &amp; ordering</li>
+</ol>
+
+<header class="page-head">
+    <div>
+        <h1>Tables &amp; ordering</h1>
+        <p>Guests scan their table's QR code, pick dishes and send the order straight to the kitchen.</p>
+    </div>
+    @if (branch.OrderingEnabled)
+    {
+        <div class="page-actions">
+            <a class="btn btn-primary btn-sm" asp-controller="Kitchen" asp-action="Index" asp-route-id="@branch.Id">
+                <i class="ph ph-cooking-pot" aria-hidden="true"></i>Kitchen display
+            </a>
+        </div>
+    }
+</header>
+
+<div class="tables-layout">
+    <section class="panel" aria-labelledby="ordering-title">
+        <div class="panel-body">
+            <h2 id="ordering-title" class="h5 mb-2">Table ordering</h2>
+            <form asp-action="Settings" asp-route-id="@branch.Id" method="post" class="ordering-switch" data-autosubmit>
+                <input type="hidden" name="orderingEnabled" value="false" />
+                <div class="form-check form-switch m-0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="orderingEnabled" name="orderingEnabled" value="true" @(branch.OrderingEnabled ? "checked" : "") />
+                    <label class="form-check-label" for="orderingEnabled">Guests can send orders from their table</label>
+                </div>
+                <noscript><button type="submit" class="btn btn-outline-secondary btn-sm">Save</button></noscript>
+            </form>
+            @if (branch.OrderingEnabled && branch.OrdersPaused)
+            {
+                <p class="mt-3 mb-0"><span class="chip chip--warn"><i class="ph ph-pause" aria-hidden="true"></i>Paused</span> The kitchen paused new orders. Resume them on the kitchen display.</p>
+            }
+            <ul class="ordering-steps">
+                <li><i class="ph ph-table" aria-hidden="true"></i><span><strong>Set up your tables</strong> below. Each gets its own secret code.</span></li>
+                <li><i class="ph ph-printer" aria-hidden="true"></i><span><strong>Print their QR codes.</strong> Codes printed before a table was set up can't send orders.</span></li>
+                <li><i class="ph ph-cooking-pot" aria-hidden="true"></i><span><strong>Open the kitchen display</strong> on a tablet or screen in the kitchen. New orders appear there instantly.</span></li>
+            </ul>
+            <p class="hint mb-0">Guests can only order dishes that aren't sold out and are being served now, at the menu's prices. Off: guests make a list and show it to their server, as before.</p>
+        </div>
+    </section>
+
+    <section class="panel" aria-labelledby="add-title">
+        <div class="panel-body">
+            <h2 id="add-title" class="h5 mb-2">Add tables</h2>
+            <form asp-action="Add" asp-route-id="@branch.Id" method="post" class="tables-add">
+                <div>
+                    <label class="form-label" for="from">From table</label>
+                    <input id="from" name="from" type="number" class="form-control" min="1" max="@SeoService.MaxTable" value="@nextFree" required inputmode="numeric" />
+                </div>
+                <div>
+                    <label class="form-label" for="to">To table</label>
+                    <input id="to" name="to" type="number" class="form-control" min="1" max="@SeoService.MaxTable" value="@(nextFree + 9)" inputmode="numeric" />
+                </div>
+                <div class="tables-add-name">
+                    <label class="form-label" for="name">Area <span class="optional">optional</span></label>
+                    <input id="name" name="name" class="form-control" maxlength="40" placeholder="e.g. Terrace" />
+                </div>
+                <button type="submit" class="btn btn-primary"><i class="ph ph-plus" aria-hidden="true"></i>Add</button>
+            </form>
+            <p class="hint mb-0">Same numbers as on your tables. Numbers already set up are skipped. The area shows next to the number in the kitchen.</p>
+        </div>
+    </section>
+</div>
+
+<section class="panel mt-4" aria-labelledby="list-title">
+    <div class="panel-head">
+        <h2 id="list-title" class="h5 m-0">Tables <span class="count">@tables.Count</span></h2>
+        @if (tables.Count > 0)
+        {
+            <div class="panel-actions">
+                <a class="btn btn-outline-secondary btn-sm" asp-controller="Branch" asp-action="Print" asp-route-id="@branch.Id" asp-route-from="@printFrom" asp-route-to="@printTo">
+                    <i class="ph ph-printer" aria-hidden="true"></i>Print QR codes @(printFrom == printTo ? $"(table {printFrom})" : $"({printFrom}–{printTo})")
+                </a>
+                <form asp-action="NewCodes" asp-route-id="@branch.Id" method="post" class="d-inline" data-confirm="Give all @tables.Count tables new codes? Every printed QR code stops sending orders until you print new ones.">
+                    <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="ph ph-arrows-clockwise" aria-hidden="true"></i>New codes for all</button>
+                </form>
+            </div>
+        }
+    </div>
+    @if (tables.Count == 0)
+    {
+        <div class="empty">
+            <i class="ph ph-armchair" aria-hidden="true"></i>
+            <h2>No tables yet</h2>
+            <p>Add your tables above to let guests order from them.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="data-table tables-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Table</th>
+                        <th scope="col">Area</th>
+                        <th scope="col">Code</th>
+                        <th scope="col" class="text-end">Orders (30 days)</th>
+                        <th scope="col"><span class="visually-hidden">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var t in tables)
+                    {
+                        <tr>
+                            <th scope="row" class="tabular">@t.Number</th>
+                            <td>
+                                <form asp-action="Rename" asp-route-id="@branch.Id" asp-route-tableId="@t.Id" method="post" class="limit-form">
+                                    <label class="visually-hidden" for="area-@t.Id">Area of table @t.Number</label>
+                                    <input id="area-@t.Id" name="name" value="@t.Name" class="form-control form-control-sm" maxlength="40" placeholder="—" />
+                                    <button type="submit" class="icon-btn icon-btn--line" aria-label="Save area of table @t.Number" title="Save"><i class="ph ph-check" aria-hidden="true"></i></button>
+                                </form>
+                            </td>
+                            <td><span class="mono">@t.Code</span></td>
+                            <td class="text-end tabular">@(counts.TryGetValue(t.Id, out var c) ? c : 0)</td>
+                            <td class="text-end text-nowrap">
+                                <a class="icon-btn" href="@links[t.Id]" target="_blank" rel="noopener" aria-label="Open table @t.Number's menu (to test ordering)" title="Open as a guest at this table">
+                                    <i class="ph ph-arrow-square-out" aria-hidden="true"></i>
+                                </a>
+                                <a class="icon-btn" asp-controller="Branch" asp-action="Qr" asp-route-id="@branch.Id" asp-route-table="@t.Number" asp-route-format="png" asp-route-download="true" aria-label="Download table @t.Number's QR code" title="Download QR code (PNG)">
+                                    <i class="ph ph-qr-code" aria-hidden="true"></i>
+                                </a>
+                                <form asp-action="NewCode" asp-route-id="@branch.Id" asp-route-tableId="@t.Id" method="post" class="d-inline" data-confirm="Give table @t.Number a new code? Its printed QR code stops sending orders until you print a new one.">
+                                    <button type="submit" class="icon-btn" aria-label="New code for table @t.Number" title="New code (old QR code stops ordering)"><i class="ph ph-arrows-clockwise" aria-hidden="true"></i></button>
+                                </form>
+                                <form asp-action="Delete" asp-route-id="@branch.Id" asp-route-tableId="@t.Id" method="post" class="d-inline" data-confirm="Remove table @t.Number? Its QR code will open the menu without ordering.">
+                                    <button type="submit" class="icon-btn icon-btn--danger" aria-label="Remove table @t.Number" title="Remove table"><i class="ph ph-trash" aria-hidden="true"></i></button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
