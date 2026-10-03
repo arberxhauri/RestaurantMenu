@@ -38,11 +38,12 @@
         <div class="panel-body">
             <h2 id="ordering-title" class="h5 mb-2">Table ordering</h2>
             <form asp-action="Settings" asp-route-id="@branch.Id" method="post" class="ordering-switch" data-autosubmit>
-                <input type="hidden" name="orderingEnabled" value="false" />
                 <div class="form-check form-switch m-0">
                     <input class="form-check-input" type="checkbox" role="switch" id="orderingEnabled" name="orderingEnabled" value="true" @(branch.OrderingEnabled ? "checked" : "") />
                     <label class="form-check-label" for="orderingEnabled">Guests can send orders from their table</label>
                 </div>
+                @* After the checkbox: when both are sent, the first value ("true") is the one bound. *@
+                <input type="hidden" name="orderingEnabled" value="false" />
                 <noscript><button type="submit" class="btn btn-outline-secondary btn-sm">Save</button></noscript>
             </form>
             @if (branch.OrderingEnabled && branch.OrdersPaused)
