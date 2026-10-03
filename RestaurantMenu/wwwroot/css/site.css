@@ -1026,3 +1026,18 @@ a.chip--link:hover { background: var(--accent-soft); color: var(--accent); }
 .team-who span { font-size: 13px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; }
 /* Read-only category rows (editors): no drag handle, so keep the usual inset. */
 .row-item:not(:has(.drag-handle)) { padding-left: 20px; }
+
+/* ---------- Auth: links, actions, tips (forgot / reset password) ---------- */
+.label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.auth-link { font-size: 14px; font-weight: 600; color: var(--accent); text-decoration: none; }
+.auth-link:hover { text-decoration: underline; }
+.auth-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.auth-alt { margin: 24px 0 0; text-align: center; }
+.auth-tips { margin: -8px 0 32px; padding-left: 20px; color: var(--ink-2); }
+.auth-tips li + li { margin-top: 6px; }
+
+/* ---------- Admin: email status and reset link ---------- */
+.admin-tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 16px; margin-top: 16px; }
+.admin-tools .panel { margin: 0; }
+.admin-tools .chip { display: inline-flex; margin-right: 6px; vertical-align: 1px; }
+.chip--ok { background: var(--ok-soft); color: var(--ok); }

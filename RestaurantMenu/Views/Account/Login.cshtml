@@ -1,83 +1,51 @@
 @model RestaurantMenu.ViewModels.LoginViewModel
 @{
     ViewData["Title"] = "Sign in";
-    Layout = null;
+    Layout = "_AuthLayout";
 }
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="robots" content="noindex" />
-    <title>Sign in - My Quick Menu</title>
-    <link rel="icon" href="~/favicon.ico" />
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <partial name="_HeadAssets" />
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-</head>
-<body>
-    <div class="auth">
-        <div class="auth-form-side">
-            <a class="sidebar-brand" asp-controller="Home" asp-action="Index">
-                <partial name="_BrandMark" model="28" />
-                <span class="brand-word">myquick<em>menu</em></span>
-            </a>
 
-            <main class="auth-form-wrap" id="main">
-                <h1>Welcome back</h1>
-                <p class="auth-sub">Sign in to update your menus.</p>
+<h1>Welcome back</h1>
+<p class="auth-sub">Sign in to update your menus.</p>
 
-                @if (TempData["Success"] is string ok)
-                {
-                    <div class="flash flash--ok mb-4" role="status"><i class="ph ph-check-circle" aria-hidden="true"></i><p>@ok</p></div>
-                }
+@if (TempData["Success"] is string ok)
+{
+    <div class="flash flash--ok mb-4" role="status"><i class="ph ph-check-circle" aria-hidden="true"></i><p>@ok</p></div>
+}
 
-                <form asp-action="Login" method="post" novalidate>
-                    <div asp-validation-summary="ModelOnly" role="alert"></div>
+<form asp-action="Login" method="post" novalidate>
+    <div asp-validation-summary="ModelOnly" role="alert"></div>
 
-                    <div class="mb-3">
-                        <label asp-for="Email" class="form-label">Email</label>
-                        <input asp-for="Email" type="email" class="form-control form-control-lg" autocomplete="username" spellcheck="false" placeholder="you@restaurant.al…" />
-                        <span asp-validation-for="Email"></span>
-                    </div>
-
-                    <div class="mb-3">
-                        <label asp-for="Password" class="form-label">Password</label>
-                        <div class="password-field">
-                            <input asp-for="Password" class="form-control form-control-lg" autocomplete="current-password" id="passwordInput" />
-                            <button class="icon-btn" type="button" data-toggle-password aria-controls="passwordInput" aria-label="Show password" aria-pressed="false">
-                                <i class="ph ph-eye" aria-hidden="true"></i>
-                            </button>
-                        </div>
-                        <span asp-validation-for="Password"></span>
-                    </div>
-
-                    <div class="form-check mb-4">
-                        <input asp-for="RememberMe" class="form-check-input" />
-                        <label asp-for="RememberMe" class="form-check-label">Keep me signed in</label>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary btn-lg w-100">
-                        Sign in <i class="ph ph-arrow-right" aria-hidden="true"></i>
-                    </button>
-                </form>
-            </main>
-
-            <footer class="auth-foot">
-                <span>&copy; @DateTime.Now.Year My Quick Menu</span>
-                <partial name="_FourCsCredit" />
-            </footer>
-        </div>
-
-        <figure class="auth-photo m-0">
-            <img src="~/img/plates-overhead.webp" width="1400" height="934" alt="Plates of food shared across a dark wooden table" />
-            <figcaption>Change a price once. It's on every table a second later.</figcaption>
-        </figure>
+    <div class="mb-3">
+        <label asp-for="Email" class="form-label">Email</label>
+        <input asp-for="Email" type="email" class="form-control form-control-lg" autocomplete="username" spellcheck="false" placeholder="you@restaurant.al…" />
+        <span asp-validation-for="Email"></span>
     </div>
 
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    <partial name="_ValidationScriptsPartial" />
+    <div class="mb-3">
+        <div class="label-row">
+            <label asp-for="Password" class="form-label">Password</label>
+            <a class="auth-link" asp-action="ForgotPassword">Forgot password?</a>
+        </div>
+        <div class="password-field">
+            <input asp-for="Password" class="form-control form-control-lg" autocomplete="current-password" id="passwordInput" />
+            <button class="icon-btn" type="button" data-toggle-password aria-controls="passwordInput" aria-label="Show password" aria-pressed="false">
+                <i class="ph ph-eye" aria-hidden="true"></i>
+            </button>
+        </div>
+        <span asp-validation-for="Password"></span>
+    </div>
+
+    <div class="form-check mb-4">
+        <input asp-for="RememberMe" class="form-check-input" />
+        <label asp-for="RememberMe" class="form-check-label">Keep me signed in</label>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-lg w-100">
+        Sign in <i class="ph ph-arrow-right" aria-hidden="true"></i>
+    </button>
+</form>
+
+@section Scripts {
     <script>
         (function () {
             var btn = document.querySelector('[data-toggle-password]');
@@ -91,5 +59,4 @@
             });
         })();
     </script>
-</body>
-</html>
+}

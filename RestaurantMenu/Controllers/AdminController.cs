@@ -1,9 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using RestaurantMenu.Services;
 using RestaurantMenu.Models;
 using RestaurantMenu.ViewModels;
@@ -18,15 +16,21 @@ namespace RestaurantMenu.Controllers;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ApplicationDbContext _context;
         private readonly InviteMailer _mailer;
+        private readonly EmailService _email;
+        private readonly SeoService _seo;
 
         public AdminController(
             UserManager<ApplicationUser> userManager,
             ApplicationDbContext context,
-            InviteMailer mailer)
+            InviteMailer mailer,
+            EmailService email,
+            SeoService seo)
         {
             _userManager = userManager;
             _context = context;
             _mailer = mailer;
+            _email = email;
+            _seo = seo;
         }
 
         public async Task<IActionResult> Index()
@@ -38,6 +42,7 @@ namespace RestaurantMenu.Controllers;
                 .Include(u => u.Branches)
                 .OrderBy(u => u.FullName)
                 .ToListAsync();
+            ViewBag.Email = _email;
             return View(users);
         }
 
@@ -100,13 +105,13 @@ namespace RestaurantMenu.Controllers;
 
         private async Task DeliverInvite(ApplicationUser user)
         {
-            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-            var link = Url.Action("SetPassword", "Account", new { userId = user.Id, token }, Request.Scheme)!;
+            var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+            var link = _seo.Url(Url.Action("SetPassword", "Account", new { userId = user.Id, token })!);
 
             if (await _mailer.SendSetPasswordAsync(user.Email!, user.FullName, "Your My Quick Menu account",
-                    "Your My Quick Menu account is ready. Choose your password to sign in:", link))
+                    "Your My Quick Menu account is ready. Choose your password to sign in and set up your menus.", link))
             {
-                TempData["Success"] = $"Invite sent to {user.Email}. The link works for 3 days.";
+                TempData["Success"] = $"Invite sent to {user.Email}. The link works for {AccountTokens.InviteLifespanText}.";
                 return;
             }
             if (_mailer.CanEmail)
@@ -117,6 +122,53 @@ namespace RestaurantMenu.Controllers;
             // No email configured (or it failed): show the link once so the admin can send it.
             TempData["InviteLink"] = link;
             TempData["InviteFor"] = $"{user.FullName} ({user.Email})";
+        }
+
+        /// <summary>
+        /// A password reset link for any owner or staff account, for when someone is locked
+        /// out and can't use "Forgot password" (email not set up, or the email never arrives).
+        /// Emailed to them when possible; otherwise shown once to pass on.
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ResetLink(string? email)
+        {
+            var user = string.IsNullOrWhiteSpace(email) ? null : await _userManager.FindByEmailAsync(email.Trim());
+            if (user == null)
+            {
+                TempData["Error"] = $"No account uses {email?.Trim()}.";
+                return RedirectToAction("Index");
+            }
+            // Admins reset their own through "Forgot password"; one admin can't take over another.
+            if (await _userManager.IsInRoleAsync(user, "ADMIN"))
+            {
+                TempData["Error"] = "Admin passwords can only be reset by their owner, with \"Forgot password\" on the sign-in page.";
+                return RedirectToAction("Index");
+            }
+            // Never set a password: send an invite instead.
+            if (user.PasswordHash == null)
+            {
+                await DeliverInvite(user);
+                return RedirectToAction("Index");
+            }
+
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var link = _seo.Url(Url.Action("ResetPassword", "Account", new { userId = user.Id, token })!);
+            if (await _mailer.SendNoticeAsync(user.Email!, user.FullName, "Reset your My Quick Menu password",
+                    $"Your My Quick Menu administrator sent you a link to choose a new password. It works once, for {AccountTokens.ResetLifespanText}. Until you use it, your current password keeps working.",
+                    "Choose a new password", link))
+            {
+                TempData["Success"] = $"Reset link sent to {user.Email}. It works for {AccountTokens.ResetLifespanText}.";
+                return RedirectToAction("Index");
+            }
+            if (_mailer.CanEmail)
+            {
+                TempData["Warning"] = "The email could not be sent. Copy the link below and send it yourself.";
+            }
+            TempData["InviteLink"] = link;
+            TempData["InviteFor"] = $"{user.FullName} ({user.Email})";
+            TempData["InviteKind"] = "reset";
+            return RedirectToAction("Index");
         }
 
         [HttpPost]

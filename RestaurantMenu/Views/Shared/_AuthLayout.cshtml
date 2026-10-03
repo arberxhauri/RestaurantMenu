@@ -1,0 +1,43 @@
+@* Sign in, set/reset password, forgot password: form on the left, photo on the right. *@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <meta name="referrer" content="no-referrer" />
+    <title>@ViewData["Title"] - My Quick Menu</title>
+    <link rel="icon" href="~/favicon.ico" />
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <partial name="_HeadAssets" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="auth">
+        <div class="auth-form-side">
+            <a class="sidebar-brand" asp-controller="Home" asp-action="Index">
+                <partial name="_BrandMark" model="28" />
+                <span class="brand-word">myquick<em>menu</em></span>
+            </a>
+
+            <main class="auth-form-wrap" id="main">
+                @RenderBody()
+            </main>
+
+            <footer class="auth-foot">
+                <span>&copy; @DateTime.Now.Year My Quick Menu</span>
+                <partial name="_FourCsCredit" />
+            </footer>
+        </div>
+
+        <figure class="auth-photo m-0">
+            <img src="~/img/plates-overhead.webp" width="1400" height="934" alt="Plates of food shared across a dark wooden table" />
+            <figcaption>Change a price once. It's on every table a second later.</figcaption>
+        </figure>
+    </div>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <partial name="_ValidationScriptsPartial" />
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

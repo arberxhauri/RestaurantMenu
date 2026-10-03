@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using System.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -24,13 +23,16 @@ public class TeamController : Controller
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IBranchAccess _access;
     private readonly InviteMailer _mailer;
+    private readonly SeoService _seo;
 
-    public TeamController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IBranchAccess access, InviteMailer mailer)
+    public TeamController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IBranchAccess access,
+        InviteMailer mailer, SeoService seo)
     {
         _context = context;
         _userManager = userManager;
         _access = access;
         _mailer = mailer;
+        _seo = seo;
     }
 
     private IActionResult BackToTeam(int branchId) =>
@@ -119,18 +121,18 @@ public class TeamController : Controller
         _context.BranchMembers.Add(new BranchMember { BranchId = branchId, UserId = user!.Id, Role = role, CreatedUtc = DateTime.UtcNow });
         await _context.SaveChangesAsync();
 
-        var inviter = WebUtility.HtmlEncode(branch.User?.FullName ?? "The owner");
-        var branchName = WebUtility.HtmlEncode(branch.Name);
+        var inviter = branch.User?.FullName ?? "The owner";
         if (isNew || user.PasswordHash == null)
         {
             await DeliverSetPassword(user, branch.Name,
-                $"{inviter} added you to the team of {branchName} on My Quick Menu as {RoleName(role)}. Choose your password to sign in:");
+                $"{inviter} added you to the team of {branch.Name} on My Quick Menu as {RoleName(role)}. Choose your password to sign in.");
         }
         else
         {
-            var sent = await _mailer.SendNoticeAsync(user.Email!, $"You were added to {branch.Name}",
-                $"<p>Hi {WebUtility.HtmlEncode(user.FullName)},</p><p>{inviter} added you to the team of {branchName} on My Quick Menu as {RoleName(role)}. " +
-                "Sign in with your usual email and password; the branch is on your list.</p>");
+            var sent = await _mailer.SendNoticeAsync(user.Email!, user.FullName, $"You were added to {branch.Name}",
+                $"{inviter} added you to the team of {branch.Name} on My Quick Menu as {RoleName(role)}. " +
+                "Sign in with your usual email and password; the branch is on your list.",
+                "Sign in", _seo.Url(Url.Action("Login", "Account")!));
             TempData["Success"] = $"{user.Email} is on the team as {RoleName(role)}" +
                                   (sent ? " and got an email about it." : ". They already have an account, so they can sign in right away.");
         }
@@ -191,17 +193,17 @@ public class TeamController : Controller
         }
 
         await DeliverSetPassword(member.User, member.Branch!.Name,
-            $"You were invited to the team of {WebUtility.HtmlEncode(member.Branch.Name)} on My Quick Menu. Choose your password to sign in:");
+            $"You were invited to the team of {member.Branch.Name} on My Quick Menu as {RoleName(member.Role)}. Choose your password to sign in.");
         return BackToTeam(member.BranchId);
     }
 
-    private async Task DeliverSetPassword(ApplicationUser user, string branchName, string introHtml)
+    private async Task DeliverSetPassword(ApplicationUser user, string branchName, string intro)
     {
-        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-        var link = Url.Action("SetPassword", "Account", new { userId = user.Id, token }, Request.Scheme)!;
-        if (await _mailer.SendSetPasswordAsync(user.Email!, user.FullName, $"Join {branchName} on My Quick Menu", introHtml, link))
+        var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+        var link = _seo.Url(Url.Action("SetPassword", "Account", new { userId = user.Id, token })!);
+        if (await _mailer.SendSetPasswordAsync(user.Email!, user.FullName, $"Join {branchName} on My Quick Menu", intro, link))
         {
-            TempData["Success"] = $"Invite sent to {user.Email}. The link works for 3 days.";
+            TempData["Success"] = $"Invite sent to {user.Email}. The link works for {AccountTokens.InviteLifespanText}.";
             return;
         }
         if (_mailer.CanEmail)

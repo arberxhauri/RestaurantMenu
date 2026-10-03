@@ -61,12 +61,18 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
     options.Lockout.MaxFailedAccessAttempts = 5;
     options.User.RequireUniqueEmail = true;
+    // Emailed links: invites (3 days) and password resets (2 hours), see AccountTokens.
+    options.Tokens.EmailConfirmationTokenProvider = AccountTokens.Invite;
+    options.Tokens.PasswordResetTokenProvider = AccountTokens.PasswordReset;
 })
 .AddEntityFrameworkStores<ApplicationDbContext>()
-.AddDefaultTokenProviders();
+.AddDefaultTokenProviders()
+.AddTokenProvider<InviteTokenProvider>(AccountTokens.Invite)
+.AddTokenProvider<PasswordResetTokenProvider>(AccountTokens.PasswordReset);
 
-// Invite links (set your password) stay valid for 3 days.
-builder.Services.Configure<DataProtectionTokenProviderOptions>(o => o.TokenLifespan = TimeSpan.FromDays(3));
+// The default provider made invite links before AccountTokens existed; AccountController
+// still accepts those for their 3 days, so links already sent keep working.
+builder.Services.Configure<DataProtectionTokenProviderOptions>(o => o.TokenLifespan = AccountTokens.InviteLifespan);
 
 // Keys that sign the login cookie and invite links. Without persisting them, every
 // deploy or restart on Render signs everyone out and breaks unused invite links.
@@ -74,10 +80,23 @@ builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(Directory.CreateDirectory(Path.Combine(diskMount, "keys")))
     .SetApplicationName("RestaurantMenu");
 
-// Email: SMTP settings come from environment variables (Smtp__Host, Smtp__Port,
-// Smtp__User, Smtp__Password, Smtp__From). Without them, invites are shown as a link to copy.
+// Email (invites, password resets). Set Email__From plus one provider:
+//   Email__ResendApiKey (Resend, HTTPS)   or   Email__BrevoApiKey (Brevo, HTTPS)
+//   or Smtp__Host/Port/User/Password (SMTP; blocked on Render's free plan).
+// Without any, invite links are shown on screen to copy and "Forgot password" explains
+// who to ask. The admin page shows which provider is in use.
+builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
 builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
-builder.Services.AddTransient<IEmailSender, SmtpEmailSender>();
+builder.Services.AddHttpClient<ResendEmailTransport>(c => c.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddHttpClient<BrevoEmailTransport>(c => c.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddTransient<IEmailTransport>(sp => sp.GetRequiredService<ResendEmailTransport>());
+builder.Services.AddTransient<IEmailTransport>(sp => sp.GetRequiredService<BrevoEmailTransport>());
+builder.Services.AddTransient<IEmailTransport, SmtpEmailTransport>();
+builder.Services.AddTransient<EmailService>();
+builder.Services.AddTransient<IEmailSender>(sp => sp.GetRequiredService<EmailService>());
+builder.Services.AddSingleton<EmailQueue>();
+builder.Services.AddHostedService<EmailQueueWorker>();
+builder.Services.AddMemoryCache();
 
 // 5. Controllers. Users given a temporary password must replace it before anything else.
 builder.Services.AddControllersWithViews(options => options.Filters.Add<RequirePasswordChangeFilter>());
@@ -129,6 +148,25 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("translate", context => RateLimitPartition.GetFixedWindowLimiter(
         context.User.Identity?.Name ?? context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+
+    // "Forgot password", per client address: enough for a few typos, not for spraying
+    // reset emails at a list of addresses. Each account also gets at most one email
+    // every 2 minutes (AccountController).
+    options.AddPolicy("forgot-password", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 8, Window = TimeSpan.FromMinutes(15), QueueLimit = 0 }));
+
+    // People get a page that explains, not a bare 429.
+    options.OnRejected = (context, _) =>
+    {
+        var http = context.HttpContext;
+        if (http.Request.Path.StartsWithSegments("/account/forgotpassword", StringComparison.OrdinalIgnoreCase))
+        {
+            http.Response.StatusCode = StatusCodes.Status303SeeOther;
+            http.Response.Headers.Location = "/account/forgotpassword?busy=true";
+        }
+        return ValueTask.CompletedTask;
+    };
 });
 
 // 6. Cookie settings
@@ -203,6 +241,16 @@ app.MapControllerRoute(
 if (app.Configuration.GetValue("Database:AutoMigrate", true))
 {
     await DatabaseMigrator.MigrateAsync(app.Services, app.Logger);
+}
+
+// Say in the deploy log whether emails will go out, and why not.
+using (var scope = app.Services.CreateScope())
+{
+    var email = scope.ServiceProvider.GetRequiredService<EmailService>();
+    if (email.IsConfigured)
+        app.Logger.LogInformation("Email: sending through {Provider} from {From}", email.ProviderName, email.Sender!.Formatted);
+    else
+        app.Logger.LogWarning("Email: off. {Problem} Invite links are shown on screen and password reset by email is unavailable.", email.Problem);
 }
 
 // Seed database

@@ -1,9 +1,11 @@
 @model IEnumerable<ApplicationUser>
+@using RestaurantMenu.Services
 @{
     ViewData["Title"] = "User management";
     var users = Model.ToList();
     var used = users.Sum(u => u.Branches?.Count ?? 0);
     var capacity = users.Sum(u => u.NumberOfBranches);
+    var email = (EmailService)ViewBag.Email;
 }
 
 <header class="page-head">
@@ -18,13 +20,16 @@
 
 @if (TempData["InviteLink"] is string inviteLink)
 {
+    var isReset = (TempData["InviteKind"] as string) == "reset";
     <section class="panel invite-panel mb-4" aria-labelledby="invite-title">
         <div class="panel-body">
-            <h2 id="invite-title" class="h5 mb-1"><i class="ph ph-envelope-simple" aria-hidden="true"></i> Send this invite to @TempData["InviteFor"]</h2>
-            <p class="hint mt-0 mb-3">They open it, choose a password and are signed in. It works once, for 3 days. It's shown only now, so copy it before leaving this page.</p>
+            <h2 id="invite-title" class="h5 mb-1"><i class="ph ph-envelope-simple" aria-hidden="true"></i> Send this @(isReset ? "reset link" : "invite") to @TempData["InviteFor"]</h2>
+            <p class="hint mt-0 mb-3">@(isReset
+                ? $"They open it and choose a new password. It works once, for {AccountTokens.ResetLifespanText}."
+                : $"They open it, choose a password and are signed in. It works once, for {AccountTokens.InviteLifespanText}.") Anyone with the link can use it, so send it only to them. It's shown only now, so copy it before leaving this page.</p>
             <div class="input-group">
-                <input id="inviteLink" class="form-control mono" value="@inviteLink" readonly aria-label="Invite link" />
-                <button type="button" class="btn btn-primary" data-copy="@inviteLink" data-copy-done="Invite link copied">
+                <input id="inviteLink" class="form-control mono" value="@inviteLink" readonly aria-label="@(isReset ? "Reset link" : "Invite link")" />
+                <button type="button" class="btn btn-primary" data-copy="@inviteLink" data-copy-done="Link copied">
                     <i class="ph ph-copy" aria-hidden="true"></i>Copy link
                 </button>
             </div>
@@ -44,7 +49,7 @@
         <div class="empty">
             <i class="ph ph-users-three" aria-hidden="true"></i>
             <h2>No owners yet</h2>
-            <p>Create an owner account and send them their temporary password.</p>
+            <p>Create an owner account. They get an invite link to choose their own password.</p>
             <a asp-action="CreateUser" class="btn btn-primary mt-2"><i class="ph ph-user-plus" aria-hidden="true"></i>New owner</a>
         </div>
     }
@@ -120,3 +125,33 @@
         </div>
     }
 </section>
+
+<div class="admin-tools">
+    <section class="panel" aria-labelledby="email-title">
+        <div class="panel-body">
+            <h2 id="email-title" class="h5 mb-2"><i class="ph ph-envelope-simple" aria-hidden="true"></i> Email</h2>
+            @if (email.IsConfigured)
+            {
+                <p class="mb-1"><span class="chip chip--ok"><i class="ph ph-check" aria-hidden="true"></i>On</span> Sending through <strong>@email.ProviderName</strong> from <span class="mono">@email.Sender!.Address</span>.</p>
+                <p class="hint mt-0">Invites and password reset links go out by email.</p>
+            }
+            else
+            {
+                <p class="mb-1"><span class="chip chip--warn"><i class="ph ph-warning" aria-hidden="true"></i>Off</span> @email.Problem</p>
+                <p class="hint mt-0">Invite and reset links are shown here to copy and send yourself, and "Forgot password" tells people to ask you. To switch email on, set <span class="mono">Email__From</span> and <span class="mono">Email__ResendApiKey</span> (or <span class="mono">Email__BrevoApiKey</span>) on the server and redeploy.</p>
+            }
+        </div>
+    </section>
+
+    <section class="panel" aria-labelledby="reset-title">
+        <div class="panel-body">
+            <h2 id="reset-title" class="h5 mb-2"><i class="ph ph-key" aria-hidden="true"></i> Password reset link</h2>
+            <p class="hint mt-0 mb-3">For an owner or staff member who can't sign in. @(email.IsConfigured ? "It's emailed to them." : "You get a link to send them.") Works for @AccountTokens.ResetLifespanText.</p>
+            <form asp-action="ResetLink" method="post" class="input-group">
+                <label class="visually-hidden" for="resetEmail">Their email</label>
+                <input id="resetEmail" type="email" name="email" class="form-control" placeholder="their@email.com" autocomplete="off" spellcheck="false" required />
+                <button type="submit" class="btn btn-outline-secondary"><i class="ph ph-paper-plane-tilt" aria-hidden="true"></i>@(email.IsConfigured ? "Send link" : "Get link")</button>
+            </form>
+        </div>
+    </section>
+</div>
