@@ -72,6 +72,107 @@
         });
     });
 
+    /* ---------- Fill translations (dish and category forms) ----------
+       <div data-translate data-endpoint data-kind data-branch-id data-languages="sq,de"
+            data-sources='{"name":"#Name",...}'>. Sends the English fields, puts the
+       suggestions into translation_{field}_{lang} inputs and marks them for review.
+       Fills only empty fields unless the owner agrees to replace existing ones. */
+    document.querySelectorAll('[data-translate]').forEach(function (bar) {
+        var form = bar.closest('form');
+        var run = bar.querySelector('[data-translate-run]');
+        var label = bar.querySelector('[data-translate-label]');
+        var state = bar.querySelector('[data-translate-state]');
+        var sources = JSON.parse(bar.getAttribute('data-sources') || '{}');
+        var languages = (bar.getAttribute('data-languages') || '').split(',').filter(Boolean);
+        var token = form && form.querySelector('input[name="__RequestVerificationToken"]');
+        if (!form || !run) return;
+
+        function target(field, lang) { return form.querySelector('[name="translation_' + field + '_' + lang + '"]'); }
+
+        // A suggestion stays highlighted until the owner touches it.
+        form.addEventListener('input', function (e) {
+            if (e.isTrusted && e.target.classList) e.target.classList.remove('is-suggested');
+        });
+
+        run.addEventListener('click', function () {
+            var english = {};
+            Object.keys(sources).forEach(function (f) {
+                var el = form.querySelector(sources[f]);
+                english[f] = el ? el.value.trim() : '';
+            });
+            if (!english.name) {
+                state.textContent = 'Write the English name first.';
+                var nameEl = form.querySelector(sources.name);
+                if (nameEl) nameEl.focus();
+                return;
+            }
+
+            var fields = Object.keys(sources).filter(function (f) { return english[f]; });
+            var alreadyFilled = languages.some(function (l) {
+                return fields.some(function (f) { var el = target(f, l); return el && el.value.trim(); });
+            });
+            var replace = alreadyFilled && window.confirm(
+                'Some translations are already filled in.\n\nOK: replace them with new suggestions.\nCancel: fill only the empty fields.');
+            var wanted = languages.filter(function (l) {
+                return fields.some(function (f) { var el = target(f, l); return el && (replace || !el.value.trim()); });
+            });
+            if (!wanted.length) {
+                state.textContent = 'Every translation is already filled in.';
+                return;
+            }
+
+            run.disabled = true;
+            run.setAttribute('aria-busy', 'true');
+            label.textContent = 'Translating…';
+            state.textContent = 'Translating into ' + wanted.length + (wanted.length === 1 ? ' language…' : ' languages…');
+
+            fetch(bar.getAttribute('data-endpoint'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'RequestVerificationToken': token ? token.value : ''
+                },
+                body: JSON.stringify({
+                    branchId: Number(bar.getAttribute('data-branch-id')),
+                    kind: bar.getAttribute('data-kind'),
+                    fields: english,
+                    languages: wanted
+                }),
+                credentials: 'same-origin'
+            }).then(function (r) {
+                if (r.redirected) throw new Error('Your session has ended. Reload the page and sign in again.');
+                return r.json().catch(function () { return {}; }).then(function (j) {
+                    if (r.status === 429) throw new Error('Too many translation requests. Wait a minute and try again.');
+                    if (!r.ok) throw new Error(j.message || 'Translation failed. Try again.');
+                    return j;
+                });
+            }).then(function (j) {
+                var count = 0;
+                wanted.forEach(function (l) {
+                    fields.forEach(function (f) {
+                        var el = target(f, l);
+                        var value = j.translations && j.translations[l] && j.translations[l][f];
+                        if (!el || !value || (!replace && el.value.trim())) return;
+                        el.value = value;
+                        el.classList.add('is-suggested');
+                        el.dispatchEvent(new Event('input', { bubbles: true })); // updates the language tab ticks
+                        count++;
+                    });
+                });
+                state.textContent = count
+                    ? 'Filled ' + count + (count === 1 ? ' field' : ' fields') + '. Check each language, then save.'
+                    : 'No suggestions came back. Try again or translate by hand.';
+            }).catch(function (err) {
+                state.textContent = err.message || 'Translation failed. Try again.';
+            }).then(function () {
+                run.disabled = false;
+                run.removeAttribute('aria-busy');
+                label.textContent = 'Fill translations';
+            });
+        });
+    });
+
     /* ---------- Print page ---------- */
     document.addEventListener('click', function (e) {
         if (e.target.closest('[data-print]')) window.print();

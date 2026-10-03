@@ -1,0 +1,19 @@
+@using System.Text.Json
+@using RestaurantMenu.Services
+@model RestaurantMenu.ViewModels.TranslateBarModel
+@inject TranslationService Translator
+@* Only shown once a Gemini API key is configured (Translation__GeminiApiKey). *@
+@if (Translator.IsConfigured && Model.Languages.Any())
+{
+    <div class="translate-bar" data-translate
+         data-endpoint="@Url.Action("Fill", "Translate")"
+         data-kind="@Model.Kind"
+         data-branch-id="@Model.BranchId"
+         data-languages="@string.Join(",", Model.Languages)"
+         data-sources="@JsonSerializer.Serialize(Model.Sources)">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-translate-run>
+            <i class="ph ph-sparkle" aria-hidden="true"></i><span data-translate-label>Fill translations</span>
+        </button>
+        <span class="translate-state" data-translate-state aria-live="polite">Suggests the empty languages from the English text. Check them before saving.</span>
+    </div>
+}

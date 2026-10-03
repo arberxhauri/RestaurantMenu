@@ -8,6 +8,8 @@
     <div class="form-section">
         <h2>Translations</h2>
         <p>Leave empty to show the English name.</p>
+        <partial name="_TranslateBar" model="@(new RestaurantMenu.ViewModels.TranslateBarModel("category", (int)ViewBag.BranchId, languages,
+            new Dictionary<string, string> { ["name"] = "#Name" }))" />
         <div class="fields">
             @foreach (var lang in languages)
             {

@@ -113,6 +113,8 @@
             <section class="form-section">
                 <h2>Translations</h2>
                 <p>Leave a field empty and guests see the English text.</p>
+                <partial name="_TranslateBar" model="@(new RestaurantMenu.ViewModels.TranslateBarModel("dish", (int)ViewBag.BranchId, languages,
+                    new Dictionary<string, string> { ["name"] = "#Name", ["description"] = "#Description", ["nutritions"] = "#Nutritions" }))" />
                 <div class="nav lang-tabs" role="tablist">
                     @for (var i = 0; i < languages.Length; i++)
                     {

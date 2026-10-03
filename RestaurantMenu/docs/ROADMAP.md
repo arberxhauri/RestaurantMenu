@@ -29,6 +29,7 @@ Also fixed while doing this: admins were sent to the owner dashboard (access den
    - `ConnectionStrings__DefaultConnection` = the new connection string (Npgsql format, as before)
    - optional `ADMIN_INITIAL_PASSWORD` (only used if the admin account doesn't exist yet)
    - optional email: `Smtp__Host`, `Smtp__Port` (587), `Smtp__User`, `Smtp__Password`, `Smtp__From`
+   - optional translate-assist: `Translation__GeminiApiKey` (free key from https://aistudio.google.com/apikey)
 3. **Before deploying**, run `psql "<external connection string>" -v ON_ERROR_STOP=1 -f docs/migrations/prod-upgrade.sql`.
 4. Deploy. If the admin still used `Admin@123`, find the replacement password in the Render logs ("The admin still used the old default password"), sign in, and choose a new one.
 
@@ -87,15 +88,16 @@ Keep migrations **additive** (new columns with defaults, new tables). During a z
 - **Privacy page** updated to say exactly what is counted and what isn't.
 - **Later:** a nightly `MenuDaily` roll-up when volume grows (the reports would read it for whole past days); a "busiest hours" chart; QR-table scans (`?t=`) as a dimension.
 
-## 6. Translate-assist (1 to 2 days)
+## 6. Translate-assist: done (free)
 
 **Why:** translations are the slowest part of setup, and the multilingual menu is a headline feature.
 
-- `TranslationService` calling DeepL or the Claude API (`claude-haiku-4-5` is enough) with the dish name, description, nutrition and target languages. Return JSON and prefill the `translation_*` inputs; the owner reviews before saving.
-- Button "Fill translations" above the language tabs in `_ProductForm.cshtml` and in `_CategoryTranslations.cshtml`. Key in Render env vars.
-- Also translate the UI strings: the guest-facing labels currently live in the `ui` switch at the top of `Views/Menu/Index.cshtml`. Have a native speaker review them, then move them to `.resx` resources.
-
----
+- **Provider: Google Gemini API, free tier** (key from Google AI Studio, no billing account). Chosen over DeepL (its free API plan no longer takes new sign-ups and needs a card) and the Claude API (paid). An LLM translates menus with context: dish names like Tiramisu or fior di latte stay as they are, units and numbers are kept, and the wording reads like a menu. Note: on the free tier Google may use submitted text to improve its products. Only dish and category text that is published on the public menu anyway is sent, never anything about guests or owners.
+- **Setup (Render, Environment):** `Translation__GeminiApiKey` = the AI Studio key. Optional `Translation__Models` (default `gemini-3.8-flash,gemini-3.5-flash-lite`): models are tried in order when one is rate-limited, retired or down, so a model being shut down only needs this variable changed. Without a key the button simply doesn't appear.
+- **Server:** `Services/TranslationService` calls `generateContent` with a JSON response schema (one object per target language, exactly the requested fields). Menu text is passed as JSON data, separate from the instructions. Replies are validated (missing or oversized values are dropped) and failures come back as plain messages: quota used up, invalid key, blocked, incomplete reply. `TranslateController.Fill` checks the branch belongs to the owner, accepts only the branch's own languages and known fields (dish: name, description, nutrition; category: name), max 1000 characters per field, and is limited to 20 requests per minute per owner. Nothing is saved there.
+- **Screens:** "Fill translations" above the language tabs in `_ProductForm.cshtml` and `_CategoryTranslations.cshtml` (shared `_TranslateBar` partial). It fills only empty fields; if some are filled, the owner chooses to replace them or keep them. Suggestions are highlighted until edited, the language tabs tick, and the owner saves as usual.
+- **Fixed alongside:** the category form lost typed translations when saving failed validation (the dish form was fixed in item 3).
+- **Not done here:** moving the guest UI strings to `.resx`. That depends on a native-speaker review of the wording; today the strings live in one place per feature (`ui` in `Views/Menu/Index.cshtml`, `Helpers/DietaryText.cs`, `Helpers/TableText.cs`).
 
 ## 7. Opening hours and "Open now" (2 days)
 

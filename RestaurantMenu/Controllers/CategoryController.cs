@@ -83,6 +83,8 @@ namespace RestaurantMenu.Controllers
             ViewBag.BranchId = category.BranchId;
             ViewBag.BranchName = branch.Name;
             ViewBag.SupportedLanguages = branch.SupportedLanguages.Split(',');
+            // Keep what was typed: without this the translation fields come back empty.
+            ViewBag.ExistingTranslations = PostedTranslations(form);
             return View(category);
         }
 
@@ -161,6 +163,8 @@ namespace RestaurantMenu.Controllers
             ViewBag.BranchId = existingCategory.BranchId;
             ViewBag.BranchName = existingCategory.Branch.Name;
             ViewBag.SupportedLanguages = existingCategory.Branch.SupportedLanguages.Split(',');
+            // Keep what was typed: without this the translation fields come back empty.
+            ViewBag.ExistingTranslations = PostedTranslations(form);
             return View(category);
         }
 
@@ -227,6 +231,10 @@ namespace RestaurantMenu.Controllers
             TempData["Success"] = $"{category.Name} and {dishes.Count} dish(es) are back on the menu.";
             return RedirectToAction("Details", "Branch", new { id = category.BranchId });
         }
+
+        private static Dictionary<string, string> PostedTranslations(IFormCollection form) => form.Keys
+            .Where(k => k.StartsWith("translation_name_"))
+            .ToDictionary(k => k["translation_name_".Length..], k => form[k].ToString());
 
         [HttpPost]
         [ValidateAntiForgeryToken]

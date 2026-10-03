@@ -597,6 +597,11 @@ a.chip--link:hover { background: var(--accent-soft); color: var(--accent); }
 .lang-tabs .nav-link .done { color: var(--ok); }
 .lang-tabs .nav-link.active .done { color: inherit; }
 
+/* Fill translations */
+.translate-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 16px; }
+.translate-state { font-size: 13px; color: var(--ink-3); }
+.form-control.is-suggested { border-color: var(--accent); background: color-mix(in oklab, var(--accent-soft) 55%, var(--surface-2)); }
+
 /* Live preview card (product + category forms) */
 .preview-label { font-size: 12.5px; font-weight: 600; color: var(--ink-3); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
 .preview-item {

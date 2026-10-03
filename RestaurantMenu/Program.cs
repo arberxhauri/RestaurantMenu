@@ -108,6 +108,9 @@ builder.Services.AddSingleton<MenuAnalytics>();
 builder.Services.AddScoped<MenuInsights>();
 builder.Services.AddHostedService<AnalyticsRetentionService>();
 
+// Translate-assist on the dish and category forms (Gemini API free tier; see TranslationService).
+builder.Services.AddHttpClient<TranslationService>(c => c.Timeout = TimeSpan.FromSeconds(45));
+
 // The public event endpoint takes anonymous posts, so cap them per client address
 // (held in memory for the window only, never stored) to keep anyone from inflating
 // a restaurant's numbers. A guest browsing normally sends a few per minute.
@@ -117,6 +120,12 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("menu-events", context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+
+    // Translate-assist, per signed-in owner: plenty for filling in a menu, and it keeps
+    // one account from using up the free translation quota for everyone.
+    options.AddPolicy("translate", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.User.Identity?.Name ?? context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
 
 // 6. Cookie settings
