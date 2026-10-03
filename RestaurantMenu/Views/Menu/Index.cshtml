@@ -51,6 +51,10 @@
     var table = ViewBag.Table as int?;
     var tableLabel = table == null ? null : TableText.Label(table.Value, currentLang);
     var tableQuery = table == null ? "" : $"&t={table}";
+
+    // Allergens & dietary tags. The filter button only appears once the restaurant has
+    // declared something, otherwise every filter would empty the menu.
+    var dt = DietaryText.For(currentLang);
     // Format prices in the menu's language so they match the guest list (menu.js uses Intl with <html lang>).
     CultureInfo priceCulture;
     try { priceCulture = CultureInfo.GetCultureInfo(currentLang); } catch (CultureNotFoundException) { priceCulture = CultureInfo.InvariantCulture; }
@@ -59,6 +63,7 @@
         .Where(c => c.Products != null && c.Products.Any())
         .OrderBy(c => c.Priority)
         .ToList();
+    var hasDietary = categories.SelectMany(c => c.Products!).Any(p => p.Allergens != null || p.Diets != Diet.None);
 
     // Built in MenuController; the theme colour is only known here.
     var seo = (SeoMetadata)ViewData["Seo"]!;
@@ -108,7 +113,10 @@
       data-label-empty="@ui.Empty"
       data-label-empty-hint="@ui.EmptyHint"
       data-label-soldout="@ui.SoldOut"
-      data-soldout-ids="@string.Join(",", soldOutIds)">
+      data-soldout-ids="@string.Join(",", soldOutIds)"
+      data-label-show-dishes="@dt.ShowDishes"
+      data-label-show-one-dish="@dt.ShowOneDish"
+      data-label-without="@dt.Without">
 
     <a class="skip-link" href="#menu">Skip to menu</a>
 
@@ -180,6 +188,13 @@
                         <a class="m-chip" href="#@slug" data-chip="@slug">@TranslationHelper.GetTranslation(category.Name, category.NameTranslations, currentLang)</a>
                     }
                 </div>
+                @if (hasDietary)
+                {
+                    <button class="m-icon-btn" type="button" data-filter-toggle aria-haspopup="dialog" aria-controls="filterSheet" aria-label="@dt.Filters">
+                        <i class="ph ph-sliders-horizontal" aria-hidden="true"></i>
+                        <span class="m-badge tabular" data-filter-count hidden></span>
+                    </button>
+                }
                 <button class="m-icon-btn" type="button" data-search-toggle aria-expanded="false" aria-controls="menuSearch" aria-label="@ui.Search">
                     <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
                 </button>
@@ -203,6 +218,11 @@
         }
         else
         {
+            <div class="m-filterbar" data-filterbar hidden>
+                <i class="ph ph-sliders-horizontal" aria-hidden="true"></i>
+                <span data-filter-summary></span>
+                <button type="button" class="m-filterbar-clear" data-filter-reset>@dt.Clear</button>
+            </div>
             <p class="m-noresults" data-noresults hidden role="status">@ui.NoResults</p>
 
             @foreach (var category in categories)
@@ -226,10 +246,17 @@
                             var price = currencySymbol + product.Price.ToString("N2", priceCulture);
                             var hasImage = !string.IsNullOrEmpty(product.Image);
                             var soldOut = !product.IsAvailable;
+                            var allergenText = product.Allergens == null ? dt.Unknown
+                                : product.Allergens == Allergen.None ? dt.NoneDeclared
+                                : $"{dt.Contains}: {string.Join(", ", DietaryText.Names(product.Allergens.Value, currentLang))}";
+                            var dietList = Dietary.AllDiets.Where(d => product.Diets.HasFlag(d)).ToList();
 
                             <li class="m-item @(hasImage ? "has-img" : "") @(soldOut ? "is-soldout" : "")"
                                 data-item
                                 data-soldout="@(soldOut ? "true" : "false")"
+                                data-allergens="@(product.Allergens == null ? -1 : (int)product.Allergens)"
+                                data-diets="@((int)product.Diets)"
+                                data-allergen-text="@allergenText"
                                 data-id="@product.Id"
                                 data-name="@name"
                                 data-desc="@desc"
@@ -245,9 +272,22 @@
                                         {
                                             <span class="m-item-desc">@desc</span>
                                         }
+                                        @if (dietList.Any())
+                                        {
+                                            <span class="m-tags" data-tags>
+                                                @foreach (var diet in dietList)
+                                                {
+                                                    <span class="m-tag m-tag--@diet.ToString().ToLowerInvariant()"><i class="ph @DietaryText.Icon(diet)" aria-hidden="true"></i>@DietaryText.Name(diet, currentLang)</span>
+                                                }
+                                            </span>
+                                        }
+                                        @if (product.Allergens is { } declared && declared != Allergen.None)
+                                        {
+                                            <span class="m-item-allergens">@allergenText</span>
+                                        }
                                         @if (!string.IsNullOrEmpty(nutrition))
                                         {
-                                            <span class="m-item-nutri"><i class="ph ph-leaf" aria-hidden="true"></i>@nutrition</span>
+                                            <span class="m-item-nutri"><i class="ph ph-info" aria-hidden="true"></i>@nutrition</span>
                                         }
                                         <span class="m-item-foot">
                                             <span class="m-item-price tabular">@price</span>
@@ -299,6 +339,11 @@
         <div class="m-sheet-body">
             <h2 id="dishSheetName" data-dish-name></h2>
             <p class="m-dish-desc" data-dish-desc></p>
+            <div class="m-dish-tags" data-dish-tags hidden></div>
+            <div class="m-dish-allergens" data-dish-allergens-wrap>
+                <span>@dt.Allergens</span>
+                <p data-dish-allergens></p>
+            </div>
             <div class="m-dish-nutri" data-dish-nutri-wrap hidden>
                 <span>@ui.Nutrition</span>
                 <p data-dish-nutri></p>
@@ -335,6 +380,47 @@
             </div>
         </div>
     </dialog>
+
+    @if (hasDietary)
+    {
+        <dialog class="m-sheet" id="filterSheet" aria-labelledby="filterSheetTitle" data-filter-sheet>
+            <div class="m-sheet-grip" aria-hidden="true"></div>
+            <button class="m-sheet-close" type="button" data-close aria-label="@ui.Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+            <div class="m-sheet-body">
+                <h2 id="filterSheetTitle">@dt.Filters</h2>
+                <fieldset class="m-filter-group">
+                    <legend>@dt.ShowOnly</legend>
+                    <div class="m-filter-chips">
+                        @foreach (var diet in Dietary.AllDiets)
+                        {
+                            <label class="m-filter-chip">
+                                <input type="checkbox" value="@((int)diet)" data-filter-diet />
+                                <span><i class="ph @DietaryText.Icon(diet)" aria-hidden="true"></i>@DietaryText.Name(diet, currentLang)</span>
+                            </label>
+                        }
+                    </div>
+                </fieldset>
+                <fieldset class="m-filter-group">
+                    <legend>@dt.HideContaining</legend>
+                    <div class="m-filter-chips">
+                        @foreach (var allergen in Dietary.AllAllergens)
+                        {
+                            <label class="m-filter-chip m-filter-chip--avoid">
+                                <input type="checkbox" value="@((int)allergen)" data-filter-allergen />
+                                <span>@DietaryText.Name(allergen, currentLang)</span>
+                            </label>
+                        }
+                    </div>
+                </fieldset>
+                <p class="m-filter-note m-filter-note--warn" data-filter-unknown hidden><i class="ph ph-info" aria-hidden="true"></i>@dt.UnknownHidden</p>
+                <p class="m-filter-note"><i class="ph ph-warning-circle" aria-hidden="true"></i>@dt.TellServer</p>
+                <div class="m-list-foot">
+                    <button class="m-btn m-btn--ghost" type="button" data-filter-reset>@dt.Clear</button>
+                    <button class="m-btn m-btn--brand" type="button" data-close data-filter-done></button>
+                </div>
+            </div>
+        </dialog>
+    }
 
     <script src="~/js/menu.js" asp-append-version="true" defer></script>
 </body>

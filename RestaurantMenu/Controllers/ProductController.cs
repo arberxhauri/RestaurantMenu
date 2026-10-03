@@ -53,7 +53,8 @@ namespace RestaurantMenu.Controllers;
 
 
         [HttpPost]
-public async Task<IActionResult> Create(Product product, IFormFile? image, IFormCollection form)
+public async Task<IActionResult> Create(Product product, IFormFile? image, IFormCollection form,
+    int[]? allergenFlags, bool allergensNone, int[]? dietFlags)
 {
     var user = await _userManager.GetUserAsync(User);
     var branch = await _context.Branches
@@ -66,6 +67,7 @@ public async Task<IActionResult> Create(Product product, IFormFile? image, IForm
     }
 
     ModelState.Remove("Category");
+    ApplyDietary(product, allergenFlags, allergensNone, dietFlags);
 
     if (ModelState.IsValid)
     {
@@ -114,6 +116,7 @@ public async Task<IActionResult> Create(Product product, IFormFile? image, IForm
     ViewBag.Categories = new SelectList(branch.Categories, "Id", "Name", product.CategoryId);
     ViewBag.SupportedLanguages = branch.SupportedLanguages.Split(',');
     ViewBag.CurrencySymbol = CurrencyHelper.GetCurrencySymbol(branch.Currency);
+    KeepPostedTranslations(form);
     return View(product);
 }
 
@@ -166,7 +169,8 @@ public async Task<IActionResult> Create(Product product, IFormFile? image, IForm
 
 
        [HttpPost]
-public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCollection form)
+public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCollection form,
+    int[]? allergenFlags, bool allergensNone, int[]? dietFlags)
 {
     var user = await _userManager.GetUserAsync(User);
     var existingProduct = await _context.Products
@@ -181,6 +185,7 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
     }
 
     ModelState.Remove("Category");
+    ApplyDietary(product, allergenFlags, allergensNone, dietFlags);
 
     if (ModelState.IsValid)
     {
@@ -191,6 +196,8 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
         existingProduct.Price = product.Price;
         existingProduct.CategoryId = product.CategoryId;
         existingProduct.DisplayOrder = product.DisplayOrder;
+        existingProduct.Allergens = product.Allergens;
+        existingProduct.Diets = product.Diets;
 
         // Handle image upload
         if (image != null && image.Length > 0)
@@ -246,6 +253,8 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
     ViewBag.Categories = new SelectList(branch.Categories, "Id", "Name", product.CategoryId);
     ViewBag.SupportedLanguages = existingProduct.Category.Branch.SupportedLanguages.Split(',');
     ViewBag.CurrencySymbol = CurrencyHelper.GetCurrencySymbol(existingProduct.Category.Branch.Currency);
+    KeepPostedTranslations(form);
+    product.Image = existingProduct.Image; // not posted; keeps the photo in the form and preview
     return View(product);
 }
 
@@ -339,6 +348,43 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
                 ? $"{product.Name} is available again."
                 : $"{product.Name} is marked sold out.";
             return RedirectToAction("Details", "Branch", new { id = product.BranchId });
+        }
+
+        /// <summary>
+        /// Reads the allergen and diet checkboxes into the dish and checks them. No allergen
+        /// ticked and "contains none" unticked means not declared yet (null), which guests
+        /// filtering by allergen never see as safe.
+        /// </summary>
+        private void ApplyDietary(Product product, int[]? allergenFlags, bool allergensNone, int[]? dietFlags)
+        {
+            var allergens = Dietary.ToAllergens(allergenFlags);
+            if (allergensNone && allergens != Allergen.None)
+            {
+                ModelState.AddModelError(nameof(Product.Allergens),
+                    "You ticked \"Contains none of the 14\" and also some allergens. Untick one of them.");
+            }
+
+            product.Allergens = allergens != Allergen.None ? allergens : allergensNone ? Allergen.None : null;
+            product.Diets = Dietary.ToDiets(dietFlags);
+
+            foreach (var problem in Dietary.Conflicts(product.Allergens, product.Diets))
+            {
+                ModelState.AddModelError(nameof(Product.Allergens), problem);
+            }
+        }
+
+        // When the form is shown again after a validation error, refill the translation
+        // fields from what was posted. Otherwise they come back empty and saving again
+        // would wipe the dish's translations.
+        private void KeepPostedTranslations(IFormCollection form)
+        {
+            Dictionary<string, string> Posted(string field) => form.Keys
+                .Where(k => k.StartsWith($"translation_{field}_"))
+                .ToDictionary(k => k[$"translation_{field}_".Length..], k => form[k].ToString());
+
+            ViewBag.NameTranslations = Posted("name");
+            ViewBag.DescriptionTranslations = Posted("description");
+            ViewBag.NutritionTranslations = Posted("nutritions");
         }
 
         private async Task<string> SaveImage(IFormFile file)

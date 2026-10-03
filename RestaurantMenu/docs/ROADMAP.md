@@ -60,14 +60,15 @@ Keep migrations **additive** (new columns with defaults, new tables). During a z
 - **Menu:** `MenuController` reads `t` (invalid values are ignored) and keeps it through the canonical 301 and the language switcher. The menu shows a "Table 14" chip under the name and the table at the top of "Your list", translated (`Helpers/TableText`).
 - **Note:** codes encode `Seo:BaseUrl` when it is set, otherwise the host the owner is using. Set `Seo__BaseUrl` before printing if a custom domain is planned, so printed codes never point at the onrender.com address.
 
-## 3. Structured allergens and dietary tags (2 days)
+## 3. Structured allergens and dietary tags: done
 
 **Why:** EU Regulation 1169/2011 requires the 14 allergens to be available; guests filter by vegan, gluten-free and similar.
 
-- **Model:** `[Flags] enum Allergen { Gluten = 1, Crustaceans = 2, Eggs = 4, Fish = 8, Peanuts = 16, Soy = 32, Milk = 64, Nuts = 128, Celery = 256, Mustard = 512, Sesame = 1024, Sulphites = 2048, Lupin = 4096, Molluscs = 8192 }` and `[Flags] enum Diet { Vegan, Vegetarian, Spicy, GlutenFree, Halal }`. Store as `int` on `Product`.
-- **Form:** in `_ProductForm.cshtml` reuse the `.lang-chips` checkbox-chip pattern. Bind with `int[] allergens` and OR them in the controller.
-- **Menu:** icons per allergen (Phosphor has most; keep labels translated in the `ui` switch at the top of the menu view), plus a filter sheet next to the search button ("Hide dishes containing: milk, gluten…"). Filtering reuses `filter()` in `menu.js`.
-- Keep the free-text `Nutritions` field for calories and notes.
+- **Model** (`Models/Dietary.cs`): `[Flags] enum Allergen` (the 14 Annex II allergens) and `[Flags] enum Diet` (vegan, vegetarian, spicy, gluten-free, halal), stored as ints on `Product`. Bit values are persisted, so never renumber them. `Product.Allergens` is **nullable**: null = not declared yet, `None` = declared as containing none. Migration `AddAllergensAndDiets` leaves existing dishes undeclared.
+- **Server:** `ProductController` binds `int[] allergenFlags`, `bool allergensNone`, `int[] dietFlags`, ORs them, ignores unknown bits, makes vegan imply vegetarian, and rejects contradictions (vegan with milk/eggs/fish/crustaceans/molluscs, vegetarian with fish/seafood, gluten-free with gluten, "none" plus allergens). A form that fails validation now keeps its typed translations; before, they came back empty and a second save wiped them.
+- **Back office:** "Allergens & dietary tags" section in `_ProductForm.cshtml` (checkbox chips, an explicit "Contains none of the 14", live status). The free-text field is now just "Nutrition". Branch Details counts dishes without allergen info and flags each one with a link to its form.
+- **Menu:** diet tags and "Contains: …" on each card, an Allergens block in the dish sheet (declared / none / "not provided, ask your server"), and a filter sheet next to search: "Show only" diets (all must match) and "Hide dishes containing" allergens. **Undeclared dishes are hidden while an allergen is selected**, and the sheet says so. Live count, badge, a summary bar with Clear, works together with search, remembered per menu in the guest's browser. The filter button only appears once the restaurant has declared something. All labels are in the 7 menu languages (`Helpers/DietaryText.cs`; have native speakers review them).
+- **SEO:** JSON-LD `suitableForDiet` (Vegan, Vegetarian, GlutenFree, Halal diets).
 
 ## 4. Drag to reorder dishes (half a day)
 

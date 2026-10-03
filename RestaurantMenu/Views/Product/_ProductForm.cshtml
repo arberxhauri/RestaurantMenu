@@ -8,6 +8,8 @@
     var nutris = ViewBag.NutritionTranslations as Dictionary<string, string> ?? new();
     string currency = ViewBag.CurrencySymbol ?? "";
     string Val(Dictionary<string, string> d, string k) => d.TryGetValue(k, out var v) ? v : "";
+    var allergens = Model?.Allergens;
+    var diets = Model?.Diets ?? Diet.None;
 }
 
 <div class="form-layout">
@@ -30,11 +32,52 @@
                     <span asp-validation-for="Description"></span>
                 </div>
                 <div class="span-2">
-                    <label asp-for="Nutritions" class="form-label">Nutrition &amp; allergens <span class="text-body-secondary fw-normal">(optional)</span></label>
-                    <input asp-for="Nutritions" class="form-control" placeholder="e.g. 640 kcal, contains gluten and milk…" autocomplete="off" />
+                    <label asp-for="Nutritions" class="form-label">Nutrition <span class="text-body-secondary fw-normal">(optional)</span></label>
+                    <input asp-for="Nutritions" class="form-control" placeholder="e.g. 640 kcal, 32 g protein…" autocomplete="off" />
+                    <span class="hint">Calories and notes. Allergens have their own section below.</span>
                     <span asp-validation-for="Nutritions"></span>
                 </div>
             </div>
+        </section>
+
+        <section class="form-section" data-dietary>
+            <h2>Allergens &amp; dietary tags</h2>
+            <p>EU law requires the 14 major allergens to be declared. Guests can filter the menu by them.</p>
+            <span asp-validation-for="Allergens" class="d-block mb-3"></span>
+
+            <h3 class="form-subhead">Contains</h3>
+            <div class="lang-chips" role="group" aria-label="Allergens this dish contains">
+                @foreach (var allergen in Dietary.AllAllergens)
+                {
+                    <label class="lang-chip">
+                        <input type="checkbox" name="allergenFlags" value="@((int)allergen)" data-allergen @(allergens.HasValue && allergens.Value.HasFlag(allergen) ? "checked" : "") />
+                        <span>@DietaryText.Name(allergen, "en")</span>
+                    </label>
+                }
+            </div>
+            <div class="lang-chips mt-2" role="group" aria-label="No allergens">
+                <label class="lang-chip">
+                    <input type="checkbox" name="allergensNone" value="true" data-allergen-none @(allergens == Allergen.None ? "checked" : "") />
+                    <span>Contains none of the 14</span>
+                </label>
+            </div>
+            <span class="hint" data-allergen-status>
+                @(allergens == null
+                    ? "Not declared yet: guests who filter by allergen won't see this dish. Tick its allergens, or \"Contains none of the 14\"."
+                    : "Declared. Guests see this on the dish and can filter by it.")
+            </span>
+
+            <h3 class="form-subhead mt-4">Dietary tags</h3>
+            <div class="lang-chips" role="group" aria-label="Dietary tags">
+                @foreach (var diet in Dietary.AllDiets)
+                {
+                    <label class="lang-chip">
+                        <input type="checkbox" name="dietFlags" value="@((int)diet)" data-diet="@diet" @(diets.HasFlag(diet) ? "checked" : "") />
+                        <span><i class="ph @DietaryText.Icon(diet)" aria-hidden="true"></i>@DietaryText.Name(diet, "en")</span>
+                    </label>
+                }
+            </div>
+            <span class="hint">Vegan also counts as vegetarian. Only tag gluten-free if the kitchen can guarantee it.</span>
         </section>
 
         <section class="form-section">
@@ -101,7 +144,7 @@
                                     <textarea id="td-@lang" name="translation_description_@lang" class="form-control" rows="2" lang="@lang">@Val(descs, lang)</textarea>
                                 </div>
                                 <div class="span-2">
-                                    <label class="form-label" for="tu-@lang">Nutrition &amp; allergens</label>
+                                    <label class="form-label" for="tu-@lang">Nutrition</label>
                                     <input id="tu-@lang" type="text" name="translation_nutritions_@lang" class="form-control" lang="@lang" value="@Val(nutris, lang)" autocomplete="off" />
                                 </div>
                             </div>

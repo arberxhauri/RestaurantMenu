@@ -49,7 +49,9 @@
             price: parseFloat(li.dataset.price) || 0,
             priceLabel: li.dataset.priceLabel,
             img: li.dataset.img,
-            soldOut: li.dataset.soldout === 'true'
+            soldOut: li.dataset.soldout === 'true',
+            allergenText: li.dataset.allergenText,
+            tags: li.querySelector('[data-tags]')
         };
     }
 
@@ -190,6 +192,11 @@
         var nutriWrap = dish.querySelector('[data-dish-nutri-wrap]');
         dish.querySelector('[data-dish-nutri]').textContent = current.nutrition || '';
         nutriWrap.hidden = !current.nutrition;
+        dish.querySelector('[data-dish-allergens]').textContent = current.allergenText || '';
+        var tags = dish.querySelector('[data-dish-tags]');
+        tags.textContent = '';
+        if (current.tags) tags.appendChild(current.tags.cloneNode(true));
+        tags.hidden = !current.tags;
         dish.querySelector('[data-dish-price]').textContent = current.priceLabel;
         if (current.img) { dishImg.src = current.img; dishImg.alt = current.name; dishImg.hidden = false; }
         else { dishImg.hidden = true; dishImg.removeAttribute('src'); }
@@ -250,20 +257,97 @@
     var searchInput = document.querySelector('[data-search-input]');
     var noResults = document.querySelector('[data-noresults]');
 
-    function filter(q) {
-        q = q.trim().toLowerCase();
-        var any = false;
+    /* ---------- Dietary & allergen filters ----------
+       "Show only" diets must all be present; "hide containing" allergens must all be
+       absent. A dish whose allergens weren't declared (data-allergens="-1") is never
+       treated as free of anything. Remembered per menu in this browser. */
+    var FILTER_KEY = KEY + '_filters';
+    var F = { diets: 0, allergens: 0 };
+    try {
+        var savedF = JSON.parse(localStorage.getItem(FILTER_KEY) || 'null');
+        if (savedF) F = { diets: Number(savedF.diets) || 0, allergens: Number(savedF.allergens) || 0 };
+    } catch (e) { /* private mode */ }
+
+    function passesFilters(li) {
+        var d = Number(li.dataset.diets) || 0;
+        var a = Number(li.dataset.allergens);
+        if (F.diets && (d & F.diets) !== F.diets) return false;
+        if (F.allergens && (a === -1 || (a & F.allergens) !== 0)) return false;
+        return true;
+    }
+
+    function apply() {
+        var q = searchInput ? searchInput.value.trim().toLowerCase() : '';
+        var any = false, shown = 0;
         sections.forEach(function (s) {
             var visible = 0;
             s.querySelectorAll('[data-item]').forEach(function (li) {
-                var match = !q || li.dataset.search.indexOf(q) !== -1;
+                var match = (!q || li.dataset.search.indexOf(q) !== -1) && passesFilters(li);
                 li.hidden = !match;
                 if (match) visible++;
             });
             s.hidden = visible === 0;
             if (visible) any = true;
+            shown += visible;
         });
         if (noResults) noResults.hidden = any;
+        renderFilterUi(shown);
+    }
+
+    var filterSheet = document.querySelector('[data-filter-sheet]');
+    var filterToggle = document.querySelector('[data-filter-toggle]');
+    var filterCount = document.querySelector('[data-filter-count]');
+    var filterBar = document.querySelector('[data-filterbar]');
+    var filterSummary = document.querySelector('[data-filter-summary]');
+    var filterDone = document.querySelector('[data-filter-done]');
+    var filterUnknown = document.querySelector('[data-filter-unknown]');
+    var dietBoxes = document.querySelectorAll('[data-filter-diet]');
+    var allergenBoxes = document.querySelectorAll('[data-filter-allergen]');
+
+    function labelOf(box) { return box.nextElementSibling.textContent.trim(); }
+    function bitsCount(n) { var c = 0; while (n) { c += n & 1; n >>>= 1; } return c; }
+
+    function renderFilterUi(shown) {
+        if (!filterSheet) return;
+        dietBoxes.forEach(function (b) { b.checked = (F.diets & Number(b.value)) !== 0; });
+        allergenBoxes.forEach(function (b) { b.checked = (F.allergens & Number(b.value)) !== 0; });
+
+        var active = bitsCount(F.diets) + bitsCount(F.allergens);
+        filterCount.hidden = active === 0;
+        filterCount.textContent = active;
+        filterToggle.setAttribute('aria-pressed', active ? 'true' : 'false');
+
+        var parts = [];
+        dietBoxes.forEach(function (b) { if (b.checked) parts.push(labelOf(b)); });
+        var avoid = [];
+        allergenBoxes.forEach(function (b) { if (b.checked) avoid.push(labelOf(b)); });
+        if (avoid.length) parts.push(body.dataset.labelWithout + ': ' + avoid.join(', '));
+        filterBar.hidden = active === 0;
+        filterSummary.textContent = parts.join(' · ');
+
+        filterDone.textContent = shown === 1 && body.dataset.labelShowOneDish
+            ? body.dataset.labelShowOneDish
+            : (body.dataset.labelShowDishes || '{0}').replace('{0}', shown);
+        filterUnknown.hidden = !(F.allergens && items.some(function (li) { return li.dataset.allergens === '-1'; }));
+    }
+
+    function saveFilters() {
+        try { localStorage.setItem(FILTER_KEY, JSON.stringify(F)); } catch (e) { /* not fatal */ }
+    }
+
+    if (filterSheet) {
+        filterToggle.addEventListener('click', function () { openSheet(filterSheet); });
+        filterSheet.addEventListener('change', function (e) {
+            var box = e.target, bit = Number(box.value);
+            if (box.hasAttribute('data-filter-diet')) F.diets = box.checked ? F.diets | bit : F.diets & ~bit;
+            if (box.hasAttribute('data-filter-allergen')) F.allergens = box.checked ? F.allergens | bit : F.allergens & ~bit;
+            saveFilters(); apply();
+        });
+        document.querySelectorAll('[data-filter-reset]').forEach(function (btn) {
+            btn.addEventListener('click', function () { F = { diets: 0, allergens: 0 }; saveFilters(); apply(); });
+        });
+    } else {
+        F = { diets: 0, allergens: 0 }; // nothing declared on this menu: never filter
     }
 
     if (searchToggle && searchBox) {
@@ -272,9 +356,9 @@
             searchBox.hidden = !open;
             searchToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
             if (open) { searchInput.focus(); }
-            else { searchInput.value = ''; filter(''); }
+            else { searchInput.value = ''; apply(); }
         });
-        searchInput.addEventListener('input', function () { filter(searchInput.value); });
+        searchInput.addEventListener('input', apply);
         searchInput.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') { searchToggle.click(); searchToggle.focus(); }
         });
@@ -282,4 +366,5 @@
 
     load();
     render();
+    apply();
 })();

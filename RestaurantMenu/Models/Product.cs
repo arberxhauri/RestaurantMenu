@@ -16,6 +16,12 @@ public class Product : ISoftDeletable
     // service; the guest menu shows a "Sold out" chip, or hides it (Branch.HideSoldOut).
     public bool IsAvailable { get; set; } = true;
 
+    // The 14 EU allergens as a bit mask. Null means the owner hasn't declared them yet,
+    // which is not the same as None (declared: contains none of them). Guests filtering
+    // by allergen never see undeclared dishes as safe.
+    public Allergen? Allergens { get; set; }
+    public Diet Diets { get; set; }
+
     public int CategoryId { get; set; }
     public Category? Category { get; set; }
         

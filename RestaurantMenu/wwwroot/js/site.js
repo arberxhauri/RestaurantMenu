@@ -47,6 +47,31 @@
         }
     });
 
+    /* ---------- Dish form: allergens & dietary tags ----------
+       Instant feedback only; ProductController enforces the same rules. */
+    document.querySelectorAll('[data-dietary]').forEach(function (section) {
+        var allergens = section.querySelectorAll('[data-allergen]');
+        var none = section.querySelector('[data-allergen-none]');
+        var status = section.querySelector('[data-allergen-status]');
+        var vegan = section.querySelector('[data-diet="Vegan"]');
+        var vegetarian = section.querySelector('[data-diet="Vegetarian"]');
+        function anyAllergen() { return Array.prototype.some.call(allergens, function (a) { return a.checked; }); }
+        function updateStatus() {
+            if (!status) return;
+            status.textContent = anyAllergen() || none.checked
+                ? 'Declared. Guests see this on the dish and can filter by it.'
+                : 'Not declared yet: guests who filter by allergen won\'t see this dish. Tick its allergens, or "Contains none of the 14".';
+        }
+        section.addEventListener('change', function (e) {
+            var t = e.target;
+            if (t.hasAttribute('data-allergen') && t.checked) none.checked = false;
+            if (t === none && none.checked) allergens.forEach(function (a) { a.checked = false; });
+            if (t === vegan && vegan.checked && vegetarian) vegetarian.checked = true;
+            if (t === vegetarian && !vegetarian.checked && vegan) vegan.checked = false;
+            updateStatus();
+        });
+    });
+
     /* ---------- Print page ---------- */
     document.addEventListener('click', function (e) {
         if (e.target.closest('[data-print]')) window.print();

@@ -6,6 +6,7 @@
     var categories = (Model.Categories ?? new List<Category>()).OrderBy(c => c.Priority).ToList();
     var dishCount = categories.Sum(c => c.Products?.Count ?? 0);
     var soldOutCount = categories.Sum(c => c.Products?.Count(p => !p.IsAvailable) ?? 0);
+    var undeclaredCount = categories.Sum(c => c.Products?.Count(p => p.Allergens == null) ?? 0);
     var menuUrl = Url.Action("Index", "Menu", new { branchName = SeoService.Slug(Model.Name) }, Context.Request.Scheme);
     var languages = Model.SupportedLanguages.Split(',', StringSplitOptions.RemoveEmptyEntries);
 }
@@ -112,7 +113,13 @@
         <section class="panel" aria-labelledby="dish-title">
             <header class="panel-head">
                 <h2 id="dish-title">Dishes <span class="count">@dishCount</span></h2>
-                <span class="chip chip--warn ms-auto" data-soldout-count aria-live="polite" @(soldOutCount == 0 ? "hidden" : "")>@soldOutCount sold out</span>
+                @if (undeclaredCount > 0)
+                {
+                    <span class="chip ms-auto" title="Open a dish and fill in Allergens &amp; dietary tags">
+                        <i class="ph ph-warning-circle" aria-hidden="true"></i>@undeclaredCount without allergens
+                    </span>
+                }
+                <span class="chip chip--warn @(undeclaredCount > 0 ? "" : "ms-auto")" data-soldout-count aria-live="polite" @(soldOutCount == 0 ? "hidden" : "")>@soldOutCount sold out</span>
                 @if (categories.Any())
                 {
                     <a asp-controller="Product" asp-action="Create" asp-route-branchId="@Model.Id" class="btn btn-primary btn-sm">
@@ -164,6 +171,10 @@
                                         @if (!string.IsNullOrEmpty(product.Description))
                                         {
                                             <div class="dish-desc">@product.Description</div>
+                                        }
+                                        @if (product.Allergens == null)
+                                        {
+                                            <a class="dish-flag" asp-controller="Product" asp-action="Edit" asp-route-id="@product.Id"><i class="ph ph-warning-circle" aria-hidden="true"></i>No allergen info</a>
                                         }
                                     </div>
                                     <span class="dish-price">@currency@product.Price.ToString("N2")</span>

@@ -118,6 +118,17 @@ public static class StructuredData
                     };
                 }
 
+                // schema.org RestrictedDiet values; spicy has no equivalent.
+                var diets = new List<string>();
+                if (product.Diets.HasFlag(Diet.Vegan)) diets.Add("https://schema.org/VeganDiet");
+                if (product.Diets.HasFlag(Diet.Vegetarian)) diets.Add("https://schema.org/VegetarianDiet");
+                if (product.Diets.HasFlag(Diet.GlutenFree)) diets.Add("https://schema.org/GlutenFreeDiet");
+                if (product.Diets.HasFlag(Diet.Halal)) diets.Add("https://schema.org/HalalDiet");
+                if (diets.Count > 0)
+                {
+                    item["suitableForDiet"] = diets.Count == 1 ? diets[0] : diets;
+                }
+
                 item["offers"] = new Dictionary<string, object?>
                 {
                     ["@type"] = "Offer",
