@@ -1,0 +1,200 @@
+/* =========================================================================
+   My Quick Menu - design tokens
+   One palette for every surface: landing, back office, login, legal pages.
+   (The public menu page uses the restaurant's own colours on top of these.)
+
+   Palette: "Herb & Paprika". Stone-green neutrals with the brand orange as
+   the single accent. Light and dark are both first-class; the system
+   preference decides, nothing flips mid-page.
+   ========================================================================= */
+
+:root {
+    color-scheme: light dark;
+
+    /* Type */
+    --font-display: "Bricolage Grotesque", "Geist", system-ui, sans-serif;
+    --font-body: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", monospace;
+
+    /* Neutrals (light) */
+    --bg: #EFEFEA;
+    --bg-2: #E6E7E0;
+    --surface: #F8F8F5;
+    --surface-2: #FCFCFA;
+    --ink: #0F1A15;
+    --ink-2: #46524C;
+    --ink-3: #626D67;
+    --line: #D6D9D0;
+    --line-2: #E3E5DD;
+
+    /* Brand accent. --brand is the logo orange (decoration, large display).
+       --accent is the text-safe / button-safe variant (AA on --bg). */
+    --brand: #D55C13;
+    --accent: #B84D0B;
+    --accent-hover: #9E4108;
+    --accent-soft: #F6E4D6;
+    --on-accent: #FFF8F2;
+
+    /* Status */
+    --ok: #1F7A4D;
+    --ok-soft: #DDEFE4;
+    --danger: #B3261E;
+    --danger-soft: #F7DEDC;
+    --warn: #8A5A00;
+    --warn-soft: #F6EBCF;
+
+    /* Shape: one radius scale. Controls 10px, cards 18px, sheets 26px, pills full. */
+    --r-sm: 10px;
+    --r-md: 18px;
+    --r-lg: 26px;
+    --r-pill: 999px;
+
+    /* Elevation, tinted to the ink hue rather than pure black */
+    --shadow-sm: 0 1px 2px rgb(15 26 21 / .06), 0 1px 1px rgb(15 26 21 / .04);
+    --shadow-md: 0 12px 32px -12px rgb(15 26 21 / .18), 0 2px 6px rgb(15 26 21 / .05);
+    --shadow-lg: 0 40px 80px -30px rgb(15 26 21 / .35);
+
+    /* Motion */
+    --ease-out: cubic-bezier(.16, 1, .3, 1);
+    --ease-in-out: cubic-bezier(.65, 0, .35, 1);
+
+    /* Layers (documented z-index scale) */
+    --z-sticky: 20;
+    --z-header: 30;
+    --z-overlay: 40;
+    --z-modal: 50;
+    --z-toast: 60;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #0B110E;
+        --bg-2: #101814;
+        --surface: #141D19;
+        --surface-2: #18231E;
+        --ink: #ECEFE9;
+        --ink-2: #B4BDB7;
+        --ink-3: #8C968F;
+        --line: #26302B;
+        --line-2: #1E2823;
+
+        --brand: #EE7A30;
+        --accent: #F08A4B;
+        --accent-hover: #F6A06A;
+        --accent-soft: #2C1D12;
+        --on-accent: #120B06;
+
+        --ok: #5BC48A;
+        --ok-soft: #12291D;
+        --danger: #F2847C;
+        --danger-soft: #2E1514;
+        --warn: #E6B657;
+        --warn-soft: #2A2110;
+
+        --shadow-sm: 0 1px 2px rgb(0 0 0 / .4);
+        --shadow-md: 0 16px 40px -16px rgb(0 0 0 / .6), 0 2px 6px rgb(0 0 0 / .3);
+        --shadow-lg: 0 40px 90px -30px rgb(0 0 0 / .8);
+    }
+}
+
+/* ---------- Shared base ---------- */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+img { max-width: 100%; display: block; }
+
+:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 4px;
+}
+
+.skip-link {
+    position: absolute;
+    left: 16px;
+    top: -60px;
+    z-index: var(--z-toast);
+    padding: 10px 16px;
+    border-radius: var(--r-sm);
+    background: var(--ink);
+    color: var(--bg);
+    font-weight: 600;
+    text-decoration: none;
+    transition: top .2s var(--ease-out);
+}
+.skip-link:focus { top: 12px; }
+
+.visually-hidden {
+    position: absolute !important;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0);
+    white-space: nowrap; border: 0;
+}
+
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* Brand mark: the four-tile logo. Ink tiles follow currentColor, the dot is the brand orange. */
+.brand-mark { display: block; flex: none; color: var(--ink); }
+.brand-mark .dot { fill: var(--brand); }
+.brand-word {
+    font-family: var(--font-display);
+    font-weight: 650;
+    letter-spacing: -.035em;
+    white-space: nowrap;
+}
+.brand-word em { font-style: normal; color: var(--brand); }
+
+/* 4CS credit: shared across every surface's footer */
+.fourcs-credit {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px 6px 6px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 14px;
+    text-decoration: none;
+    transition: border-color .2s ease, transform .2s var(--ease-out);
+}
+.fourcs-credit:hover { border-color: var(--brand); color: var(--ink); transform: translateY(-1px); }
+.fourcs-credit strong { color: var(--accent); font-weight: 700; }
+.fourcs-credit__spark {
+    display: grid;
+    place-items: center;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--brand);
+    color: #fff;
+    font-size: 13px;
+}
+.fourcs-credit__arrow { color: var(--accent); transition: transform .2s var(--ease-out); }
+.fourcs-credit:hover .fourcs-credit__arrow { transform: translate(2px, -2px); }
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: .001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .001ms !important;
+        scroll-behavior: auto !important;
+    }
+}

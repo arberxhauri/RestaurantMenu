@@ -47,6 +47,7 @@ namespace RestaurantMenu.Controllers;
             ViewBag.BranchName = branch.Name;
             ViewBag.Categories = new SelectList(branch.Categories, "Id", "Name");
             ViewBag.SupportedLanguages = branch.SupportedLanguages.Split(',');
+            ViewBag.CurrencySymbol = CurrencyHelper.GetCurrencySymbol(branch.Currency);
             return View();
         }
 
@@ -112,6 +113,7 @@ public async Task<IActionResult> Create(Product product, IFormFile? image, IForm
     ViewBag.BranchName = branch.Name;
     ViewBag.Categories = new SelectList(branch.Categories, "Id", "Name", product.CategoryId);
     ViewBag.SupportedLanguages = branch.SupportedLanguages.Split(',');
+    ViewBag.CurrencySymbol = CurrencyHelper.GetCurrencySymbol(branch.Currency);
     return View(product);
 }
 
@@ -123,6 +125,7 @@ public async Task<IActionResult> Create(Product product, IFormFile? image, IForm
             var product = await _context.Products
                 .Include(p => p.Category)
                 .ThenInclude(c => c.Branch)
+                .ThenInclude(b => b.Categories)
                 .FirstOrDefaultAsync(p => p.Id == id && p.Category.Branch.UserId == user.Id && !p.Category.Branch.IsDeleted);
 
             if (product == null)
@@ -135,6 +138,7 @@ public async Task<IActionResult> Create(Product product, IFormFile? image, IForm
             ViewBag.BranchName = branch.Name;
             ViewBag.Categories = new SelectList(branch.Categories, "Id", "Name", product.CategoryId);
             ViewBag.SupportedLanguages = branch.SupportedLanguages.Split(',');
+            ViewBag.CurrencySymbol = CurrencyHelper.GetCurrencySymbol(branch.Currency);
 
             // Parse existing translations
             ViewBag.NameTranslations = ParseTranslations(product.NameTranslations);
@@ -168,6 +172,7 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
     var existingProduct = await _context.Products
         .Include(p => p.Category)
             .ThenInclude(c => c.Branch)
+                .ThenInclude(b => b.Categories)
         .FirstOrDefaultAsync(p => p.Id == product.Id && p.Category.Branch.UserId == user.Id && !p.Category.Branch.IsDeleted);
 
     if (existingProduct == null)
@@ -185,6 +190,7 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
         existingProduct.Nutritions = product.Nutritions;
         existingProduct.Price = product.Price;
         existingProduct.CategoryId = product.CategoryId;
+        existingProduct.DisplayOrder = product.DisplayOrder;
 
         // Handle image upload
         if (image != null && image.Length > 0)
@@ -239,6 +245,7 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
     ViewBag.BranchName = branch.Name;
     ViewBag.Categories = new SelectList(branch.Categories, "Id", "Name", product.CategoryId);
     ViewBag.SupportedLanguages = existingProduct.Category.Branch.SupportedLanguages.Split(',');
+    ViewBag.CurrencySymbol = CurrencyHelper.GetCurrencySymbol(existingProduct.Category.Branch.Currency);
     return View(product);
 }
 

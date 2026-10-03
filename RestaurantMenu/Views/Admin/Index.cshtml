@@ -1,142 +1,91 @@
 @model IEnumerable<ApplicationUser>
 @{
-    ViewData["Title"] = "Manage Users";
+    ViewData["Title"] = "User management";
+    var users = Model.ToList();
+    var used = users.Sum(u => u.Branches?.Count ?? 0);
+    var capacity = users.Sum(u => u.NumberOfBranches);
 }
 
-<div class="row mb-5">
-    <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-                <h1 class="display-5 fw-bold mb-2">
-                    <i class="bi bi-people-fill me-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"></i>User Management
-                </h1>
-                <p class="text-muted">Manage restaurant owners and their permissions</p>
-            </div>
-            <a asp-action="CreateUser" class="btn btn-primary btn-lg">
-                <i class="bi bi-person-plus-fill me-2"></i>Create New User
-            </a>
-        </div>
-
-        <!-- Statistics Cards -->
-        <div class="row g-4 mb-5">
-            <div class="col-md-4">
-                <div class="card glass-card border-0">
-                    <div class="card-body text-center p-4">
-                        <div class="rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" 
-                             style="width: 70px; height: 70px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                            <i class="bi bi-people-fill fs-1 text-white"></i>
-                        </div>
-                        <h3 class="display-5 fw-bold mb-0">@Model.Count()</h3>
-                        <p class="text-muted mb-0">Total Users</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card glass-card border-0">
-                    <div class="card-body text-center p-4">
-                        <div class="rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" 
-                             style="width: 70px; height: 70px; background: linear-gradient(135deg, #0ba360 0%, #3cba92 100%);">
-                            <i class="bi bi-shop-window fs-1 text-white"></i>
-                        </div>
-                        <h3 class="display-5 fw-bold mb-0">@Model.Sum(u => u.Branches.Count)</h3>
-                        <p class="text-muted mb-0">Active Branches</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card glass-card border-0">
-                    <div class="card-body text-center p-4">
-                        <div class="rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" 
-                             style="width: 70px; height: 70px; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
-                            <i class="bi bi-award-fill fs-1 text-white"></i>
-                        </div>
-                        <h3 class="display-5 fw-bold mb-0">@Model.Sum(u => u.NumberOfBranches)</h3>
-                        <p class="text-muted mb-0">Total Capacity</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+<header class="page-head">
+    <div>
+        <h1>User management</h1>
+        <p>Restaurant owners, their branch allowance, and access.</p>
     </div>
+    <div class="page-actions">
+        <a asp-action="CreateUser" class="btn btn-primary"><i class="ph ph-user-plus" aria-hidden="true"></i>New owner</a>
+    </div>
+</header>
+
+<div class="stats">
+    <div class="stat"><span class="stat-value">@users.Count</span><span class="stat-label">Owners</span></div>
+    <div class="stat"><span class="stat-value">@used</span><span class="stat-label">Branches live</span></div>
+    <div class="stat"><span class="stat-value">@capacity</span><span class="stat-label">Branch slots sold</span></div>
 </div>
 
-<!-- Users Table -->
-<div class="row">
-    <div class="col-12">
-        <div class="card border-0 shadow-lg">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="bi bi-table me-2"></i>All Users
-                </h5>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead>
-                            <tr>
-                                <th class="px-4">User</th>
-                                <th>NIPT</th>
-                                <th class="text-center">Branches</th>
-                                <th class="text-center">Max Branches</th>
-                                <th class="text-center">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var user in Model)
-                            {
-                                <tr>
-                                    <td class="px-4">
-                                        <div class="d-flex align-items-center">
-                                            <div class="rounded-circle me-3 d-flex align-items-center justify-content-center" 
-                                                 style="width: 45px; height: 45px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                                                <span class="text-white fw-bold">@user.FullName.Substring(0, 1)</span>
-                                            </div>
-                                            <div>
-                                                <h6 class="mb-0 fw-bold">@user.FullName</h6>
-                                                <small class="text-muted">
-                                                    <i class="bi bi-envelope me-1"></i>@user.Email
-                                                </small>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-secondary">@user.NIPT</span>
-                                    </td>
-                                    <td class="text-center">
-                                        <div class="d-flex align-items-center justify-content-center">
-                                            <div class="progress" style="width: 80px; height: 8px;">
-                                                <div class="progress-bar bg-success" role="progressbar" 
-                                                     style="width: @((user.Branches.Count * 100.0 / Math.Max(user.NumberOfBranches, 1)).ToString("F0"))%">
-                                                </div>
-                                            </div>
-                                            <span class="ms-2 fw-bold">@user.Branches.Count</span>
-                                        </div>
-                                    </td>
-                                    <td class="text-center">
-                                        <form asp-action="UpdateBranchLimit" method="post" class="d-inline-flex align-items-center justify-content-center">
-                                            <input type="hidden" name="userId" value="@user.Id" />
-                                            <input type="number" name="numberOfBranches" value="@user.NumberOfBranches" 
-                                                   class="form-control form-control-sm text-center me-2" 
-                                                   style="width: 70px;" min="1" max="100" />
-                                            <button type="submit" class="btn btn-sm btn-success" title="Update Limit">
-                                                <i class="bi bi-check-lg"></i>
-                                            </button>
-                                        </form>
-                                    </td>
-                                    <td class="text-center">
-                                        <form asp-action="SoftDeleteUser" method="post" class="d-inline" 
-                                              onsubmit="return confirm('⚠️ Are you sure you want to delete @user.FullName?');">
-                                            <input type="hidden" name="userId" value="@user.Id" />
-                                            <button type="submit" class="btn btn-sm btn-danger" title="Delete User">
-                                                <i class="bi bi-trash-fill"></i>
-                                            </button>
-                                        </form>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+<section class="panel">
+    @if (!users.Any())
+    {
+        <div class="empty">
+            <i class="ph ph-users-three" aria-hidden="true"></i>
+            <h2>No owners yet</h2>
+            <p>Create an owner account and send them their temporary password.</p>
+            <a asp-action="CreateUser" class="btn btn-primary mt-2"><i class="ph ph-user-plus" aria-hidden="true"></i>New owner</a>
         </div>
-    </div>
-</div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Owner</th>
+                        <th scope="col">NIPT</th>
+                        <th scope="col">Branches used</th>
+                        <th scope="col">Allowance</th>
+                        <th scope="col"><span class="visually-hidden">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in users)
+                    {
+                        var count = user.Branches?.Count ?? 0;
+                        var pct = Math.Min(100, count * 100.0 / Math.Max(user.NumberOfBranches, 1));
+                        <tr>
+                            <td>
+                                <div class="user-cell">
+                                    <span class="avatar" aria-hidden="true">@(string.IsNullOrEmpty(user.FullName) ? "?" : user.FullName.Substring(0, 1))</span>
+                                    <span><strong>@user.FullName</strong><small>@user.Email</small></span>
+                                </div>
+                            </td>
+                            <td><span class="mono">@user.NIPT</span></td>
+                            <td>
+                                <span class="usage">
+                                    <span class="usage-bar" aria-hidden="true"><span style="width:@pct.ToString("F0")%"></span></span>
+                                    @count / @user.NumberOfBranches
+                                </span>
+                            </td>
+                            <td>
+                                <form asp-action="UpdateBranchLimit" method="post" class="limit-form">
+                                    <input type="hidden" name="userId" value="@user.Id" />
+                                    <label class="visually-hidden" for="limit-@user.Id">Branch allowance for @user.FullName</label>
+                                    <input id="limit-@user.Id" type="number" name="numberOfBranches" value="@user.NumberOfBranches" class="form-control" min="1" max="100" inputmode="numeric" />
+                                    <button type="submit" class="icon-btn icon-btn--line" aria-label="Save allowance for @user.FullName" title="Save">
+                                        <i class="ph ph-check" aria-hidden="true"></i>
+                                    </button>
+                                </form>
+                            </td>
+                            <td class="text-end">
+                                <form asp-action="SoftDeleteUser" method="post" class="d-inline" data-confirm="Remove @user.FullName? Their branches go offline.">
+                                    <input type="hidden" name="userId" value="@user.Id" />
+                                    <button type="submit" class="icon-btn icon-btn--danger" aria-label="Remove @user.FullName" title="Remove owner">
+                                        <i class="ph ph-trash" aria-hidden="true"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>

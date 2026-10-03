@@ -8,651 +8,36 @@
     var partners = branches.Where(b => !string.IsNullOrEmpty(b.Logo)).ToList();
 
     var isSignedIn = SignInManager.IsSignedIn(User);
+    // One label per intent, used in the nav, the hero and the closing CTA.
     var ctaLabel = isSignedIn ? "Go to dashboard" : "Get started free";
-    var showAnnouncementBar = false;
+    var ctaController = isSignedIn ? "Dashboard" : "Account";
+    var ctaAction = isSignedIn ? "Index" : "Login";
     var showPartners = partners.Any();
+    // A marquee only reads as "lots of restaurants" when there are lots of them.
+    var partnersAsMarquee = partners.Count >= 6;
 }
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     @await Html.PartialAsync("_SeoMeta", (SeoMetadata)ViewData["Seo"]!)
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --ink: #231813;
-            --cream: #FBF8F4;
-            --orange: #D55C13;
-            --orange-dark: #B54A0C;
-            --orange-light: #E68C2C;
-            --orange-deep: #A9490F;
-            --muted: #5C4A40;
-            --muted-2: #7A6A5E;
-            --muted-3: #96826F;
-            --line: #E7DFD6;
-            --line-2: #EBE3DA;
-            --line-3: #EFE7DE;
-            --chip: #F1EAE2;
-            --surface: #FDFBF9;
-            --sand: #FAF6F1;
-            --hatch: repeating-linear-gradient(135deg, #EFE4D8 0 10px, #E7DACC 10px 20px);
-            --hatch-sm: repeating-linear-gradient(135deg, #EFE4D8 0 8px, #E7DACC 8px 16px);
-            --mono: 'JetBrains Mono', ui-monospace, monospace;
-        }
-
-        *, *::before, *::after { box-sizing: border-box; }
-
-        html { scroll-behavior: smooth; }
-
-        body {
-            margin: 0;
-            background: var(--cream);
-            color: var(--ink);
-            font-family: Outfit, system-ui, -apple-system, sans-serif;
-            -webkit-font-smoothing: antialiased;
-        }
-
-        a { color: var(--orange); text-decoration: none; }
-        a:hover { color: var(--orange-dark); }
-
-        h1, h2, p { margin: 0; }
-
-        img { max-width: 100%; }
-
-        .shell { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
-
-        section[id] { scroll-margin-top: 88px; }
-
-        /* ---------- Announcement ---------- */
-        .announce {
-            background: var(--ink);
-            color: var(--cream);
-            font-size: 14px;
-            padding: 11px 24px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 10px;
-            text-align: center;
-        }
-        .announce-tag { color: var(--orange-light); font-weight: 600; }
-        .announce-text { opacity: .85; }
-
-        /* ---------- Header ---------- */
-        .site-header {
-            position: sticky;
-            top: 0;
-            z-index: 20;
-            background: #FBF8F4EE;
-            backdrop-filter: blur(12px);
-            border-bottom: 1px solid var(--line);
-        }
-        .header-inner {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 16px 32px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 40px;
-        }
-        .brand { display: flex; align-items: center; gap: 11px; color: var(--ink); }
-        .brand:hover { color: var(--ink); }
-        .brand svg { display: block; flex: none; }
-        .brand-word {
-            font-size: 21px;
-            font-weight: 600;
-            letter-spacing: -.038em;
-            white-space: nowrap;
-        }
-        .brand-word em { color: var(--orange); font-style: normal; }
-
-        .nav {
-            display: flex;
-            align-items: center;
-            gap: 28px;
-            font-size: 15px;
-            color: var(--muted);
-            white-space: nowrap;
-        }
-        /* :not(.btn) so the nav's CTA keeps its own white-on-orange colours */
-        .nav a:not(.btn) { color: var(--muted); }
-        .nav a:not(.btn):hover { color: var(--ink); }
-
-        .btn {
-            display: inline-block;
-            font-weight: 500;
-            border-radius: 10px;
-            transition: background-color .18s ease, border-color .18s ease, color .18s ease;
-        }
-        .btn-primary { background: var(--orange); color: #fff; padding: 10px 20px; }
-        .btn-primary:hover { background: var(--orange-dark); color: #fff; }
-
-        .nav-toggle {
-            display: none;
-            background: none;
-            border: 1px solid var(--line);
-            border-radius: 10px;
-            padding: 9px 10px;
-            cursor: pointer;
-            color: var(--ink);
-        }
-        .nav-toggle svg { display: block; }
-
-        /* ---------- Hero ---------- */
-        .hero {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 88px 32px 96px;
-            display: grid;
-            grid-template-columns: 1.05fr .95fr;
-            gap: 72px;
-            align-items: center;
-        }
-        .hero-copy { display: flex; flex-direction: column; gap: 26px; }
-
-        .eyebrow-pill {
-            display: inline-flex;
-            align-self: flex-start;
-            align-items: center;
-            gap: 9px;
-            background: #F3E7DC;
-            color: var(--orange-deep);
-            font-family: var(--mono);
-            font-size: 11.5px;
-            letter-spacing: .1em;
-            text-transform: uppercase;
-            padding: 8px 14px;
-            border-radius: 999px;
-        }
-        .dot { width: 6px; height: 6px; border-radius: 999px; background: var(--orange); flex: none; }
-
-        .hero h1 {
-            font-size: 64px;
-            line-height: 1.02;
-            letter-spacing: -.04em;
-            font-weight: 600;
-            text-wrap: balance;
-        }
-        .hero-lede {
-            font-size: 19px;
-            line-height: 1.6;
-            color: var(--muted);
-            max-width: 520px;
-            text-wrap: pretty;
-        }
-        .hero-actions { display: flex; align-items: center; gap: 14px; padding-top: 6px; flex-wrap: wrap; }
-        .btn-lg { font-size: 16px; padding: 15px 28px; border-radius: 12px; }
-        .btn-ghost {
-            border: 1px solid #DCD2C7;
-            color: var(--ink);
-            background: #fff;
-        }
-        .btn-ghost:hover { border-color: var(--ink); color: var(--ink); }
-
-        .hero-meta {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-            padding-top: 12px;
-            font-size: 14px;
-            color: var(--muted-2);
-        }
-        .sep { width: 4px; height: 4px; border-radius: 999px; background: #CFC4B8; flex: none; }
-
-        /* ---------- Phone mockup ---------- */
-        .hero-visual { display: flex; justify-content: center; }
-        .phone {
-            width: 320px;
-            background: var(--ink);
-            border-radius: 38px;
-            padding: 12px;
-            box-shadow: 0 30px 60px -20px #23181340;
-        }
-        .phone-screen { background: var(--cream); border-radius: 28px; overflow: hidden; }
-        .phone-banner {
-            height: 118px;
-            background: var(--hatch);
-            display: flex;
-            align-items: flex-end;
-            justify-content: space-between;
-            padding: 12px 16px;
-        }
-        .banner-label {
-            font-family: var(--mono);
-            font-size: 10px;
-            letter-spacing: .08em;
-            color: var(--muted-3);
-            text-transform: uppercase;
-        }
-        .lang-chip {
-            background: var(--cream);
-            border-radius: 999px;
-            padding: 5px 11px;
-            font-size: 11px;
-            font-weight: 500;
-            display: flex;
-            gap: 6px;
-            align-items: center;
-        }
-        .lang-chip .dot { width: 5px; height: 5px; }
-        .phone-body { padding: 18px 18px 24px; display: flex; flex-direction: column; gap: 16px; }
-        .phone-title { font-size: 19px; font-weight: 600; letter-spacing: -.02em; }
-        .phone-sub { font-size: 12.5px; color: var(--muted-2); }
-        .tabs { display: flex; gap: 8px; font-size: 12.5px; }
-        .tab { background: var(--chip); color: var(--muted); padding: 7px 13px; border-radius: 999px; }
-        .tab.is-active { background: var(--ink); color: var(--cream); font-weight: 500; }
-        .dish-list { display: flex; flex-direction: column; gap: 12px; }
-        .dish { display: flex; gap: 12px; align-items: center; }
-        .dish-thumb { width: 52px; height: 52px; border-radius: 12px; background: var(--hatch-sm); flex: none; }
-        .dish-text { flex: 1; display: flex; flex-direction: column; gap: 3px; }
-        .dish-name { font-size: 14.5px; font-weight: 500; }
-        .dish-desc { font-size: 12px; color: var(--muted-2); line-height: 1.4; }
-        .dish-price { font-size: 14px; font-weight: 600; color: var(--orange); }
-
-        /* ---------- Section headings ---------- */
-        .band { background: #fff; border-top: 1px solid var(--line-3); }
-        .band-both { border-bottom: 1px solid var(--line-3); }
-        .band-inner { max-width: 1200px; margin: 0 auto; padding: 96px 32px; }
-
-        .kicker {
-            font-family: var(--mono);
-            font-size: 11.5px;
-            letter-spacing: .12em;
-            text-transform: uppercase;
-            color: var(--orange);
-        }
-        .section-head { display: flex; flex-direction: column; gap: 12px; max-width: 620px; }
-        .section-head h2 {
-            font-size: 44px;
-            line-height: 1.08;
-            letter-spacing: -.032em;
-            font-weight: 600;
-        }
-        .section-head p { font-size: 17px; line-height: 1.6; color: var(--muted); }
-
-        .head-row {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: flex-end;
-            justify-content: space-between;
-            gap: 24px;
-            margin-bottom: 52px;
-        }
-        .btn-outline {
-            border: 1px solid #DCD2C7;
-            color: var(--ink);
-            background: var(--surface);
-            font-size: 15px;
-            padding: 13px 22px;
-            border-radius: 11px;
-            white-space: nowrap;
-        }
-        .btn-outline:hover { border-color: var(--ink); color: var(--ink); }
-
-        /* ---------- Products ---------- */
-        .product-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-        .product-card {
-            border: 1px solid var(--line-2);
-            border-radius: 20px;
-            overflow: hidden;
-            background: var(--surface);
-            display: flex;
-            flex-direction: column;
-        }
-        .product-head { padding: 32px 32px 26px; display: flex; flex-direction: column; gap: 13px; }
-        .product-title-row { display: flex; align-items: center; gap: 12px; }
-        .product-title-row svg { display: block; flex: none; }
-        .product-title { font-size: 22px; font-weight: 600; letter-spacing: -.022em; }
-        .product-desc { font-size: 15.5px; line-height: 1.6; color: var(--muted); }
-        .tag-row { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px; font-size: 13px; color: var(--muted); }
-        .tag { background: var(--chip); border-radius: 999px; padding: 6px 12px; }
-        .product-figure { margin-top: auto; padding: 0 32px 32px; }
-        .mini {
-            border: 1px solid var(--line-2);
-            border-radius: 14px;
-            background: #fff;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        .mini-flush { padding: 0; overflow: hidden; gap: 0; }
-        .mini-tabs { display: flex; gap: 8px; font-size: 12px; }
-        .mini-tab { background: var(--chip); color: var(--muted); padding: 5px 11px; border-radius: 999px; }
-        .mini-tab.is-active { background: var(--ink); color: var(--cream); }
-        .mini-dish { display: flex; align-items: center; gap: 11px; }
-        .mini-thumb { width: 40px; height: 40px; border-radius: 10px; background: var(--hatch-sm); flex: none; }
-        .mini-name { flex: 1; font-size: 14px; font-weight: 500; }
-        .mini-price { font-size: 13.5px; font-weight: 600; color: var(--orange); }
-
-        .stat-row { display: flex; gap: 12px; }
-        .stat {
-            flex: 1;
-            background: var(--sand);
-            border-radius: 10px;
-            padding: 11px 13px;
-            display: flex;
-            flex-direction: column;
-            gap: 3px;
-        }
-        .stat-label {
-            font-family: var(--mono);
-            font-size: 10px;
-            letter-spacing: .08em;
-            text-transform: uppercase;
-            color: var(--muted-3);
-        }
-        .stat-value { font-size: 18px; font-weight: 600; letter-spacing: -.02em; }
-        .stat-value.accent { color: var(--orange); }
-        .bars { display: flex; align-items: flex-end; gap: 6px; height: 52px; }
-        .bars span { flex: 1; background: #EFE4D8; border-radius: 4px; }
-        .bars .accent { background: var(--orange); }
-        .bars .ink { background: var(--ink); }
-
-        .browser-bar {
-            display: flex;
-            align-items: center;
-            gap: 7px;
-            padding: 10px 13px;
-            border-bottom: 1px solid var(--chip);
-        }
-        .browser-dot { width: 8px; height: 8px; border-radius: 999px; background: #E7DACC; flex: none; }
-        .browser-url {
-            flex: 1;
-            margin-left: 6px;
-            background: var(--sand);
-            border-radius: 999px;
-            padding: 4px 10px;
-            font-family: var(--mono);
-            font-size: 10px;
-            color: var(--muted-3);
-        }
-        .browser-hero {
-            height: 76px;
-            background: var(--hatch);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 17px;
-            font-weight: 600;
-            letter-spacing: -.02em;
-            color: var(--ink);
-        }
-        .browser-nav { padding: 12px 14px; display: flex; gap: 8px; font-size: 12px; color: var(--muted); }
-        .browser-nav .primary { background: var(--orange); color: #fff; border-radius: 8px; padding: 6px 12px; font-weight: 500; }
-        .browser-nav .plain { background: var(--chip); border-radius: 8px; padding: 6px 12px; }
-
-        .booking-head { display: flex; justify-content: space-between; align-items: center; }
-        .booking-date { font-size: 14px; font-weight: 600; letter-spacing: -.015em; }
-        .booking-count { font-family: var(--mono); font-size: 11px; color: var(--muted-3); }
-        .slots { display: flex; gap: 7px; flex-wrap: wrap; font-size: 12.5px; }
-        .slot { border: 1px solid #E7DACC; border-radius: 8px; padding: 6px 11px; }
-        .slot.is-full { color: var(--muted-3); }
-        .slot.is-picked { background: var(--orange); color: #fff; border-color: var(--orange); font-weight: 500; }
-        .guest { display: flex; align-items: center; gap: 10px; background: var(--sand); border-radius: 10px; padding: 10px 12px; }
-        .avatar {
-            width: 28px; height: 28px; border-radius: 999px;
-            background: var(--ink); color: var(--cream);
-            font-size: 11px; font-weight: 600;
-            display: flex; align-items: center; justify-content: center; flex: none;
-        }
-        .guest-name { flex: 1; font-size: 13px; }
-        .guest-state { font-family: var(--mono); font-size: 11px; color: var(--orange); }
-
-        /* ---------- Features ---------- */
-        .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
-        .feature-card {
-            border: 1px solid var(--line-2);
-            border-radius: 18px;
-            padding: 30px;
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-            background: var(--surface);
-        }
-        .feature-card svg { display: block; }
-        .feature-title { font-size: 19px; font-weight: 600; letter-spacing: -.015em; }
-        .feature-desc { font-size: 15px; line-height: 1.6; color: var(--muted); }
-
-        /* ---------- How it works ---------- */
-        .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
-        .step {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            padding-top: 26px;
-            border-top: 2px solid #E0D6CB;
-        }
-        .step:first-child { border-top-color: var(--ink); }
-        .step-num { font-family: var(--mono); font-size: 15px; color: var(--orange); }
-        .step-title { font-size: 24px; font-weight: 600; letter-spacing: -.022em; }
-        .step-desc { font-size: 15.5px; line-height: 1.6; color: var(--muted); }
-
-        /* ---------- Partners ---------- */
-        .partners-inner {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 80px 32px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 36px;
-        }
-        .partners-head { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
-        .partners-head h2 { font-size: 32px; line-height: 1.15; letter-spacing: -.028em; font-weight: 600; }
-        .partners-head p { font-size: 16px; color: var(--muted); }
-        .partner-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
-        .partner-card {
-            width: 230px;
-            height: 96px;
-            border: 1px solid var(--line-2);
-            border-radius: 14px;
-            background: var(--surface);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 14px;
-            transition: border-color .18s ease, transform .18s ease;
-        }
-        .partner-card:hover { border-color: var(--ink); transform: translateY(-2px); }
-        .partner-card img { max-height: 64px; max-width: 100%; object-fit: contain; }
-
-        /* ---------- CTA ---------- */
-        .cta-inner { max-width: 1200px; margin: 0 auto; padding: 96px 32px; }
-        .cta-panel {
-            background: var(--ink);
-            border-radius: 26px;
-            padding: 76px 64px;
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: space-between;
-            gap: 40px;
-        }
-        .cta-copy { display: flex; flex-direction: column; gap: 16px; max-width: 560px; }
-        .cta-copy svg { display: block; }
-        .cta-panel h2 {
-            font-size: 42px;
-            line-height: 1.08;
-            letter-spacing: -.032em;
-            font-weight: 600;
-            color: var(--cream);
-        }
-        .cta-panel p { font-size: 17px; line-height: 1.6; color: #C9B9AC; }
-        .btn-cta {
-            background: var(--orange);
-            color: #fff;
-            font-size: 17px;
-            padding: 17px 34px;
-            border-radius: 13px;
-            white-space: nowrap;
-        }
-        .btn-cta:hover { background: var(--orange-light); color: #fff; }
-
-        /* ---------- Footer ---------- */
-        .site-footer { border-top: 1px solid var(--line); }
-        .footer-inner {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 48px 32px;
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: space-between;
-            gap: 24px;
-        }
-        .footer-brand { display: flex; align-items: center; gap: 11px; flex-wrap: wrap; }
-        .footer-brand svg { display: block; flex: none; }
-        .footer-word { font-size: 16px; font-weight: 600; letter-spacing: -.038em; }
-        .footer-word em { color: var(--orange); font-style: normal; }
-        .footer-tag { font-size: 14px; color: var(--muted-2); margin-left: 6px; }
-        .footer-links { display: flex; align-items: center; flex-wrap: wrap; gap: 26px; font-size: 14px; color: var(--muted-2); }
-        .footer-links a { color: var(--muted-2); }
-        .footer-links a:hover { color: var(--ink); }
-        .landing-fourcs-credit {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 7px 11px 7px 8px;
-            color: var(--ink) !important;
-            background: #fff;
-            border: 1px solid #DED2C5;
-            border-radius: 999px;
-            box-shadow: 0 6px 18px #2318130D;
-            transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
-        }
-        .landing-fourcs-credit:hover {
-            color: var(--ink) !important;
-            border-color: var(--orange);
-            box-shadow: 0 9px 22px #D55C1324;
-            transform: translateY(-2px);
-        }
-        .landing-fourcs-credit:focus-visible {
-            outline: 3px solid #D55C1340;
-            outline-offset: 3px;
-        }
-        .landing-fourcs-spark {
-            display: grid;
-            width: 25px;
-            height: 25px;
-            place-items: center;
-            flex: none;
-            color: #fff;
-            background: var(--orange);
-            border-radius: 50%;
-            font-size: 12px;
-            box-shadow: 0 4px 10px #D55C1340;
-        }
-        .landing-fourcs-credit strong { color: var(--orange); font-weight: 700; }
-        .landing-fourcs-arrow { color: var(--orange); transition: transform .18s ease; }
-        .landing-fourcs-credit:hover .landing-fourcs-arrow { transform: translate(2px, -2px); }
-
-        /* ---------- Responsive ---------- */
-        @@media (max-width: 1000px) {
-            .feature-grid { grid-template-columns: repeat(2, 1fr); }
-        }
-
-        @@media (max-width: 900px) {
-            .nav { display: none; }
-            .nav-toggle { display: block; }
-            .header-inner { gap: 16px; }
-
-            .nav.is-open {
-                display: flex;
-                position: absolute;
-                left: 0;
-                right: 0;
-                top: 100%;
-                flex-direction: column;
-                align-items: stretch;
-                gap: 4px;
-                padding: 12px 24px 20px;
-                background: var(--cream);
-                border-bottom: 1px solid var(--line);
-                font-size: 16px;
-            }
-            .nav.is-open a { padding: 10px 0; }
-            .nav.is-open .btn-primary { text-align: center; padding: 13px 20px; margin-top: 8px; }
-
-            .hero {
-                grid-template-columns: 1fr;
-                gap: 48px;
-                padding: 56px 24px 72px;
-            }
-            .hero h1 { font-size: 44px; }
-            .hero-lede { font-size: 17px; }
-
-            .product-grid { grid-template-columns: 1fr; }
-            .steps { grid-template-columns: 1fr; gap: 24px; }
-            .step { border-top-color: var(--ink); }
-
-            .band-inner, .cta-inner, .partners-inner { padding: 72px 24px; }
-            .section-head h2 { font-size: 34px; }
-            .cta-panel { padding: 48px 32px; }
-            .cta-panel h2 { font-size: 32px; }
-            .footer-inner, .header-inner { padding-left: 24px; padding-right: 24px; }
-        }
-
-        @@media (max-width: 680px) {
-            .feature-grid { grid-template-columns: 1fr; }
-            .hero h1 { font-size: 36px; }
-            /* keep the hero dominant once headings shrink */
-            .section-head h2 { font-size: 28px; }
-            .partners-head h2 { font-size: 26px; }
-            .cta-panel h2 { font-size: 28px; }
-            .hero-meta { flex-wrap: wrap; gap: 10px; }
-            .hero-meta .sep { display: none; }
-            .hero-actions .btn-lg { flex: 1; text-align: center; }
-            .phone { width: 100%; max-width: 320px; }
-            .product-head { padding: 26px 22px 22px; }
-            .product-figure { padding: 0 22px 26px; }
-            .partner-card { width: 100%; max-width: 260px; }
-            .footer-links { gap: 16px; }
-            .footer-tag { margin-left: 0; width: 100%; }
-        }
-
-        @@media (prefers-reduced-motion: reduce) {
-            html { scroll-behavior: auto; }
-            .partner-card:hover { transform: none; }
-            .landing-fourcs-credit:hover,
-            .landing-fourcs-credit:hover .landing-fourcs-arrow { transform: none; }
-        }
-    </style>
+    <link rel="preload" as="image" href="~/img/hero-table.webp" fetchpriority="high" />
+    <partial name="_HeadAssets" />
+    <link rel="stylesheet" href="~/css/landing.css" asp-append-version="true" />
 </head>
 <body>
+    <a class="skip-link" href="#main">Skip to content</a>
 
-    @if (showAnnouncementBar)
-    {
-        <div class="announce">
-            <span class="announce-tag">New</span>
-            <span class="announce-text">QR table tents now ship free with every annual plan</span>
-        </div>
-    }
-
-    <header class="site-header">
+    <header class="site-header" data-header>
         <div class="header-inner">
-            <a class="brand" asp-controller="Home" asp-action="Index">
-                <svg width="32" height="32" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-                    <rect x="4.5" y="4.5" width="15" height="15" rx="4" stroke="#231813" stroke-width="5"></rect>
-                    <rect x="26" y="2" width="20" height="20" rx="6.5" fill="#231813"></rect>
-                    <rect x="2" y="26" width="20" height="20" rx="6.5" fill="#231813"></rect>
-                    <circle cx="36" cy="36" r="10" fill="#D55C13"></circle>
-                </svg>
+            <a class="brand" asp-controller="Home" asp-action="Index" aria-label="My Quick Menu, home">
+                <partial name="_BrandMark" model="30" />
                 <span class="brand-word">myquick<em>menu</em></span>
             </a>
 
-            <button class="nav-toggle" type="button" id="navToggle" aria-expanded="false" aria-controls="primaryNav" aria-label="Toggle navigation">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                    <path d="M3 6h18M3 12h18M3 18h18"></path>
-                </svg>
-            </button>
-
-            <nav class="nav" id="primaryNav">
+            <nav class="nav" id="primaryNav" aria-label="Primary">
                 <a href="#products">Products</a>
                 <a href="#features">Features</a>
                 <a href="#how-it-works">How it works</a>
@@ -663,399 +48,348 @@
                 @if (isSignedIn)
                 {
                     <a asp-controller="Dashboard" asp-action="Index">Dashboard</a>
-                    <a class="btn btn-primary" asp-controller="Dashboard" asp-action="Index">@ctaLabel</a>
                 }
                 else
                 {
                     <a asp-controller="Account" asp-action="Login">Sign in</a>
-                    <a class="btn btn-primary" asp-controller="Account" asp-action="Login">@ctaLabel</a>
                 }
+                <a class="btn btn-primary" asp-controller="@ctaController" asp-action="@ctaAction">@ctaLabel</a>
             </nav>
+
+            <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="primaryNav" aria-label="Open menu">
+                <i class="ph ph-list" aria-hidden="true"></i>
+            </button>
         </div>
     </header>
 
-    <section id="top" class="hero">
-        <div class="hero-copy">
-            <div class="eyebrow-pill">
-                <span class="dot"></span>
-                Menus · site · bookings · back office
-            </div>
-            <h1>The whole restaurant, one platform</h1>
-            <p class="hero-lede">
-                Digital menus, your website, table bookings and day-to-day management — all sharing one set
-                of data. Change a price once and it lands everywhere in seconds.
-            </p>
-            <div class="hero-actions">
-                @if (isSignedIn)
-                {
-                    <a class="btn btn-primary btn-lg" asp-controller="Dashboard" asp-action="Index">@ctaLabel</a>
-                }
-                else
-                {
-                    <a class="btn btn-primary btn-lg" asp-controller="Account" asp-action="Login">@ctaLabel</a>
-                }
-                <a class="btn btn-ghost btn-lg" href="#features">Learn more</a>
-            </div>
-            <div class="hero-meta">
-                <span>No card required</span>
-                <span class="sep"></span>
-                <span>Live in under 10 minutes</span>
-            </div>
-        </div>
+    <main id="main">
+        @* ================================================================
+           HERO. Static by default (full-bleed photo, then the phone story
+           below it). With motion allowed, landing.js pins the stage and
+           scrubs: shared table -> one plate -> the plate becomes the banner
+           of a phone menu -> the menu demonstrates a live edit.
+           ================================================================ *@
+        <section class="hero" id="top" data-hero aria-labelledby="hero-title">
+            <div class="hero-stage" data-hero-stage>
 
-        <div class="hero-visual">
-            <div class="phone">
-                <div class="phone-screen">
-                    <div class="phone-banner">
-                        <div class="banner-label">restaurant banner</div>
-                        <div class="lang-chip"><span class="dot"></span>EN</div>
+                <div class="hero-cover">
+                    <div class="hero-media" data-hero-media>
+                        <img class="hero-img hero-img--table" data-hero-table
+                             src="~/img/hero-table.webp" width="1920" height="1280"
+                             alt="Friends sharing breakfast plates around a wooden table"
+                             fetchpriority="high" decoding="async" />
+                        <img class="hero-img hero-img--plate" data-hero-plate
+                             src="~/img/hero-plate.webp" width="900" height="900"
+                             alt="" aria-hidden="true" decoding="async" />
+                        <div class="hero-scrim" data-hero-scrim aria-hidden="true"></div>
                     </div>
-                    <div class="phone-body">
-                        <div style="display:flex; flex-direction:column; gap:3px">
-                            <div class="phone-title">Oliver's Italian</div>
-                            <div class="phone-sub">Open until 23:00 · Table 14</div>
+
+                    <div class="hero-copy" data-hero-copy>
+                        <h1 id="hero-title">The whole restaurant, one platform</h1>
+                        <p class="hero-lede">
+                            Digital menus, your website, bookings and the back office on one set of data.
+                            Change a price once and it lands everywhere.
+                        </p>
+                        <div class="hero-actions">
+                            <a class="btn btn-primary btn-lg" asp-controller="@ctaController" asp-action="@ctaAction">
+                                @ctaLabel <i class="ph ph-arrow-right" aria-hidden="true"></i>
+                            </a>
+                            <a class="btn btn-glass btn-lg" href="#how-it-works">See how it works</a>
                         </div>
-                        <div class="tabs">
-                            <div class="tab is-active">Antipasti</div>
-                            <div class="tab">Primi</div>
-                            <div class="tab">Dolci</div>
-                        </div>
-                        <div class="dish-list">
-                            <div class="dish">
-                                <div class="dish-thumb"></div>
-                                <div class="dish-text">
-                                    <div class="dish-name">Burrata &amp; peach</div>
-                                    <div class="dish-desc">Basil oil, sourdough crisp</div>
+                    </div>
+                </div>
+
+                <div class="story" data-story>
+                    <div class="story-text" data-story-text>
+                        <h2>Change it once. It's on every table.</h2>
+                        <p>One menu lives behind every QR code, so a price, a language or a sold-out dish updates wherever guests are looking.</p>
+                    </div>
+
+                    <div class="device" data-device>
+                        <div class="device-screen">
+                            <img class="device-banner" src="~/img/hero-plate.webp" width="900" height="900" alt="" aria-hidden="true" loading="lazy" />
+                            <div class="device-ui" data-device-ui aria-label="Example of a guest's menu">
+                                <div class="dui-head">
+                                    <div>
+                                        <div class="dui-name">Oliva Kitchen</div>
+                                        <div class="dui-sub">Table 14</div>
+                                    </div>
+                                    <span class="dui-lang swap">
+                                        <span class="swap-a" data-lang-a>EN</span>
+                                        <span class="swap-b" data-lang-b aria-hidden="true">SQ</span>
+                                    </span>
                                 </div>
-                                <div class="dish-price">€12</div>
-                            </div>
-                            <div class="dish">
-                                <div class="dish-thumb"></div>
-                                <div class="dish-text">
-                                    <div class="dish-name">Vitello tonnato</div>
-                                    <div class="dish-desc">Capers, lemon, tuna cream</div>
+                                <div class="dui-tabs" aria-hidden="true">
+                                    <span class="is-active">Mains</span><span>Pizza</span><span>Salads</span>
                                 </div>
-                                <div class="dish-price">€14</div>
-                            </div>
-                            <div class="dish">
-                                <div class="dish-thumb"></div>
-                                <div class="dish-text">
-                                    <div class="dish-name">Focaccia di Recco</div>
-                                    <div class="dish-desc">Stracchino, sea salt</div>
-                                </div>
-                                <div class="dish-price">€9</div>
+                                <ul class="dui-list">
+                                    <li class="dui-dish">
+                                        <img src="~/img/dish-salad.webp" width="400" height="400" alt="" loading="lazy" />
+                                        <div class="dui-text">
+                                            <span class="swap dui-dish-name">
+                                                <span class="swap-a" data-tr-a>Salmon poke bowl</span>
+                                                <span class="swap-b" data-tr-b aria-hidden="true">Tas poke me salmon</span>
+                                            </span>
+                                            <span class="dui-desc">Rice, avocado, sesame</span>
+                                        </div>
+                                        <span class="swap dui-price tabular">
+                                            <span class="swap-a" data-price-a>€12.00</span>
+                                            <span class="swap-b" data-price-b aria-hidden="true">€13.50</span>
+                                        </span>
+                                    </li>
+                                    <li class="dui-dish">
+                                        <img src="~/img/dish-pizza.webp" width="400" height="400" alt="" loading="lazy" />
+                                        <div class="dui-text">
+                                            <span class="swap dui-dish-name">
+                                                <span class="swap-a" data-tr-a>Wood-fired pizza</span>
+                                                <span class="swap-b" data-tr-b aria-hidden="true">Pica në furrë me dru</span>
+                                            </span>
+                                            <span class="dui-desc">Fior di latte, basil</span>
+                                        </div>
+                                        <span class="dui-price tabular">€11.00</span>
+                                    </li>
+                                    <li class="dui-dish" data-soldout>
+                                        <img src="~/img/dish-greens.webp" width="400" height="400" alt="" loading="lazy" />
+                                        <div class="dui-text">
+                                            <span class="swap dui-dish-name">
+                                                <span class="swap-a" data-tr-a>Garden greens</span>
+                                                <span class="swap-b" data-tr-b aria-hidden="true">Sallatë jeshile</span>
+                                            </span>
+                                            <span class="dui-desc">Seasonal leaves, citrus</span>
+                                        </div>
+                                        <span class="dui-price tabular">€9.00</span>
+                                        <span class="dui-soldout" data-soldout-tag>Sold out</span>
+                                    </li>
+                                </ul>
                             </div>
                         </div>
+                        <div class="device-frame" aria-hidden="true"></div>
                     </div>
-                </div>
-            </div>
-        </div>
-    </section>
 
-    <section id="products" class="band">
-        <div class="band-inner">
-            <div class="head-row">
-                <div class="section-head">
-                    <div class="kicker">Products</div>
-                    <h2>Four products, one back office</h2>
-                    <p>
-                        Start with the menu and add the rest when you need it. Dishes, hours and branches are
-                        entered once and shared across everything.
-                    </p>
-                </div>
-                <a class="btn btn-outline" href="#cta">Compare plans</a>
-            </div>
-
-            <div class="product-grid">
-
-                <div class="product-card">
-                    <div class="product-head">
-                        <div class="product-title-row">
-                            <svg width="28" height="28" viewBox="0 0 48 48" fill="none" aria-hidden="true"><rect x="4.5" y="4.5" width="15" height="15" rx="4" stroke="#231813" stroke-width="5"></rect><rect x="26" y="2" width="20" height="20" rx="6.5" fill="#231813"></rect><rect x="2" y="26" width="20" height="20" rx="6.5" fill="#231813"></rect><circle cx="36" cy="36" r="10" fill="#D55C13"></circle></svg>
-                            <div class="product-title">Digital menus</div>
-                        </div>
-                        <div class="product-desc">
-                            QR menus guests scan at the table. Multilingual, photo-rich, allergen-aware, and
-                            editable mid-service.
-                        </div>
-                        <div class="tag-row">
-                            <span class="tag">QR &amp; table tents</span>
-                            <span class="tag">Allergens</span>
-                            <span class="tag">Live pricing</span>
-                        </div>
-                    </div>
-                    <div class="product-figure">
-                        <div class="mini">
-                            <div class="mini-tabs">
-                                <span class="mini-tab is-active">Antipasti</span>
-                                <span class="mini-tab">Primi</span>
-                                <span class="mini-tab">Dolci</span>
+                    <ol class="callouts" data-callouts>
+                        <li class="callout" data-callout>
+                            <i class="ph ph-tag" aria-hidden="true"></i>
+                            <div>
+                                <strong>Price changed in the dashboard</strong>
+                                <span>Every table sees the new price a second later.</span>
                             </div>
-                            <div class="mini-dish">
-                                <div class="mini-thumb"></div>
-                                <div class="mini-name">Burrata &amp; peach</div>
-                                <div class="mini-price">€12</div>
+                        </li>
+                        <li class="callout" data-callout>
+                            <i class="ph ph-translate" aria-hidden="true"></i>
+                            <div>
+                                <strong>Guest switched to Shqip</strong>
+                                <span>Seven languages, written once by you.</span>
                             </div>
-                            <div class="mini-dish">
-                                <div class="mini-thumb"></div>
-                                <div class="mini-name">Vitello tonnato</div>
-                                <div class="mini-price">€14</div>
+                        </li>
+                        <li class="callout" data-callout>
+                            <i class="ph ph-prohibit" aria-hidden="true"></i>
+                            <div>
+                                <strong>Marked as sold out</strong>
+                                <span>Flagged before the next order lands.</span>
                             </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="product-card">
-                    <div class="product-head">
-                        <div class="product-title-row">
-                            <svg width="28" height="28" viewBox="0 0 48 48" fill="none" aria-hidden="true"><rect x="3" y="6" width="18" height="16" rx="5" fill="#231813"></rect><rect x="27" y="6" width="18" height="16" rx="5" stroke="#231813" stroke-width="4"></rect><rect x="3" y="28" width="18" height="14" rx="5" stroke="#231813" stroke-width="4"></rect><rect x="27" y="28" width="18" height="14" rx="5" fill="#D55C13"></rect></svg>
-                            <div class="product-title">Management system</div>
-                        </div>
-                        <div class="product-desc">
-                            Orders, tables, staff and stock in one dashboard. Multi-branch from day one, with
-                            the numbers rolled up nightly.
-                        </div>
-                        <div class="tag-row">
-                            <span class="tag">Orders &amp; tables</span>
-                            <span class="tag">Stock</span>
-                            <span class="tag">Staff roles</span>
-                        </div>
-                    </div>
-                    <div class="product-figure">
-                        <div class="mini" style="gap:12px">
-                            <div class="stat-row">
-                                <div class="stat">
-                                    <div class="stat-label">Covers</div>
-                                    <div class="stat-value">128</div>
-                                </div>
-                                <div class="stat">
-                                    <div class="stat-label">Avg ticket</div>
-                                    <div class="stat-value accent">€31</div>
-                                </div>
-                            </div>
-                            <div class="bars">
-                                <span style="height:38%"></span>
-                                <span style="height:56%"></span>
-                                <span style="height:44%"></span>
-                                <span class="accent" style="height:78%"></span>
-                                <span style="height:64%"></span>
-                                <span class="ink" style="height:88%"></span>
-                                <span style="height:52%"></span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="product-card">
-                    <div class="product-head">
-                        <div class="product-title-row">
-                            <svg width="28" height="28" viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="24" cy="24" r="19" stroke="#231813" stroke-width="4"></circle><path d="M5 24h38M24 5c5 6 5 32 0 38M24 5c-5 6-5 32 0 38" stroke="#231813" stroke-width="3"></path><circle cx="38" cy="12" r="6" fill="#D55C13"></circle></svg>
-                            <div class="product-title">Restaurant websites</div>
-                        </div>
-                        <div class="product-desc">
-                            A fast, own-domain site that pulls its menu and hours straight from your dashboard —
-                            so it's never out of date.
-                        </div>
-                        <div class="tag-row">
-                            <span class="tag">Own domain</span>
-                            <span class="tag">SEO ready</span>
-                            <span class="tag">Templates</span>
-                        </div>
-                    </div>
-                    <div class="product-figure">
-                        <div class="mini mini-flush">
-                            <div class="browser-bar">
-                                <span class="browser-dot"></span>
-                                <span class="browser-dot"></span>
-                                <span class="browser-dot"></span>
-                                <div class="browser-url">oliversitalian.com</div>
-                            </div>
-                            <div class="browser-hero">Oliver's Italian</div>
-                            <div class="browser-nav">
-                                <span class="primary">Book a table</span>
-                                <span class="plain">Menu</span>
-                                <span class="plain">Contact</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="product-card">
-                    <div class="product-head">
-                        <div class="product-title-row">
-                            <svg width="28" height="28" viewBox="0 0 48 48" fill="none" aria-hidden="true"><rect x="4" y="9" width="40" height="35" rx="7" stroke="#231813" stroke-width="4"></rect><path d="M4 20h40" stroke="#231813" stroke-width="4"></path><path d="M15 4v9M33 4v9" stroke="#231813" stroke-width="4" stroke-linecap="round"></path><circle cx="33" cy="32" r="5.5" fill="#D55C13"></circle></svg>
-                            <div class="product-title">Bookings</div>
-                        </div>
-                        <div class="product-desc">
-                            Take reservations from the site, the menu QR or your Instagram link. Confirmations
-                            by SMS, no-shows tracked.
-                        </div>
-                        <div class="tag-row">
-                            <span class="tag">Table plan</span>
-                            <span class="tag">SMS confirm</span>
-                            <span class="tag">Waitlist</span>
-                        </div>
-                    </div>
-                    <div class="product-figure">
-                        <div class="mini" style="gap:11px">
-                            <div class="booking-head">
-                                <div class="booking-date">Friday 12 June</div>
-                                <div class="booking-count">4 of 18 tables</div>
-                            </div>
-                            <div class="slots">
-                                <span class="slot is-full">18:00</span>
-                                <span class="slot">18:30</span>
-                                <span class="slot is-picked">19:00</span>
-                                <span class="slot">19:30</span>
-                                <span class="slot is-full">20:00</span>
-                            </div>
-                            <div class="guest">
-                                <div class="avatar">EM</div>
-                                <div class="guest-name">Elira M. · 4 guests</div>
-                                <div class="guest-state">CONFIRMED</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-    </section>
-
-    <section id="features" class="band band-both">
-        <div class="band-inner">
-            <div class="section-head" style="margin-bottom:56px">
-                <div class="kicker">Features</div>
-                <h2>Shared across every product</h2>
-                <p>
-                    Built for the way restaurants actually work — mid-service edits, seasonal swaps, and guests
-                    who speak four languages.
-                </p>
-            </div>
-            <div class="feature-grid">
-                <div class="feature-card">
-                    <svg width="30" height="30" viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="18" cy="24" r="14" stroke="#231813" stroke-width="4"></circle><circle cx="32" cy="24" r="14" stroke="#D55C13" stroke-width="4"></circle></svg>
-                    <div class="feature-title">Multilingual support</div>
-                    <div class="feature-desc">Serve international guests in their own language. They switch in one tap; you write it once.</div>
-                </div>
-                <div class="feature-card">
-                    <svg width="30" height="30" viewBox="0 0 48 48" fill="none" aria-hidden="true"><rect x="14" y="4" width="20" height="40" rx="6" stroke="#231813" stroke-width="4"></rect><circle cx="24" cy="36" r="3.5" fill="#D55C13"></circle></svg>
-                    <div class="feature-title">Mobile optimised</div>
-                    <div class="feature-desc">Menus built phone-first — legible in low light, thumb-reachable, and fast on café wifi.</div>
-                </div>
-                <div class="feature-card">
-                    <svg width="30" height="30" viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="24" cy="24" r="18" stroke="#231813" stroke-width="4"></circle><circle cx="24" cy="24" r="6" fill="#D55C13"></circle></svg>
-                    <div class="feature-title">Real-time updates</div>
-                    <div class="feature-desc">Sold out at 19:40? Hide it. The change is on every table before the next order lands.</div>
-                </div>
-                <div class="feature-card">
-                    <svg width="30" height="30" viewBox="0 0 48 48" fill="none" aria-hidden="true"><rect x="4" y="4" width="18" height="18" rx="6" fill="#231813"></rect><rect x="26" y="26" width="18" height="18" rx="6" fill="#D55C13"></rect><rect x="26" y="4" width="18" height="18" rx="6" stroke="#231813" stroke-width="4"></rect></svg>
-                    <div class="feature-title">Custom branding</div>
-                    <div class="feature-desc">Your colours, your logo, your banner. The menu looks like your room, not like software.</div>
-                </div>
-                <div class="feature-card">
-                    <svg width="30" height="30" viewBox="0 0 48 48" fill="none" aria-hidden="true"><rect x="4" y="10" width="40" height="7" rx="3.5" fill="#231813"></rect><rect x="4" y="22" width="28" height="7" rx="3.5" fill="#231813"></rect><rect x="4" y="34" width="16" height="7" rx="3.5" fill="#D55C13"></rect></svg>
-                    <div class="feature-title">Easy management</div>
-                    <div class="feature-desc">Branches, categories and dishes in one dashboard. Drag to reorder — no training needed.</div>
-                </div>
-                <div class="feature-card">
-                    <svg width="30" height="30" viewBox="0 0 48 48" fill="none" aria-hidden="true"><rect x="6" y="6" width="36" height="36" rx="11" stroke="#231813" stroke-width="4"></rect><circle cx="24" cy="24" r="6" fill="#D55C13"></circle></svg>
-                    <div class="feature-title">Secure &amp; reliable</div>
-                    <div class="feature-desc">Enterprise-grade security and 99.9% uptime. Your menu is up when your doors are.</div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section id="how-it-works" class="band-inner" style="background:transparent">
-        <div class="section-head" style="margin-bottom:56px">
-            <div class="kicker">How it works</div>
-            <h2>Three steps to going live</h2>
-        </div>
-        <div class="steps">
-            <div class="step">
-                <div class="step-num">01</div>
-                <div class="step-title">Create your branch</div>
-                <div class="step-desc">Name, address, opening hours, logo and banner. Each location gets its own menu and its own link.</div>
-            </div>
-            <div class="step">
-                <div class="step-num">02</div>
-                <div class="step-title">Add your menu</div>
-                <div class="step-desc">Categories, dishes, prices, photos, allergens. Paste from a spreadsheet or type it straight in.</div>
-            </div>
-            <div class="step">
-                <div class="step-num">03</div>
-                <div class="step-title">Switch on the rest</div>
-                <div class="step-desc">Print the QR, publish the website, open the booking calendar. Same data, three new front doors.</div>
-            </div>
-        </div>
-    </section>
-
-    @if (showPartners)
-    {
-        <section id="partners" class="band band-both">
-            <div class="partners-inner">
-                <div class="partners-head">
-                    <h2>Trusted by restaurants that keep changing their minds</h2>
-                    <p>And their specials, and their prices, and their hours.</p>
-                </div>
-                <div class="partner-row">
-                    @foreach (var branch in partners)
-                    {
-                        <a class="partner-card"
-                           asp-controller="Menu"
-                           asp-action="Index"
-                           asp-route-branchName="@SeoService.Slug(branch.Name)"
-                           target="_blank"
-                           rel="noopener"
-                           title="@branch.Name">
-                            <img src="@branch.Logo" alt="@branch.Name" loading="lazy" />
-                        </a>
-                    }
+                        </li>
+                    </ol>
                 </div>
             </div>
         </section>
-    }
 
-    <section id="cta" class="cta-inner">
-        <div class="cta-panel">
-            <div class="cta-copy">
-                <svg width="42" height="42" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-                    <rect x="4.5" y="4.5" width="15" height="15" rx="4" stroke="#FBF8F4" stroke-width="5"></rect>
-                    <rect x="26" y="2" width="20" height="20" rx="6.5" fill="#FBF8F4"></rect>
-                    <rect x="2" y="26" width="20" height="20" rx="6.5" fill="#FBF8F4"></rect>
-                    <circle cx="36" cy="36" r="10" fill="#E68C2C"></circle>
-                </svg>
-                <h2>Run the whole room from one place</h2>
-                <p>
-                    Menus, website, bookings and back office. Start with one, add the rest whenever. Free
-                    while you build it.
-                </p>
+        @if (showPartners)
+        {
+            <section id="partners" class="partners" aria-labelledby="partners-title">
+                <h2 id="partners-title" class="partners-title">Restaurants already serving with My Quick Menu</h2>
+                <div class="partners-track @(partnersAsMarquee ? "is-marquee" : "")">
+                    <ul class="partners-row">
+                        @foreach (var branch in partners)
+                        {
+                            <li>
+                                <a class="partner-logo" asp-controller="Menu" asp-action="Index"
+                                   asp-route-branchName="@SeoService.Slug(branch.Name)"
+                                   target="_blank" rel="noopener" title="@branch.Name menu">
+                                    <img src="@branch.Logo" alt="@branch.Name" width="140" height="64" loading="lazy" />
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                    @if (partnersAsMarquee)
+                    {
+                        <ul class="partners-row" aria-hidden="true">
+                            @foreach (var branch in partners)
+                            {
+                                <li>
+                                    <span class="partner-logo">
+                                        <img src="@branch.Logo" alt="" width="140" height="64" loading="lazy" />
+                                    </span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </section>
+        }
+
+        <section id="products" class="section products" aria-labelledby="products-title">
+            <div class="shell">
+                <header class="section-head" data-reveal>
+                    <h2 id="products-title">Four products, one back office</h2>
+                    <p>Start with the menu and add the rest when you need it. Dishes, hours and branches are entered once and shared across everything.</p>
+                </header>
+
+                <div class="bento">
+                    <article class="tile tile--menus" data-reveal>
+                        <img class="tile-photo" src="~/img/guest-dining.webp" width="1200" height="800"
+                             alt="A guest enjoying dinner in a warmly lit restaurant" loading="lazy" />
+                        <div class="tile-body tile-body--overlay">
+                            <h3><i class="ph ph-qr-code" aria-hidden="true"></i>Digital menus</h3>
+                            <p>QR menus guests scan at the table. Multilingual, photo-rich, allergen-aware, and editable mid-service.</p>
+                            <ul class="tags">
+                                <li>QR &amp; table tents</li><li>Allergens</li><li>Live pricing</li>
+                            </ul>
+                        </div>
+                    </article>
+
+                    <article class="tile tile--ops" data-reveal>
+                        <div class="tile-body">
+                            <h3><i class="ph ph-squares-four" aria-hidden="true"></i>Management system</h3>
+                            <p>Orders, tables, staff and stock in one dashboard. Multi-branch from day one, with the numbers rolled up nightly.</p>
+                            <ul class="tags">
+                                <li>Orders &amp; tables</li><li>Stock</li><li>Staff roles</li>
+                            </ul>
+                        </div>
+                        <img class="tile-photo tile-photo--inset" src="~/img/chef-plating.webp" width="900" height="1385"
+                             alt="A chef finishing plates under copper pass lights" loading="lazy" />
+                    </article>
+
+                    <article class="tile tile--web" data-reveal>
+                        <img class="tile-photo tile-photo--top" src="~/img/cafe-interior.webp" width="1200" height="900"
+                             alt="A bright café dining room with wooden tables" loading="lazy" />
+                        <div class="tile-body">
+                            <h3><i class="ph ph-globe-simple" aria-hidden="true"></i>Restaurant websites</h3>
+                            <p>A fast, own-domain site that pulls its menu and hours straight from your dashboard, so it's never out of date.</p>
+                            <ul class="tags">
+                                <li>Own domain</li><li>SEO ready</li><li>Templates</li>
+                            </ul>
+                        </div>
+                    </article>
+
+                    <article class="tile tile--book" data-reveal>
+                        <div class="tile-body">
+                            <h3><i class="ph ph-calendar-check" aria-hidden="true"></i>Bookings</h3>
+                            <p>Take reservations from the site, the menu QR or your Instagram link. Confirmations by SMS, no-shows tracked.</p>
+                            <div class="slots" role="group" aria-label="Try it: pick a time for Friday">
+                                <button type="button" class="slot" disabled>18:00</button>
+                                <button type="button" class="slot" aria-pressed="false">18:30</button>
+                                <button type="button" class="slot" aria-pressed="true">19:00</button>
+                                <button type="button" class="slot" aria-pressed="false">19:30</button>
+                                <button type="button" class="slot" disabled>20:00</button>
+                                <button type="button" class="slot" aria-pressed="false">20:30</button>
+                            </div>
+                            <p class="slot-note" aria-live="polite" data-slot-note>Table for 4 held at 19:00. Confirmation goes out by SMS.</p>
+                        </div>
+                        <img class="tile-photo tile-photo--side" src="~/img/terrace.webp" width="1200" height="900"
+                             alt="A seaside restaurant terrace set for dinner" loading="lazy" />
+                    </article>
+                </div>
             </div>
-            @if (isSignedIn)
-            {
-                <a class="btn btn-cta" asp-controller="Dashboard" asp-action="Index">@ctaLabel</a>
-            }
-            else
-            {
-                <a class="btn btn-cta" asp-controller="Account" asp-action="Login">@ctaLabel</a>
-            }
-        </div>
-    </section>
+        </section>
+
+        <section id="features" class="section features" aria-labelledby="features-title">
+            <div class="shell features-grid">
+                <header class="features-head">
+                    <h2 id="features-title">Shared across every product</h2>
+                    <p>Built for the way restaurants actually work: mid-service edits, seasonal swaps, and guests who speak four languages.</p>
+                </header>
+                <ul class="feature-list">
+                    <li data-reveal>
+                        <i class="ph ph-translate" aria-hidden="true"></i>
+                        <h3>Multilingual support</h3>
+                        <p>Serve international guests in their own language. They switch in one tap; you write it once.</p>
+                    </li>
+                    <li data-reveal>
+                        <i class="ph ph-device-mobile" aria-hidden="true"></i>
+                        <h3>Mobile optimised</h3>
+                        <p>Menus built phone-first: legible in low light, thumb-reachable, and fast on café wifi.</p>
+                    </li>
+                    <li data-reveal>
+                        <i class="ph ph-lightning" aria-hidden="true"></i>
+                        <h3>Real-time updates</h3>
+                        <p>Sold out at 19:40? Hide it. The change is on every table before the next order lands.</p>
+                    </li>
+                    <li data-reveal>
+                        <i class="ph ph-palette" aria-hidden="true"></i>
+                        <h3>Custom branding</h3>
+                        <p>Your colours, your logo, your banner. The menu looks like your room, not like software.</p>
+                    </li>
+                    <li data-reveal>
+                        <i class="ph ph-hand-grabbing" aria-hidden="true"></i>
+                        <h3>Easy management</h3>
+                        <p>Branches, categories and dishes in one dashboard. Drag to reorder, no training needed.</p>
+                    </li>
+                    <li data-reveal>
+                        <i class="ph ph-shield-check" aria-hidden="true"></i>
+                        <h3>Secure &amp; reliable</h3>
+                        <p>Encrypted connections, role-based access, and deleted branches you can recover. Your menu is up when your doors are.</p>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="how-it-works" class="section steps" aria-labelledby="steps-title">
+            <div class="shell">
+                <header class="section-head" data-reveal>
+                    <h2 id="steps-title">Three steps to going live</h2>
+                </header>
+            </div>
+            <div class="stack" data-stack>
+                <article class="stack-card" data-stack-card>
+                    <div class="stack-inner">
+                        <div class="stack-copy">
+                            <h3>Create your branch</h3>
+                            <p>Name, address, logo and banner. Each location gets its own menu, its own colours and its own link.</p>
+                        </div>
+                        <img src="~/img/dining-room.webp" width="1400" height="934" alt="An empty dining room ready for service" loading="lazy" />
+                    </div>
+                </article>
+                <article class="stack-card" data-stack-card>
+                    <div class="stack-inner">
+                        <div class="stack-copy">
+                            <h3>Add your menu</h3>
+                            <p>Categories, dishes, prices, photos and nutrition notes. Translate each dish once and every guest reads it in their language.</p>
+                        </div>
+                        <img src="~/img/chef-prep.webp" width="900" height="1350" alt="A chef chopping herbs on a board" loading="lazy" />
+                    </div>
+                </article>
+                <article class="stack-card" data-stack-card>
+                    <div class="stack-inner">
+                        <div class="stack-copy">
+                            <h3>Switch on the rest</h3>
+                            <p>Print the QR, publish the website, open the booking calendar. Same data, three new front doors.</p>
+                        </div>
+                        <img src="~/img/fine-dining.webp" width="1400" height="934" alt="A plated dish on a set table" loading="lazy" />
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <section id="cta" class="cta" aria-labelledby="cta-title">
+            <img class="cta-photo" src="~/img/evening-room.webp" width="1200" height="1812" alt="" aria-hidden="true" loading="lazy" />
+            <div class="cta-inner" data-reveal>
+                <h2 id="cta-title">Run the whole room from one place</h2>
+                <p>Menus, website, bookings and back office. Start with one, add the rest whenever. Free while you build it.</p>
+                <a class="btn btn-primary btn-lg" asp-controller="@ctaController" asp-action="@ctaAction">
+                    @ctaLabel <i class="ph ph-arrow-right" aria-hidden="true"></i>
+                </a>
+            </div>
+        </section>
+    </main>
 
     <footer class="site-footer">
-        <div class="footer-inner">
+        <div class="shell footer-inner">
             <div class="footer-brand">
-                <svg width="26" height="26" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-                    <rect x="4.5" y="4.5" width="15" height="15" rx="4" stroke="#231813" stroke-width="5"></rect>
-                    <rect x="26" y="2" width="20" height="20" rx="6.5" fill="#231813"></rect>
-                    <rect x="2" y="26" width="20" height="20" rx="6.5" fill="#231813"></rect>
-                    <circle cx="36" cy="36" r="10" fill="#D55C13"></circle>
-                </svg>
-                <span class="footer-word">myquick<em>menu</em></span>
+                <partial name="_BrandMark" model="26" />
+                <span class="brand-word">myquick<em>menu</em></span>
                 <span class="footer-tag">Menus, websites &amp; bookings</span>
             </div>
-            <div class="footer-links">
+            <nav class="footer-links" aria-label="Footer">
                 <a href="#products">Products</a>
                 <a href="#features">Features</a>
                 @if (showPartners)
@@ -1064,38 +398,17 @@
                 }
                 <a asp-controller="Home" asp-action="Privacy">Privacy</a>
                 <a asp-controller="Home" asp-action="Privacy">Terms</a>
-                <a class="landing-fourcs-credit"
-                   href="https://4cs.al/"
-                   target="_blank"
-                   rel="noopener noreferrer"
-                   aria-label="Developed by 4CS — visit 4cs.al">
-                    <span class="landing-fourcs-spark" aria-hidden="true">&#10022;</span>
-                    <span>Developed by <strong>4CS</strong></span>
-                    <span class="landing-fourcs-arrow" aria-hidden="true">&#8599;</span>
-                </a>
+            </nav>
+            <div class="footer-end">
+                <partial name="_FourCsCredit" />
                 <span>&copy; @DateTime.Now.Year My Quick Menu</span>
             </div>
         </div>
     </footer>
 
-    <script>
-        (function () {
-            var toggle = document.getElementById('navToggle');
-            var nav = document.getElementById('primaryNav');
-            if (!toggle || !nav) return;
-
-            toggle.addEventListener('click', function () {
-                var open = nav.classList.toggle('is-open');
-                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-            });
-
-            nav.addEventListener('click', function (e) {
-                if (e.target.tagName === 'A') {
-                    nav.classList.remove('is-open');
-                    toggle.setAttribute('aria-expanded', 'false');
-                }
-            });
-        })();
-    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
+    <script src="@("https://unpkg.com/lenis@1.1.13/dist/lenis.min.js")" defer></script>
+    <script src="~/js/landing.js" asp-append-version="true" defer></script>
 </body>
 </html>

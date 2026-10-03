@@ -1,141 +1,95 @@
-@using Microsoft.AspNetCore.Mvc.TagHelpers
 @model RestaurantMenu.ViewModels.LoginViewModel
 @{
-    ViewData["Title"] = "Login";
+    ViewData["Title"] = "Sign in";
     Layout = null;
 }
-
 <!DOCTYPE html>
-<html lang="en" data-bs-theme="light">
+<html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - Restaurant Menu System</title>
+    <meta name="robots" content="noindex" />
+    <title>Sign in - My Quick Menu</title>
+    <link rel="icon" href="~/favicon.ico" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <partial name="_HeadAssets" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <style>
-        .login-container {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 2rem;
-        }
-        .login-card {
-            max-width: 450px;
-            width: 100%;
-        }
-        .login-header {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-        .login-icon {
-            width: 80px;
-            height: 80px;
-            margin: 0 auto 1.5rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2.5rem;
-            color: white;
-            animation: pulse 2s infinite;
-        }
-        @@keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-        }
-    </style>
 </head>
 <body>
-    <div class="login-container">
-        <div class="login-card">
-            <div class="login-header">
-                <div class="login-icon">
-                    <i class="bi bi-shop-window"></i>
-                </div>
-                <h1 class="display-5 fw-bold mb-2">Welcome Back</h1>
-                <p class="text-muted">Sign in to manage your restaurant menus</p>
-            </div>
+    <div class="auth">
+        <div class="auth-form-side">
+            <a class="sidebar-brand" asp-controller="Home" asp-action="Index">
+                <partial name="_BrandMark" model="28" />
+                <span class="brand-word">myquick<em>menu</em></span>
+            </a>
 
-            <div class="card glass-card border-0 shadow-lg">
-                <div class="card-body p-4">
-                    @if (TempData["Success"] != null)
-                    {
-                        <div class="alert alert-success alert-dismissible fade show mb-4" role="alert">
-                            <i class="bi bi-check-circle-fill me-2"></i>@TempData["Success"]
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <main class="auth-form-wrap" id="main">
+                <h1>Welcome back</h1>
+                <p class="auth-sub">Sign in to update your menus.</p>
+
+                @if (TempData["Success"] is string ok)
+                {
+                    <div class="flash flash--ok mb-4" role="status"><i class="ph ph-check-circle" aria-hidden="true"></i><p>@ok</p></div>
+                }
+
+                <form asp-action="Login" method="post" novalidate>
+                    <div asp-validation-summary="ModelOnly" role="alert"></div>
+
+                    <div class="mb-3">
+                        <label asp-for="Email" class="form-label">Email</label>
+                        <input asp-for="Email" type="email" class="form-control form-control-lg" autocomplete="username" spellcheck="false" placeholder="you@restaurant.al…" />
+                        <span asp-validation-for="Email"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Password" class="form-label">Password</label>
+                        <div class="password-field">
+                            <input asp-for="Password" class="form-control form-control-lg" autocomplete="current-password" id="passwordInput" />
+                            <button class="icon-btn" type="button" data-toggle-password aria-controls="passwordInput" aria-label="Show password" aria-pressed="false">
+                                <i class="ph ph-eye" aria-hidden="true"></i>
+                            </button>
                         </div>
-                    }
-                    
-                    <form asp-action="Login" method="post">
-                        <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
-                        
-                        <div class="mb-4">
-                            <label asp-for="Email" class="form-label">
-                                <i class="bi bi-envelope-fill me-2"></i>Email Address
-                            </label>
-                            <input asp-for="Email" class="form-control form-control-lg" 
-                                   placeholder="your.email@example.com" autofocus />
-                            <span asp-validation-for="Email" class="text-danger"></span>
-                        </div>
-                        
-                        <div class="mb-4">
-                            <label asp-for="Password" class="form-label">
-                                <i class="bi bi-lock-fill me-2"></i>Password
-                            </label>
-                            <div class="input-group">
-                                <input asp-for="Password" class="form-control form-control-lg" 
-                                       placeholder="Enter your password" id="passwordInput" />
-                                <button class="btn btn-outline-secondary" type="button" 
-                                        onclick="togglePassword()">
-                                    <i class="bi bi-eye-fill" id="toggleIcon"></i>
-                                </button>
-                            </div>
-                            <span asp-validation-for="Password" class="text-danger"></span>
-                        </div>
-                        
-                        <div class="mb-4 form-check">
-                            <input asp-for="RememberMe" class="form-check-input" />
-                            <label asp-for="RememberMe" class="form-check-label">
-                                Keep me signed in
-                            </label>
-                        </div>
-                        
-                        <button type="submit" class="btn btn-primary btn-lg w-100 mb-3">
-                            <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
-                        </button>
-                    </form>
-                </div>
-            </div>
-            
-            <div class="text-center mt-4">
-                <p class="text-muted small">
-                    &copy; 2026 Restaurant Menu System. All rights reserved.
-                </p>
-            </div>
+                        <span asp-validation-for="Password"></span>
+                    </div>
+
+                    <div class="form-check mb-4">
+                        <input asp-for="RememberMe" class="form-check-input" />
+                        <label asp-for="RememberMe" class="form-check-label">Keep me signed in</label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg w-100">
+                        Sign in <i class="ph ph-arrow-right" aria-hidden="true"></i>
+                    </button>
+                </form>
+            </main>
+
+            <footer class="auth-foot">
+                <span>&copy; @DateTime.Now.Year My Quick Menu</span>
+                <partial name="_FourCsCredit" />
+            </footer>
         </div>
+
+        <figure class="auth-photo m-0">
+            <img src="~/img/plates-overhead.webp" width="1400" height="934" alt="Plates of food shared across a dark wooden table" />
+            <figcaption>Change a price once. It's on every table a second later.</figcaption>
+        </figure>
     </div>
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        function togglePassword() {
-            const input = document.getElementById('passwordInput');
-            const icon = document.getElementById('toggleIcon');
-            
-            if (input.type === 'password') {
-                input.type = 'text';
-                icon.className = 'bi bi-eye-slash-fill';
-            } else {
-                input.type = 'password';
-                icon.className = 'bi bi-eye-fill';
-            }
-        }
-    </script>
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function () {
+            var btn = document.querySelector('[data-toggle-password]');
+            var input = document.getElementById('passwordInput');
+            btn.addEventListener('click', function () {
+                var show = input.type === 'password';
+                input.type = show ? 'text' : 'password';
+                btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+                btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+                btn.innerHTML = '<i class="ph ' + (show ? 'ph-eye-slash' : 'ph-eye') + '" aria-hidden="true"></i>';
+            });
+        })();
+    </script>
 </body>
 </html>

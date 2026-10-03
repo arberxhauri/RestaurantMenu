@@ -23,4 +23,12 @@
       <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
     </ItemGroup>
 
+    <!-- The repo lives on an exFAT drive, where macOS writes "._*" AppleDouble
+         sidecar files next to everything. Keep them out of the build. -->
+    <ItemGroup>
+      <Content Remove="**/._*" />
+      <None Remove="**/._*" />
+      <Compile Remove="**/._*" />
+    </ItemGroup>
+
 </Project>

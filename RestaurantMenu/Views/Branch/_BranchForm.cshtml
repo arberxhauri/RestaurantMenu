@@ -1,0 +1,92 @@
+@using RestaurantMenu.Helpers
+@model Branch
+@{
+    var isEdit = Model?.Id > 0;
+    var selected = ViewBag.SelectedLanguages as string[]
+                   ?? (Model?.SupportedLanguages?.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                   ?? new[] { "en" };
+}
+
+<div class="form-layout">
+    <div class="panel">
+        <div asp-validation-summary="ModelOnly" class="m-4 mb-0"></div>
+
+        <section class="form-section">
+            <h2>Details</h2>
+            <p>Shown at the top of the guest menu.</p>
+            <div class="fields">
+                <div class="span-2">
+                    <label asp-for="Name" class="form-label">Branch name</label>
+                    <input asp-for="Name" class="form-control form-control-lg" placeholder="e.g. Oliva Kitchen Blloku…" autocomplete="organization" />
+                    <span class="hint">Also forms the menu link, e.g. /menu/olivakitchenblloku</span>
+                    <span asp-validation-for="Name"></span>
+                </div>
+                <div class="span-2">
+                    <label asp-for="Address" class="form-label">Address</label>
+                    <input asp-for="Address" class="form-control" placeholder="Rruga Pjetër Bogdani 12, Tiranë…" autocomplete="street-address" />
+                    <span class="hint">Guests can tap it to open directions.</span>
+                    <span asp-validation-for="Address"></span>
+                </div>
+                <div>
+                    <label asp-for="PhoneNumber" class="form-label">Phone</label>
+                    <input asp-for="PhoneNumber" class="form-control" type="tel" inputmode="tel" placeholder="+355 69 482 7716…" autocomplete="tel" />
+                    <span asp-validation-for="PhoneNumber"></span>
+                </div>
+                <div>
+                    <label asp-for="Currency" class="form-label">Currency</label>
+                    <select asp-for="Currency" asp-items="ViewBag.Currencies" class="form-select">
+                        <option value="">Choose a currency</option>
+                    </select>
+                    <span asp-validation-for="Currency"></span>
+                </div>
+            </div>
+        </section>
+
+        <section class="form-section">
+            <h2>Menu languages</h2>
+            <p>Guests can switch between these. You'll be asked for a translation of each dish.</p>
+            <div class="lang-chips" role="group" aria-label="Menu languages">
+                @foreach (var language in LanguageHelper.GetAvailableLanguages())
+                {
+                    <label class="lang-chip">
+                        <input type="checkbox" name="selectedLanguages" value="@language.Value" @(selected.Contains(language.Value) ? "checked" : "") />
+                        <span>@language.Text</span>
+                    </label>
+                }
+            </div>
+        </section>
+    </div>
+
+    <aside class="form-aside">
+        <div class="panel form-section">
+            <h2>Logo</h2>
+            <p>Square works best. Menu colours are taken from it.</p>
+            <label class="dropzone dropzone--square dropzone--logo-fit" for="logo" data-dropzone="logo" data-current="@Model?.Logo" tabindex="0">
+                <i class="ph ph-image-square" aria-hidden="true"></i>
+                <strong>@(string.IsNullOrEmpty(Model?.Logo) ? "Upload logo" : "Replace logo")</strong>
+                <small>Drop an image or click to browse</small>
+                <button type="button" class="icon-btn icon-btn--sm dropzone-clear" aria-label="Undo logo change"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
+            </label>
+            <input type="file" name="logo" id="logo" class="visually-hidden" accept="image/*" />
+        </div>
+        <div class="panel form-section">
+            <h2>Banner</h2>
+            <p>A wide photo of your room or a signature dish. 16:9 is ideal.</p>
+            <label class="dropzone dropzone--wide" for="banner" data-dropzone="banner" data-current="@Model?.Banner" tabindex="0">
+                <i class="ph ph-image" aria-hidden="true"></i>
+                <strong>@(string.IsNullOrEmpty(Model?.Banner) ? "Upload banner" : "Replace banner")</strong>
+                <small>Drop an image or click to browse</small>
+                <button type="button" class="icon-btn icon-btn--sm dropzone-clear" aria-label="Undo banner change"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
+            </label>
+            <input type="file" name="banner" id="banner" class="visually-hidden" accept="image/*" />
+        </div>
+    </aside>
+</div>
+
+<div class="form-actions">
+    <span class="spacer">@(isEdit ? "Changes go live on the menu as soon as you save." : "You can change everything later.")</span>
+    <a asp-controller="@(isEdit ? "Branch" : "Dashboard")" asp-action="@(isEdit ? "Details" : "Index")" asp-route-id="@(isEdit ? Model!.Id : (int?)null)" class="btn btn-quiet">Cancel</a>
+    <button type="submit" class="btn btn-primary">
+        <i class="ph ph-check" aria-hidden="true"></i>@(isEdit ? "Save changes" : "Create branch")
+    </button>
+</div>

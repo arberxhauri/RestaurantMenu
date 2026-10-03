@@ -1,0 +1,22 @@
+@using RestaurantMenu.Helpers
+@{
+    var languages = (ViewBag.SupportedLanguages as string[] ?? new[] { "en" }).Where(l => l != "en").ToArray();
+    var existing = ViewBag.ExistingTranslations as Dictionary<string, string> ?? new();
+}
+@if (languages.Any())
+{
+    <div class="form-section">
+        <h2>Translations</h2>
+        <p>Leave empty to show the English name.</p>
+        <div class="fields">
+            @foreach (var lang in languages)
+            {
+                <div>
+                    <label class="form-label" for="tn-@lang">@LanguageHelper.GetLanguageName(lang)</label>
+                    <input id="tn-@lang" type="text" name="translation_name_@lang" class="form-control" lang="@lang"
+                           value="@(existing.TryGetValue(lang, out var v) ? v : "")" autocomplete="off" />
+                </div>
+            }
+        </div>
+    </div>
+}
