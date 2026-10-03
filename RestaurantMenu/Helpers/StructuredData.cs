@@ -122,7 +122,8 @@ public static class StructuredData
                 {
                     ["@type"] = "Offer",
                     ["price"] = product.Price.ToString("0.00", CultureInfo.InvariantCulture),
-                    ["priceCurrency"] = branch.Currency
+                    ["priceCurrency"] = branch.Currency,
+                    ["availability"] = product.IsAvailable ? "https://schema.org/InStock" : "https://schema.org/SoldOut"
                 };
 
                 items.Add(item);

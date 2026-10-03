@@ -14,7 +14,10 @@ public class Branch : ISoftDeletable
     public string Currency { get; set; } = "ALL";
     public string SupportedLanguages { get; set; } = "en";
     public string? ThemeColors { get; set; }
-    
+
+    // Leave sold-out dishes off the guest menu instead of showing them with a "Sold out" chip.
+    public bool HideSoldOut { get; set; }
+
     public bool IsDeleted { get; set; }
     public DateTime? DeletedOnUtc { get; set; }
         

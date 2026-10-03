@@ -10,8 +10,13 @@
         save: body.dataset.labelSave,
         saved: body.dataset.labelSaved,
         empty: body.dataset.labelEmpty,
-        emptyHint: body.dataset.labelEmptyHint
+        emptyHint: body.dataset.labelEmptyHint,
+        soldOut: body.dataset.labelSoldout
     };
+    // Every sold-out dish, including ones the restaurant hides, so a guest's saved list can flag them.
+    var SOLD_OUT = {};
+    (body.dataset.soldoutIds || '').split(',').forEach(function (id) { if (id) SOLD_OUT[id] = true; });
+    function isSoldOut(id) { return SOLD_OUT[String(id)] === true; }
 
     var money = new Intl.NumberFormat(document.documentElement.lang || undefined, {
         minimumFractionDigits: 2, maximumFractionDigits: 2
@@ -43,7 +48,8 @@
             nutrition: li.dataset.nutrition,
             price: parseFloat(li.dataset.price) || 0,
             priceLabel: li.dataset.priceLabel,
-            img: li.dataset.img
+            img: li.dataset.img,
+            soldOut: li.dataset.soldout === 'true'
         };
     }
 
@@ -63,12 +69,14 @@
     var listFoot = document.querySelector('[data-list-foot]');
     var listTotal = document.querySelector('[data-list-total]');
 
-    function total() { return list.reduce(function (s, i) { return s + i.price * i.qty; }, 0); }
+    // Sold-out dishes stay on the list (flagged) but can't be ordered, so they don't count.
+    function total() { return list.reduce(function (s, i) { return isSoldOut(i.id) ? s : s + i.price * i.qty; }, 0); }
     function count() { return list.reduce(function (s, i) { return s + i.qty; }, 0); }
 
     function render() {
         items.forEach(function (li) {
             var btn = li.querySelector('[data-save]');
+            if (!btn) return; // sold out: no + button
             var on = !!find(li.dataset.id);
             btn.setAttribute('aria-pressed', on ? 'true' : 'false');
             btn.setAttribute('aria-label', (on ? L.saved : L.save) + ': ' + li.dataset.name);
@@ -94,6 +102,8 @@
         listFoot.hidden = false;
         list.forEach(function (i) {
             var li = document.createElement('li');
+            var soldOut = isSoldOut(i.id);
+            if (soldOut) li.className = 'is-soldout';
 
             var name = document.createElement('div');
             name.className = 'm-list-name';
@@ -101,6 +111,12 @@
             var unit = document.createElement('small');
             unit.textContent = fmt(i.price);
             name.appendChild(unit);
+            if (soldOut) {
+                var flag = document.createElement('span');
+                flag.className = 'm-soldout';
+                flag.textContent = L.soldOut;
+                name.appendChild(flag);
+            }
 
             var qty = document.createElement('div');
             qty.className = 'm-qty';
@@ -109,6 +125,7 @@
                 '<span class="tabular"></span>' +
                 '<button type="button" data-inc aria-label="Add one"><i class="ph ph-plus" aria-hidden="true"></i></button>';
             qty.querySelector('span').textContent = i.qty;
+            if (soldOut) qty.querySelector('[data-inc]').disabled = true;
             qty.querySelector('[data-dec]').addEventListener('click', function () {
                 i.qty -= 1;
                 if (i.qty < 1) list = list.filter(function (x) { return x !== i; });
@@ -128,7 +145,7 @@
     /* ---------- Save buttons on each dish ---------- */
     items.forEach(function (li) {
         var btn = li.querySelector('[data-save]');
-        btn.addEventListener('click', function () {
+        if (btn) btn.addEventListener('click', function () {
             toggle(itemData(li));
             btn.classList.remove('is-pop');
             void btn.offsetWidth; // restart the feedback animation
@@ -155,6 +172,7 @@
     var dish = document.querySelector('[data-dish-sheet]');
     var dishImg = dish.querySelector('[data-dish-img]');
     var dishSave = dish.querySelector('[data-dish-save]');
+    var dishSoldOut = dish.querySelector('[data-dish-soldout]');
     var current = null;
 
     function syncDishSave() {
@@ -175,11 +193,13 @@
         dish.querySelector('[data-dish-price]').textContent = current.priceLabel;
         if (current.img) { dishImg.src = current.img; dishImg.alt = current.name; dishImg.hidden = false; }
         else { dishImg.hidden = true; dishImg.removeAttribute('src'); }
+        dishSave.hidden = current.soldOut;
+        dishSoldOut.hidden = !current.soldOut;
         syncDishSave();
         openSheet(dish);
     }
     dishSave.addEventListener('click', function () {
-        if (!current) return;
+        if (!current || current.soldOut) return;
         toggle(current);
         syncDishSave();
     });

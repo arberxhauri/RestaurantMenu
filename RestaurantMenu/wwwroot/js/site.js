@@ -146,6 +146,71 @@
         check();
     });
 
+    /* ---------- Sold-out switches (Branch Details) ----------
+       <form data-availability data-name="…"> holds the antiforgery token, a hidden
+       isAvailable field and a role="switch" button. Without JavaScript it is a normal
+       post; here it saves in the background. The switch flips at once; if the save
+       fails it goes back to the last state the server confirmed. */
+    var soldOutCount = document.querySelector('[data-soldout-count]');
+    function refreshSoldOutCount() {
+        if (!soldOutCount) return;
+        var n = document.querySelectorAll('[data-dish].is-soldout').length;
+        soldOutCount.textContent = n + ' sold out';
+        soldOutCount.hidden = n === 0;
+    }
+    function showAvailability(form, available) {
+        var btn = form.querySelector('[role="switch"]');
+        btn.setAttribute('aria-checked', available ? 'true' : 'false');
+        btn.title = available ? 'Available. Tap to mark sold out' : 'Sold out. Tap to make available';
+        // The no-JavaScript fallback posts this field, so keep it pointing at the next state.
+        form.querySelector('input[name="isAvailable"]').value = available ? 'false' : 'true';
+        var dish = form.closest('[data-dish]');
+        if (dish) {
+            dish.classList.toggle('is-soldout', !available);
+            var chip = dish.querySelector('[data-soldout-chip]');
+            if (chip) chip.hidden = available;
+        }
+        refreshSoldOutCount();
+    }
+    document.querySelectorAll('form[data-availability]').forEach(function (form) {
+        var btn = form.querySelector('[role="switch"]');
+        var name = form.getAttribute('data-name') || 'Dish';
+        var confirmed = btn.getAttribute('aria-checked') === 'true';
+        var seq = 0; // only the newest request may update the switch
+
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            var want = btn.getAttribute('aria-checked') !== 'true';
+            var data = new FormData(form);
+            data.set('isAvailable', want ? 'true' : 'false');
+            showAvailability(form, want);
+
+            var mine = ++seq;
+            btn.setAttribute('aria-busy', 'true');
+            fetch(form.action, {
+                method: 'POST',
+                headers: { 'Accept': 'application/json' },
+                body: data,
+                credentials: 'same-origin'
+            }).then(function (r) {
+                // A signed-out session is redirected to the login page, which is not JSON.
+                if (!r.ok || r.redirected) throw new Error(r.status);
+                return r.json();
+            }).then(function (res) {
+                confirmed = !!res.isAvailable;
+                if (mine !== seq) return;
+                showAvailability(form, confirmed);
+                toast(confirmed ? name + ' is available again' : name + ' is sold out');
+            }).catch(function () {
+                if (mine !== seq) return;
+                showAvailability(form, confirmed);
+                toast('Could not update ' + name + '. Reload the page and try again.');
+            }).then(function () {
+                if (mine === seq) btn.removeAttribute('aria-busy');
+            });
+        });
+    });
+
     /* ---------- Drag to reorder categories ---------- */
     // Sortable is loaded by the page's Scripts section, after this file, so wait for load.
     window.addEventListener('load', function () {

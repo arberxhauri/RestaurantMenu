@@ -5,6 +5,7 @@
     var currency = CurrencyHelper.GetCurrencySymbol(Model.Currency);
     var categories = (Model.Categories ?? new List<Category>()).OrderBy(c => c.Priority).ToList();
     var dishCount = categories.Sum(c => c.Products?.Count ?? 0);
+    var soldOutCount = categories.Sum(c => c.Products?.Count(p => !p.IsAvailable) ?? 0);
     var menuUrl = Url.Action("Index", "Menu", new { branchName = SeoService.Slug(Model.Name) }, Context.Request.Scheme);
     var languages = Model.SupportedLanguages.Split(',', StringSplitOptions.RemoveEmptyEntries);
 }
@@ -108,6 +109,7 @@
         <section class="panel" aria-labelledby="dish-title">
             <header class="panel-head">
                 <h2 id="dish-title">Dishes <span class="count">@dishCount</span></h2>
+                <span class="chip chip--warn ms-auto" data-soldout-count aria-live="polite" @(soldOutCount == 0 ? "hidden" : "")>@soldOutCount sold out</span>
                 @if (categories.Any())
                 {
                     <a asp-controller="Product" asp-action="Create" asp-route-branchId="@Model.Id" class="btn btn-primary btn-sm">
@@ -133,7 +135,7 @@
                             <h3 class="dish-group-title">@category.Name</h3>
                             @foreach (var product in category.Products!.OrderBy(p => p.DisplayOrder))
                             {
-                                <div class="dish">
+                                <div class="dish @(product.IsAvailable ? "" : "is-soldout")" data-dish>
                                     <div class="dish-thumb">
                                         @if (!string.IsNullOrEmpty(product.Image))
                                         {
@@ -152,13 +154,27 @@
                                         }
                                     </div>
                                     <div class="dish-main">
-                                        <div class="dish-name">@product.Name</div>
+                                        <div class="dish-name">
+                                            @product.Name
+                                            <span class="chip chip--warn dish-soldout" data-soldout-chip @(product.IsAvailable ? "hidden" : "")>Sold out</span>
+                                        </div>
                                         @if (!string.IsNullOrEmpty(product.Description))
                                         {
                                             <div class="dish-desc">@product.Description</div>
                                         }
                                     </div>
                                     <span class="dish-price">@currency@product.Price.ToString("N2")</span>
+                                    @* Works as a plain form post without JavaScript; site.js turns it into an instant toggle.
+                                       The hidden field carries the state the dish should switch to. *@
+                                    <form asp-controller="Product" asp-action="ToggleAvailability" asp-route-id="@product.Id" method="post" data-availability data-name="@product.Name">
+                                        <input type="hidden" name="isAvailable" value="@(product.IsAvailable ? "false" : "true")" />
+                                        <button type="submit" class="avail-switch" role="switch"
+                                                aria-checked="@(product.IsAvailable ? "true" : "false")"
+                                                aria-label="Available: @product.Name"
+                                                title="@(product.IsAvailable ? "Available. Tap to mark sold out" : "Sold out. Tap to make available")">
+                                            <span class="avail-thumb" aria-hidden="true"></span>
+                                        </button>
+                                    </form>
                                     <div class="row-actions">
                                         <a asp-controller="Product" asp-action="Edit" asp-route-id="@product.Id" class="icon-btn" aria-label="Edit @product.Name" title="Edit">
                                             <i class="ph ph-pencil-simple" aria-hidden="true"></i>

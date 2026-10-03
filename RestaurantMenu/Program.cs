@@ -164,6 +164,14 @@ app.MapControllerRoute(
     pattern: "{controller=Home}/{action=Index}/{id?}"
 );
 
+// Apply pending migrations before serving anything. Not caught on purpose: if the
+// schema can't be brought up to date the app must not start (Render then keeps the
+// previous version live). Set Database__AutoMigrate=false to manage migrations by hand.
+if (app.Configuration.GetValue("Database:AutoMigrate", true))
+{
+    await DatabaseMigrator.MigrateAsync(app.Services, app.Logger);
+}
+
 // Seed database
 using (var scope = app.Services.CreateScope())
 {

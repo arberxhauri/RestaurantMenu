@@ -55,6 +55,16 @@
                 }
             </div>
         </section>
+
+        <section class="form-section">
+            <h2>Sold-out dishes</h2>
+            <p>Mark a dish sold out with the switch on its row. Choose what guests see meanwhile.</p>
+            <div class="form-check form-switch">
+                <input asp-for="HideSoldOut" class="form-check-input" role="switch" />
+                <label asp-for="HideSoldOut" class="form-check-label">Hide sold-out dishes from the menu</label>
+            </div>
+            <span class="hint">Off: guests still see the dish, greyed out with a "Sold out" label. On: it disappears until you switch it back.</span>
+        </section>
     </div>
 
     <aside class="form-aside">

@@ -185,6 +185,7 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
         existingBranch.Address = branch.Address;
         existingBranch.PhoneNumber = branch.PhoneNumber;
         existingBranch.Currency = branch.Currency;
+        existingBranch.HideSoldOut = branch.HideSoldOut;
 
         // Update supported languages
         if (selectedLanguages != null && selectedLanguages.Length > 0)

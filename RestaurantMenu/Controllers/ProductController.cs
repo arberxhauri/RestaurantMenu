@@ -305,6 +305,42 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
             return RedirectToAction("Details", "Branch", new { id = product.BranchId });
         }
 
+        /// <summary>
+        /// Marks a dish available or sold out. The switch on Branch Details sends the state it
+        /// now shows (isAvailable), so repeated taps or two open tabs can't drift out of sync
+        /// with the server; without it the current state is flipped. Called with fetch it
+        /// answers JSON, as a plain form post (no JavaScript) it redirects back to the branch.
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ToggleAvailability(int id, bool? isAvailable)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            var product = await _context.Products
+                .Include(p => p.Category)
+                    .ThenInclude(c => c.Branch)
+                .FirstOrDefaultAsync(p => p.Id == id && p.Category.Branch.UserId == user.Id && !p.Category.Branch.IsDeleted);
+
+            if (product == null)
+            {
+                return NotFound();
+            }
+
+            product.IsAvailable = isAvailable ?? !product.IsAvailable;
+            await _context.SaveChangesAsync();
+
+            var wantsJson = Request.Headers.Accept.Any(a => a != null && a.Contains("application/json"));
+            if (wantsJson)
+            {
+                return Json(new { id = product.Id, isAvailable = product.IsAvailable });
+            }
+
+            TempData["Success"] = product.IsAvailable
+                ? $"{product.Name} is available again."
+                : $"{product.Name} is marked sold out.";
+            return RedirectToAction("Details", "Branch", new { id = product.BranchId });
+        }
+
         private async Task<string> SaveImage(IFormFile file)
         {
             var uploadsFolder = Path.Combine(DiskMountPath, "images", "products");

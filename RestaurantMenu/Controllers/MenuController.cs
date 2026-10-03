@@ -24,7 +24,9 @@ public class MenuController : Controller
 
         var decodedName = Uri.UnescapeDataString(branchName);
 
+        // Read-only: nothing is saved here, and HideSoldOut below trims the loaded dish lists.
         var branch = await _context.Branches
+            .AsNoTracking()
             .Include(b => b.Categories.OrderBy(c => c.Priority))
             .ThenInclude(c => c.Products.OrderBy(p => p.DisplayOrder))
             .FirstOrDefaultAsync(b => b.Name.Replace(" ", "").ToLower() == decodedName.ToLower() && !b.IsDeleted);
@@ -48,6 +50,25 @@ public class MenuController : Controller
         if (!string.Equals(decodedName, canonicalSlug, StringComparison.Ordinal))
         {
             return RedirectPermanent(_seo.MenuUrl(branch.Name, lang));
+        }
+
+        // Collected before any are hidden: a guest may have saved a dish to their list
+        // earlier, and the list should flag it even when the dish is no longer shown.
+        ViewBag.SoldOutIds = (branch.Categories ?? new List<Category>())
+            .SelectMany(c => c.Products ?? new List<Product>())
+            .Where(p => !p.IsAvailable)
+            .Select(p => p.Id)
+            .ToList();
+
+        // Sold-out dishes are either shown greyed out (the view handles that) or left out
+        // entirely. Drop them before the view and the structured data see them, so a hidden
+        // dish isn't still advertised to search engines.
+        if (branch.HideSoldOut)
+        {
+            foreach (var category in branch.Categories ?? new List<Category>())
+            {
+                category.Products = category.Products?.Where(p => p.IsAvailable).ToList();
+            }
         }
 
         ViewBag.CurrencySymbol = CurrencyHelper.GetCurrencySymbol(branch.Currency);

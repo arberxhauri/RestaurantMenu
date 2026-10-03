@@ -46,6 +46,7 @@
     var currentLang = ViewBag.CurrentLanguage as string ?? "en";
     var supportedLanguages = (ViewBag.SupportedLanguages as string[]) ?? new[] { "en" };
     string currencySymbol = ViewBag.CurrencySymbol ?? "";
+    var soldOutIds = (ViewBag.SoldOutIds as List<int>) ?? new List<int>();
     // Format prices in the menu's language so they match the guest list (menu.js uses Intl with <html lang>).
     CultureInfo priceCulture;
     try { priceCulture = CultureInfo.GetCultureInfo(currentLang); } catch (CultureNotFoundException) { priceCulture = CultureInfo.InvariantCulture; }
@@ -64,13 +65,13 @@
 
     var ui = currentLang switch
     {
-        "sq" => new { Search = "Kërko në menu", NoResults = "Asnjë pjatë nuk përputhet", Items = "artikuj", Item = "artikull", List = "Lista juaj", Empty = "Lista juaj është bosh", EmptyHint = "Shtoni pjata me butonin +", Total = "Totali i përafërt", Clear = "Pastro listën", Save = "Shto në listë", Saved = "Në listë", Close = "Mbyll", Soon = "Menuja po vjen së shpejti", SoonHint = "Restoranti po shton pjatat e tij.", Nutrition = "Vlerat ushqyese", Show = "Tregojani kamarierit" },
-        "it" => new { Search = "Cerca nel menu", NoResults = "Nessun piatto corrisponde", Items = "piatti", Item = "piatto", List = "La tua lista", Empty = "La tua lista è vuota", EmptyHint = "Aggiungi i piatti con il pulsante +", Total = "Totale stimato", Clear = "Svuota lista", Save = "Aggiungi", Saved = "In lista", Close = "Chiudi", Soon = "Menu in arrivo", SoonHint = "Il ristorante sta aggiungendo i suoi piatti.", Nutrition = "Valori nutrizionali", Show = "Mostralo al cameriere" },
-        "de" => new { Search = "Menü durchsuchen", NoResults = "Keine passenden Gerichte", Items = "Gerichte", Item = "Gericht", List = "Deine Liste", Empty = "Deine Liste ist leer", EmptyHint = "Füge Gerichte mit + hinzu", Total = "Geschätzte Summe", Clear = "Liste leeren", Save = "Hinzufügen", Saved = "Auf der Liste", Close = "Schließen", Soon = "Menü folgt in Kürze", SoonHint = "Das Restaurant fügt gerade seine Gerichte hinzu.", Nutrition = "Nährwerte", Show = "Dem Kellner zeigen" },
-        "fr" => new { Search = "Rechercher dans le menu", NoResults = "Aucun plat ne correspond", Items = "plats", Item = "plat", List = "Votre liste", Empty = "Votre liste est vide", EmptyHint = "Ajoutez des plats avec le bouton +", Total = "Total estimé", Clear = "Vider la liste", Save = "Ajouter", Saved = "Dans la liste", Close = "Fermer", Soon = "Menu bientôt disponible", SoonHint = "Le restaurant ajoute ses plats.", Nutrition = "Valeurs nutritionnelles", Show = "Montrer au serveur" },
-        "es" => new { Search = "Buscar en el menú", NoResults = "Ningún plato coincide", Items = "platos", Item = "plato", List = "Tu lista", Empty = "Tu lista está vacía", EmptyHint = "Añade platos con el botón +", Total = "Total estimado", Clear = "Vaciar lista", Save = "Añadir", Saved = "En la lista", Close = "Cerrar", Soon = "Menú disponible pronto", SoonHint = "El restaurante está añadiendo sus platos.", Nutrition = "Información nutricional", Show = "Muéstralo al camarero" },
-        "tr" => new { Search = "Menüde ara", NoResults = "Eşleşen yemek yok", Items = "ürün", Item = "ürün", List = "Listeniz", Empty = "Listeniz boş", EmptyHint = "Yemekleri + düğmesiyle ekleyin", Total = "Tahmini toplam", Clear = "Listeyi temizle", Save = "Listeye ekle", Saved = "Listede", Close = "Kapat", Soon = "Menü çok yakında", SoonHint = "Restoran yemeklerini ekliyor.", Nutrition = "Besin değerleri", Show = "Garsona gösterin" },
-        _ => new { Search = "Search the menu", NoResults = "No dishes match", Items = "items", Item = "item", List = "Your list", Empty = "Your list is empty", EmptyHint = "Add dishes with the + button", Total = "Estimated total", Clear = "Clear list", Save = "Add to list", Saved = "On your list", Close = "Close", Soon = "Menu coming soon", SoonHint = "The restaurant is adding its dishes.", Nutrition = "Nutrition", Show = "Show this to your server" }
+        "sq" => new { Search = "Kërko në menu", NoResults = "Asnjë pjatë nuk përputhet", Items = "artikuj", Item = "artikull", List = "Lista juaj", Empty = "Lista juaj është bosh", EmptyHint = "Shtoni pjata me butonin +", Total = "Totali i përafërt", Clear = "Pastro listën", Save = "Shto në listë", Saved = "Në listë", Close = "Mbyll", Soon = "Menuja po vjen së shpejti", SoonHint = "Restoranti po shton pjatat e tij.", Nutrition = "Vlerat ushqyese", Show = "Tregojani kamarierit", SoldOut = "Ka mbaruar" },
+        "it" => new { Search = "Cerca nel menu", NoResults = "Nessun piatto corrisponde", Items = "piatti", Item = "piatto", List = "La tua lista", Empty = "La tua lista è vuota", EmptyHint = "Aggiungi i piatti con il pulsante +", Total = "Totale stimato", Clear = "Svuota lista", Save = "Aggiungi", Saved = "In lista", Close = "Chiudi", Soon = "Menu in arrivo", SoonHint = "Il ristorante sta aggiungendo i suoi piatti.", Nutrition = "Valori nutrizionali", Show = "Mostralo al cameriere", SoldOut = "Esaurito" },
+        "de" => new { Search = "Menü durchsuchen", NoResults = "Keine passenden Gerichte", Items = "Gerichte", Item = "Gericht", List = "Deine Liste", Empty = "Deine Liste ist leer", EmptyHint = "Füge Gerichte mit + hinzu", Total = "Geschätzte Summe", Clear = "Liste leeren", Save = "Hinzufügen", Saved = "Auf der Liste", Close = "Schließen", Soon = "Menü folgt in Kürze", SoonHint = "Das Restaurant fügt gerade seine Gerichte hinzu.", Nutrition = "Nährwerte", Show = "Dem Kellner zeigen", SoldOut = "Ausverkauft" },
+        "fr" => new { Search = "Rechercher dans le menu", NoResults = "Aucun plat ne correspond", Items = "plats", Item = "plat", List = "Votre liste", Empty = "Votre liste est vide", EmptyHint = "Ajoutez des plats avec le bouton +", Total = "Total estimé", Clear = "Vider la liste", Save = "Ajouter", Saved = "Dans la liste", Close = "Fermer", Soon = "Menu bientôt disponible", SoonHint = "Le restaurant ajoute ses plats.", Nutrition = "Valeurs nutritionnelles", Show = "Montrer au serveur", SoldOut = "Épuisé" },
+        "es" => new { Search = "Buscar en el menú", NoResults = "Ningún plato coincide", Items = "platos", Item = "plato", List = "Tu lista", Empty = "Tu lista está vacía", EmptyHint = "Añade platos con el botón +", Total = "Total estimado", Clear = "Vaciar lista", Save = "Añadir", Saved = "En la lista", Close = "Cerrar", Soon = "Menú disponible pronto", SoonHint = "El restaurante está añadiendo sus platos.", Nutrition = "Información nutricional", Show = "Muéstralo al camarero", SoldOut = "Agotado" },
+        "tr" => new { Search = "Menüde ara", NoResults = "Eşleşen yemek yok", Items = "ürün", Item = "ürün", List = "Listeniz", Empty = "Listeniz boş", EmptyHint = "Yemekleri + düğmesiyle ekleyin", Total = "Tahmini toplam", Clear = "Listeyi temizle", Save = "Listeye ekle", Saved = "Listede", Close = "Kapat", Soon = "Menü çok yakında", SoonHint = "Restoran yemeklerini ekliyor.", Nutrition = "Besin değerleri", Show = "Garsona gösterin", SoldOut = "Tükendi" },
+        _ => new { Search = "Search the menu", NoResults = "No dishes match", Items = "items", Item = "item", List = "Your list", Empty = "Your list is empty", EmptyHint = "Add dishes with the + button", Total = "Estimated total", Clear = "Clear list", Save = "Add to list", Saved = "On your list", Close = "Close", Soon = "Menu coming soon", SoonHint = "The restaurant is adding its dishes.", Nutrition = "Nutrition", Show = "Show this to your server", SoldOut = "Sold out" }
     };
 }
 
@@ -101,7 +102,9 @@
       data-label-save="@ui.Save"
       data-label-saved="@ui.Saved"
       data-label-empty="@ui.Empty"
-      data-label-empty-hint="@ui.EmptyHint">
+      data-label-empty-hint="@ui.EmptyHint"
+      data-label-soldout="@ui.SoldOut"
+      data-soldout-ids="@string.Join(",", soldOutIds)">
 
     <a class="skip-link" href="#menu">Skip to menu</a>
 
@@ -214,9 +217,11 @@
                             var nutrition = TranslationHelper.GetTranslation(product.Nutritions ?? "", product.NutritionsTranslations, currentLang);
                             var price = currencySymbol + product.Price.ToString("N2", priceCulture);
                             var hasImage = !string.IsNullOrEmpty(product.Image);
+                            var soldOut = !product.IsAvailable;
 
-                            <li class="m-item @(hasImage ? "has-img" : "")"
+                            <li class="m-item @(hasImage ? "has-img" : "") @(soldOut ? "is-soldout" : "")"
                                 data-item
+                                data-soldout="@(soldOut ? "true" : "false")"
                                 data-id="@product.Id"
                                 data-name="@name"
                                 data-desc="@desc"
@@ -236,16 +241,25 @@
                                         {
                                             <span class="m-item-nutri"><i class="ph ph-leaf" aria-hidden="true"></i>@nutrition</span>
                                         }
-                                        <span class="m-item-price tabular">@price</span>
+                                        <span class="m-item-foot">
+                                            <span class="m-item-price tabular">@price</span>
+                                            @if (soldOut)
+                                            {
+                                                <span class="m-soldout">@ui.SoldOut</span>
+                                            }
+                                        </span>
                                     </span>
                                     @if (hasImage)
                                     {
                                         <img class="m-item-img" src="@product.Image" alt="" width="112" height="112" loading="lazy" decoding="async" />
                                     }
                                 </button>
-                                <button class="m-save" type="button" data-save aria-pressed="false" aria-label="@ui.Save: @name">
-                                    <i class="ph ph-plus" aria-hidden="true"></i>
-                                </button>
+                                @if (!soldOut)
+                                {
+                                    <button class="m-save" type="button" data-save aria-pressed="false" aria-label="@ui.Save: @name">
+                                        <i class="ph ph-plus" aria-hidden="true"></i>
+                                    </button>
+                                }
                             </li>
                         }
                     </ul>
@@ -283,6 +297,7 @@
             </div>
             <div class="m-dish-foot">
                 <span class="m-dish-price tabular" data-dish-price></span>
+                <span class="m-soldout m-soldout--lg" data-dish-soldout hidden>@ui.SoldOut</span>
                 <button class="m-btn m-btn--brand" type="button" data-dish-save>
                     <i class="ph ph-plus" aria-hidden="true"></i><span data-dish-save-label>@ui.Save</span>
                 </button>

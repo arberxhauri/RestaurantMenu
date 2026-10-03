@@ -32,18 +32,22 @@ Also fixed while doing this: admins were sent to the owner dashboard (access den
 3. **Before deploying**, run `psql "<external connection string>" -v ON_ERROR_STOP=1 -f docs/migrations/prod-upgrade.sql`.
 4. Deploy. If the admin still used `Admin@123`, find the replacement password in the Render logs ("The admin still used the old default password"), sign in, and choose a new one.
 
-From now on, schema changes are `dotnet ef migrations add <Name>` locally, then `dotnet ef migrations script <PreviousMigration> --idempotent` and run it on production before deploying.
+**Migrations run automatically on deploy** (`Services/DatabaseMigrator.cs`, called from `Program.cs` before anything is served). On startup the app takes a Postgres lock, records the Postgres baseline if the database predates it (what step 1 of `prod-upgrade.sql` does), and applies any pending migrations. If a migration fails, the app doesn't start and Render keeps the previous version running. So a schema change is just `dotnet ef migrations add <Name>`, commit and deploy. Still take a Render backup before deploys that change the schema.
+
+Keep migrations **additive** (new columns with defaults, new tables). During a zero-downtime deploy the old version keeps serving for a moment against the new schema, and it breaks if a column it reads was renamed or dropped. Rename or drop in two deploys: first stop using the column, then remove it. To manage migrations by hand instead, set `Database__AutoMigrate=false` and run `dotnet ef migrations script <PreviousMigration> --idempotent` on production before deploying.
 
 ---
 
-## 1. Sold out / available toggle (1 day)
+## 1. Sold out / available toggle: done
 
 **Why:** the landing page sells "Sold out at 19:40? Hide it." This is the most-used mid-service action.
 
-- **Model:** `Product.IsAvailable bool = true`. Migration `AddProductAvailability`.
-- **Endpoint:** `ProductController.ToggleAvailability(int id)` `[HttpPost, ValidateAntiForgeryToken]`, returns JSON `{ isAvailable }`. Same ownership check as `Edit`.
-- **Back office:** in `Views/Branch/Details.cshtml` add a switch in each `.dish` row. Wire it in `site.js` exactly like the category reorder (fetch + `RequestVerificationToken` header + `mqmToast`).
-- **Menu:** in `Views/Menu/Index.cshtml` add `is-soldout` to `.m-item` and a "Sold out" chip (style already exists as `.dui-soldout` on the landing; port it to `menu.css`). Hide the `+` button. Optional branch setting: "hide sold-out dishes entirely".
+- **Model:** `Product.IsAvailable` (default true, existing dishes stay available) and `Branch.HideSoldOut` (default false). Migration `AddProductAvailability`.
+- **Endpoint:** `ProductController.ToggleAvailability(id, isAvailable?)`, antiforgery-protected, same ownership check as `Edit`. It takes the state to set (a missing value flips it), returns `{ id, isAvailable }` to fetch, and redirects with a flash message for a plain form post, so it works without JavaScript.
+- **Back office:** a switch on each dish row in Branch Details (`site.js`: the switch flips at once, goes back if the save fails, and only the newest tap counts), a "Sold out" chip, a greyed-out row and an "N sold out" counter. Branch Edit has a "Hide sold-out dishes from the menu" switch.
+- **Menu:** sold-out dishes are greyed out with a translated "Sold out" chip and have no `+`; the dish sheet shows the chip instead of "Add to list". With `HideSoldOut` they are left out of the page and the JSON-LD (a section whose dishes are all sold out disappears too). The guest's saved list flags sold-out dishes and leaves them out of the estimated total. JSON-LD offers carry `availability` InStock or SoldOut.
+- **Deploy:** nothing manual. The migration is applied automatically at startup (see section 0). `docs/migrations/2026-10-03-add-product-availability.sql` is kept for manual use with `Database__AutoMigrate=false`.
+- **Possible follow-ups:** "Mark all available" for the start of the next service; live refresh of open guest menus (SignalR, item 14).
 
 ## 2. QR codes and printable table tents (1 to 2 days)
 
