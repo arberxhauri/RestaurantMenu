@@ -1,3 +1,4 @@
+@using Microsoft.AspNetCore.Mvc.Rendering
 @using RestaurantMenu.Helpers
 @model Branch
 @{
@@ -5,6 +6,8 @@
     var selected = ViewBag.SelectedLanguages as string[]
                    ?? (Model?.SupportedLanguages?.Split(',', StringSplitOptions.RemoveEmptyEntries))
                    ?? new[] { "en" };
+    var hours = ViewBag.Hours as List<OpeningHours.FormDay> ?? OpeningHours.ToForm(null);
+    var hourErrors = ViewData.ModelState.TryGetValue("Hours", out var hourState) ? hourState.Errors.Select(e => e.ErrorMessage).ToList() : new List<string>();
 }
 
 <div class="form-layout">
@@ -64,6 +67,69 @@
                 <label asp-for="HideSoldOut" class="form-check-label">Hide sold-out dishes from the menu</label>
             </div>
             <span class="hint">Off: guests still see the dish, greyed out with a "Sold out" label. On: it disappears until you switch it back.</span>
+        </section>
+
+        <section class="form-section hours" data-hours>
+            <h2>Opening hours</h2>
+            <p>Guests see "Open until 23:00" or "Closed · opens 08:00" on the menu, and Google can show the hours in search and Maps.</p>
+            @if (hourErrors.Any())
+            {
+                <ul class="hours-errors" role="alert">
+                    @foreach (var e in hourErrors)
+                    {
+                        <li>@e</li>
+                    }
+                </ul>
+            }
+            <div class="form-check form-switch mb-3">
+                <input asp-for="HoursEnabled" class="form-check-input" role="switch" />
+                <label asp-for="HoursEnabled" class="form-check-label">Show opening hours on the menu</label>
+            </div>
+
+            <div class="hours-body">
+                <div class="hours-zone">
+                    <label asp-for="TimeZone" class="form-label">Time zone</label>
+                    <select asp-for="TimeZone" class="form-select" asp-items="@(OpeningHours.TimeZones.Select(z => new SelectListItem(z.Label, z.Id)))"></select>
+                </div>
+
+                <div class="hours-grid" role="group" aria-label="Opening hours by day">
+                    @foreach (var day in hours)
+                    {
+                        var dayName = day.Day.ToString();
+                        string N(string part) => OpeningHours.FieldName(day.Day, part);
+                        <div class="hours-row" data-hours-row>
+                            <span class="hours-day">@dayName</span>
+                            <label class="hours-closed">
+                                <input type="checkbox" class="form-check-input" name="@N("closed")" value="true" @(day.Closed ? "checked" : "") />
+                                Closed
+                            </label>
+                            <div class="hours-periods">
+                                <span class="hours-range">
+                                    <input type="time" class="form-control form-control-sm" name="@N("open1")" value="@day.Open1" aria-label="@dayName opens" />
+                                    <span aria-hidden="true">–</span>
+                                    <input type="time" class="form-control form-control-sm" name="@N("close1")" value="@day.Close1" aria-label="@dayName closes" />
+                                </span>
+                                <span class="hours-range" data-second @(day.HasSecond ? "" : "hidden")>
+                                    <input type="time" class="form-control form-control-sm" name="@N("open2")" value="@day.Open2" aria-label="@dayName opens again" />
+                                    <span aria-hidden="true">–</span>
+                                    <input type="time" class="form-control form-control-sm" name="@N("close2")" value="@day.Close2" aria-label="@dayName closes again" />
+                                    <button type="button" class="icon-btn icon-btn--sm" data-remove-second aria-label="Remove @dayName's second period" title="Remove"><i class="ph ph-x" aria-hidden="true"></i></button>
+                                </span>
+                                <button type="button" class="btn btn-quiet btn-sm hours-add" data-add-second @(day.HasSecond ? "hidden" : "")>
+                                    <i class="ph ph-plus" aria-hidden="true"></i>Second period
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <div class="hours-foot">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-copy-first-day>
+                        <i class="ph ph-copy" aria-hidden="true"></i>Copy Monday to all days
+                    </button>
+                    <span class="hint m-0">Past midnight: enter e.g. 18:00 – 02:00. The same opening and closing time means open 24 hours. Use a second period for a lunch and a dinner service.</span>
+                </div>
+            </div>
         </section>
     </div>
 

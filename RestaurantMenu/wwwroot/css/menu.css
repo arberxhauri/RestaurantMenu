@@ -106,6 +106,48 @@
 .m-meta a span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .m-meta a:hover { background: rgb(255 255 255 / .24); color: #fff; }
 
+/* Opening hours chip: expands in place (the hero clips anything floating over it). */
+.m-hours { max-width: 100%; }
+.m-hours[open] { flex-basis: 100%; }
+.m-hours-chip {
+    list-style: none;
+    display: inline-flex; align-items: center; gap: 7px;
+    min-height: 36px;
+    padding: 6px 12px;
+    border-radius: var(--r-pill);
+    background: rgb(255 255 255 / .14);
+    border: 1px solid rgb(255 255 255 / .24);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    font-size: 14px; font-weight: 600;
+    cursor: pointer;
+}
+.m-hours-chip::-webkit-details-marker { display: none; }
+.m-hours-chip:hover { background: rgb(255 255 255 / .24); }
+.m-hours-chip:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.m-hours-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; box-shadow: 0 0 0 2px rgb(0 0 0 / .25); }
+.m-hours-chip.is-open .m-hours-dot { background: #4ADE80; }
+.m-hours-chip.is-closed .m-hours-dot { background: #F87171; }
+.m-hours-caret { font-size: 12px; transition: transform .2s var(--ease-out); }
+.m-hours[open] .m-hours-caret { transform: rotate(180deg); }
+.m-hours-panel {
+    width: min(100%, 340px);
+    margin-top: 8px;
+    padding: 12px 16px;
+    border-radius: var(--r-md);
+    background: rgb(0 0 0 / .45);
+    border: 1px solid rgb(255 255 255 / .18);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+.m-hours-panel h2 { margin: 0 0 6px; font: 600 13px/1.2 var(--font-body); color: rgb(255 255 255 / .75); }
+.m-hours-panel ul { list-style: none; margin: 0; padding: 0; }
+.m-hours-panel li { display: flex; justify-content: space-between; gap: 16px; padding: 4px 0; font-size: 14px; }
+.m-hours-panel li span:first-child { display: inline-block; }
+.m-hours-panel li span:first-child::first-letter { text-transform: uppercase; } /* "e hënë" -> "E hënë", not "E Hënë" */
+.m-hours-panel li span:last-child { text-align: right; }
+.m-hours-panel li.is-today { font-weight: 700; }
+
 /* Language switcher */
 .m-lang { position: absolute; top: max(16px, env(safe-area-inset-top)); right: 16px; z-index: 2; }
 .m-lang summary {

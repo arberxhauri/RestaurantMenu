@@ -32,6 +32,9 @@ public class MenuController : Controller
             .AsNoTracking()
             .Include(b => b.Categories.OrderBy(c => c.Priority))
             .ThenInclude(c => c.Products.OrderBy(p => p.DisplayOrder).ThenBy(p => p.Id))
+            .Include(b => b.OpeningHours)
+            // Two collections: separate queries instead of multiplying dish rows by hour rows.
+            .AsSplitQuery()
             .FirstOrDefaultAsync(b => b.Name.Replace(" ", "").ToLower() == decodedName.ToLower() && !b.IsDeleted);
 
         if (branch == null)

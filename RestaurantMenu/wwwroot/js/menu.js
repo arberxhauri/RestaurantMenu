@@ -246,6 +246,14 @@
         document.addEventListener('keydown', function (e) { if (e.key === 'Escape') lang.open = false; });
     }
 
+    /* ---------- Opening hours: close on Escape ---------- */
+    var hoursBox = document.querySelector('.m-hours');
+    if (hoursBox) {
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && hoursBox.open) { hoursBox.open = false; hoursBox.querySelector('summary').focus(); }
+        });
+    }
+
     /* ---------- Category chips: scroll-spy with IntersectionObserver ---------- */
     var scroller = document.querySelector('[data-cats-scroll]');
     var chips = {};

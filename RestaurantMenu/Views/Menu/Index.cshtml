@@ -175,6 +175,32 @@
                 <a href="tel:@Model.PhoneNumber">
                     <i class="ph ph-phone" aria-hidden="true"></i><span>@Model.PhoneNumber</span>
                 </a>
+                @if (Model.HoursEnabled)
+                {
+                    var openingHours = Model.OpeningHours ?? new List<BranchHours>();
+                    var hoursStatus = OpeningHours.GetStatus(openingHours, OpeningHours.Zone(Model.TimeZone), DateTime.UtcNow);
+                    @* Status in words and a dot, never colour alone. Opens the week's hours in place. *@
+                    <details class="m-hours">
+                        <summary class="m-hours-chip @(hoursStatus.IsOpen ? "is-open" : "is-closed")">
+                            <span class="m-hours-dot" aria-hidden="true"></span>
+                            <span>@OpeningHours.Label(hoursStatus, currentLang)</span>
+                            <i class="ph ph-caret-down m-hours-caret" aria-hidden="true"></i>
+                        </summary>
+                        <div class="m-hours-panel">
+                            <h2>@OpeningHours.Title(currentLang)</h2>
+                            <ul>
+                                @foreach (var day in OpeningHours.Week)
+                                {
+                                    var isToday = day == hoursStatus.LocalNow.DayOfWeek;
+                                    <li class="@(isToday ? "is-today" : "")" aria-current="@(isToday ? "date" : null)">
+                                        <span>@OpeningHours.DayName(day, currentLang)@(isToday ? $" · {OpeningHours.Today(currentLang)}" : "")</span>
+                                        <span class="tabular">@OpeningHours.DayText(openingHours, day, currentLang)</span>
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    </details>
+                }
             </div>
         </div>
     </header>

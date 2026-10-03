@@ -856,3 +856,26 @@ a.chip--link:hover { background: var(--accent-soft); color: var(--accent); }
     .colchart-plot, .colchart-x { margin-left: 36px; }
     .kpi-value { font-size: 28px; }
 }
+
+/* ---------- Opening hours (branch form) ---------- */
+.hours:has(#HoursEnabled:not(:checked)) .hours-body { display: none; }
+.hours-errors { margin: 0 0 16px; padding: 10px 14px 10px 30px; border-radius: var(--r-sm); background: var(--danger-soft); color: var(--danger); font-size: 14px; }
+.hours-zone { max-width: 360px; margin-bottom: 16px; }
+.hours-grid { display: flex; flex-direction: column; border-top: 1px solid var(--line-2); }
+.hours-row {
+    /* Day and "Closed" on one line, the times below: room for 12-hour inputs at any width. */
+    display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line-2);
+}
+.hours-day { font-weight: 600; font-size: 14.5px; }
+.hours-closed { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--ink-2); cursor: pointer; }
+.hours-closed .form-check-input { margin: 0; }
+.hours-periods { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.hours-range { display: inline-flex; align-items: center; gap: 6px; }
+.hours-range[hidden], .hours-add[hidden] { display: none; }
+.hours-range input[type=time] { width: 138px; } /* fits 12-hour browsers too: "11:30 PM" */
+.hours-row:has(.hours-closed input:checked) .hours-periods { display: none; }
+.hours-row:has(.hours-closed input:checked) .hours-day { color: var(--ink-3); }
+.hours-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 14px; }
+

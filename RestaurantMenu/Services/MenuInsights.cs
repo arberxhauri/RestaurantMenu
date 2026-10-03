@@ -31,10 +31,14 @@ public class MenuInsights
         }
     }
 
-    public DateOnly Today => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, _zone));
+    public DateOnly Today => TodayIn(_zone);
 
-    private DateTime StartUtc(DateOnly day) =>
-        TimeZoneInfo.ConvertTimeToUtc(day.ToDateTime(TimeOnly.MinValue), _zone);
+    private static DateOnly TodayIn(TimeZoneInfo zone) => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zone));
+
+    private DateTime StartUtc(DateOnly day) => StartUtc(day, _zone);
+
+    private static DateTime StartUtc(DateOnly day, TimeZoneInfo zone) =>
+        TimeZoneInfo.ConvertTimeToUtc(day.ToDateTime(TimeOnly.MinValue), zone);
 
     public record Totals(int Views, int DishOpens, int Adds);
     public record Day(DateOnly Date, int Views, int DishOpens, int Adds);
@@ -62,20 +66,31 @@ public class MenuInsights
         public int Count { get; set; }
     }
 
-    /// <summary>The last <paramref name="days"/> days including today, and the same span before it for comparison.</summary>
-    public async Task<BranchReport> ForBranchAsync(int branchId, int days)
+    /// <summary>
+    /// The last <paramref name="days"/> days including today, and the same span before it for
+    /// comparison. Days follow <paramref name="timeZone"/> (the branch's own zone) when it is
+    /// a known zone, otherwise the configured default.
+    /// </summary>
+    public async Task<BranchReport> ForBranchAsync(int branchId, int days, string? timeZone = null)
     {
-        var to = Today;
+        var (zone, zoneId) = (_zone, _zoneId);
+        if (Helpers.OpeningHours.IsKnownTimeZone(timeZone))
+        {
+            try { (zone, zoneId) = (TimeZoneInfo.FindSystemTimeZoneById(timeZone!), timeZone!); }
+            catch (TimeZoneNotFoundException) { }
+        }
+
+        var to = TodayIn(zone);
         var from = to.AddDays(-(days - 1));
         var previousFrom = from.AddDays(-days);
-        var fromUtc = StartUtc(from);
-        var toUtc = StartUtc(to.AddDays(1));
-        var previousFromUtc = StartUtc(previousFrom);
+        var fromUtc = StartUtc(from, zone);
+        var toUtc = StartUtc(to.AddDays(1), zone);
+        var previousFromUtc = StartUtc(previousFrom, zone);
 
         // One grouped query for both periods. The day is computed in Postgres in the
         // restaurant's zone; every value is a parameter.
         var counts = await _db.Database.SqlQuery<DayTypeCount>($"""
-            SELECT ("CreatedUtc" AT TIME ZONE {_zoneId})::date AS "Day", "Type"::int AS "Type", count(*)::int AS "Count"
+            SELECT ("CreatedUtc" AT TIME ZONE {zoneId})::date AS "Day", "Type"::int AS "Type", count(*)::int AS "Count"
             FROM "MenuEvents"
             WHERE "BranchId" = {branchId} AND "CreatedUtc" >= {previousFromUtc} AND "CreatedUtc" < {toUtc}
             GROUP BY 1, 2

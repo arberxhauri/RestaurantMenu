@@ -56,11 +56,12 @@ namespace RestaurantMenu.Controllers;
             }
 
             ViewBag.Currencies = CurrencyHelper.GetCurrencies();
+            ViewBag.Hours = OpeningHours.ToForm(null);
             return View();
         }
 
         [HttpPost]
-public async Task<IActionResult> Create(Branch branch, IFormFile? logo, IFormFile? banner, string[] selectedLanguages)
+public async Task<IActionResult> Create(Branch branch, IFormFile? logo, IFormFile? banner, string[] selectedLanguages, IFormCollection form)
 {
     var user = await _userManager.GetUserAsync(User);
     
@@ -82,6 +83,9 @@ public async Task<IActionResult> Create(Branch branch, IFormFile? logo, IFormFil
     }
 
     branch.UserId = user.Id;
+
+    var hoursForm = OpeningHours.FromForm(form);
+    var hours = ApplyHours(branch, hoursForm);
     
     // Set supported languages
     if (selectedLanguages != null && selectedLanguages.Length > 0)
@@ -111,6 +115,7 @@ public async Task<IActionResult> Create(Branch branch, IFormFile? logo, IFormFil
             branch.Banner = await SaveImage(banner, "banners");
         }
 
+        branch.OpeningHours = hours;
         _context.Branches.Add(branch);
         await _context.SaveChangesAsync();
 
@@ -119,6 +124,7 @@ public async Task<IActionResult> Create(Branch branch, IFormFile? logo, IFormFil
     }
 
     ViewBag.Currencies = CurrencyHelper.GetCurrencies();
+    ViewBag.Hours = hoursForm;
     return View(branch);
 }
 
@@ -149,6 +155,7 @@ public async Task<IActionResult> Create(Branch branch, IFormFile? logo, IFormFil
         {
             var user = await _userManager.GetUserAsync(User);
             var branch = await _context.Branches
+                .Include(b => b.OpeningHours)
                 .FirstOrDefaultAsync(b => b.Id == id && b.UserId == user.Id && !b.IsDeleted);
 
             if (branch == null)
@@ -158,15 +165,17 @@ public async Task<IActionResult> Create(Branch branch, IFormFile? logo, IFormFil
 
             ViewBag.Currencies = CurrencyHelper.GetCurrencies();
             ViewBag.SelectedLanguages = branch.SupportedLanguages.Split(',');
+            ViewBag.Hours = OpeningHours.ToForm(branch.OpeningHours);
             return View(branch);
         }
 
 
         [HttpPost]
-public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile? banner, string[] selectedLanguages)
+public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile? banner, string[] selectedLanguages, IFormCollection form)
 {
     var user = await _userManager.GetUserAsync(User);
     var existingBranch = await _context.Branches
+        .Include(b => b.OpeningHours)
         .FirstOrDefaultAsync(b => b.Id == branch.Id && b.UserId == user.Id && !b.IsDeleted);
 
     if (existingBranch == null)
@@ -185,6 +194,9 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
     ModelState.Remove("UserId");
     ModelState.Remove("User");
 
+    var hoursForm = OpeningHours.FromForm(form);
+    var hours = ApplyHours(branch, hoursForm);
+
     if (ModelState.IsValid)
     {
         existingBranch.Name = branch.Name;
@@ -192,6 +204,11 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
         existingBranch.PhoneNumber = branch.PhoneNumber;
         existingBranch.Currency = branch.Currency;
         existingBranch.HideSoldOut = branch.HideSoldOut;
+        existingBranch.HoursEnabled = branch.HoursEnabled;
+        existingBranch.TimeZone = branch.TimeZone;
+        // Hours are replaced as a whole: the form always posts all seven days.
+        _context.BranchHours.RemoveRange(existingBranch.OpeningHours ?? new List<BranchHours>());
+        existingBranch.OpeningHours = hours;
 
         // Update supported languages
         if (selectedLanguages != null && selectedLanguages.Length > 0)
@@ -239,6 +256,10 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
 
     ViewBag.Currencies = CurrencyHelper.GetCurrencies();
     ViewBag.SelectedLanguages = existingBranch.SupportedLanguages.Split(',');
+    ViewBag.Hours = hoursForm;
+    // Show what was typed, not what is saved.
+    existingBranch.HoursEnabled = branch.HoursEnabled;
+    existingBranch.TimeZone = branch.TimeZone;
     return View(existingBranch);
 }
 
@@ -285,7 +306,7 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
             return View(new InsightsViewModel
             {
                 Branch = branch,
-                Report = await insights.ForBranchAsync(branch.Id, days)
+                Report = await insights.ForBranchAsync(branch.Id, days, branch.TimeZone)
             });
         }
 
@@ -487,6 +508,28 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
 
             TempData["Success"] = $"{branch.Name} is back and its menu is online again.";
             return RedirectToAction("Index", "Dashboard");
+        }
+
+        /// <summary>
+        /// Validates the opening hours rows and the time zone. Problems only block saving
+        /// when hours are switched on; switched off, whatever is valid is kept for later.
+        /// </summary>
+        private List<BranchHours> ApplyHours(Branch branch, List<OpeningHours.FormDay> hoursForm)
+        {
+            if (!OpeningHours.IsKnownTimeZone(branch.TimeZone))
+            {
+                branch.TimeZone = OpeningHours.DefaultTimeZone;
+            }
+
+            var (periods, errors) = OpeningHours.Validate(hoursForm);
+            if (branch.HoursEnabled)
+            {
+                foreach (var error in errors)
+                {
+                    ModelState.AddModelError("Hours", error);
+                }
+            }
+            return periods;
         }
 
         private async Task<string> SaveImage(IFormFile file, string folder)

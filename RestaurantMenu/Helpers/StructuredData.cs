@@ -190,6 +190,22 @@ public static class StructuredData
             };
         }
 
+        // Opening hours for Google (search, Maps). One entry per period; a period that
+        // closes "earlier" than it opens runs past midnight, which Google reads correctly.
+        if (branch.HoursEnabled && branch.OpeningHours is { Count: > 0 } hours)
+        {
+            restaurant["openingHoursSpecification"] = hours
+                .OrderBy(h => ((int)h.DayOfWeek + 6) % 7).ThenBy(h => h.Opens)
+                .Select(h => new Dictionary<string, object?>
+                {
+                    ["@type"] = "OpeningHoursSpecification",
+                    ["dayOfWeek"] = $"https://schema.org/{h.DayOfWeek}",
+                    ["opens"] = OpeningHours.Time(h.Opens),
+                    ["closes"] = h.Opens == h.Closes ? "23:59" : OpeningHours.Time(h.Closes)
+                })
+                .ToList();
+        }
+
         if (sections.Count > 0)
         {
             restaurant["hasMenu"] = new Dictionary<string, object?>

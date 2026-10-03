@@ -99,12 +99,14 @@ Keep migrations **additive** (new columns with defaults, new tables). During a z
 - **Fixed alongside:** the category form lost typed translations when saving failed validation (the dish form was fixed in item 3).
 - **Not done here:** moving the guest UI strings to `.resx`. That depends on a native-speaker review of the wording; today the strings live in one place per feature (`ui` in `Views/Menu/Index.cshtml`, `Helpers/DietaryText.cs`, `Helpers/TableText.cs`).
 
-## 7. Opening hours and "Open now" (2 days)
+## 7. Opening hours and "Open now": done
 
-- **Model:** `BranchHours { BranchId, DayOfWeek, Opens TimeOnly, Closes TimeOnly, IsClosed }`, plus `Branch.TimeZone` (default `Europe/Tirane`).
-- **Form:** a section in `_BranchForm.cshtml`: 7 rows with time inputs and "Closed".
-- **Menu:** "Open until 23:00" or "Closed, opens 08:00" chip next to address and phone.
-- **SEO:** add `openingHoursSpecification` in `Helpers/StructuredData.ForBranchMenu`, which helps Google Maps results.
+- **Model:** `BranchHours { BranchId, DayOfWeek, Opens, Closes }`, several per day allowed (lunch and dinner), a day without any is closed, so no `IsClosed` column is needed. `Closes <= Opens` runs past midnight (18:00–02:00); `Closes == Opens` is open 24 hours. `Branch.HoursEnabled` (off by default, so a branch without hours never looks closed) and `Branch.TimeZone` (default `Europe/Tirane`, a list of nearby zones in the form). Migration `AddOpeningHours`; `BranchHours` has the same soft-delete filter as `Branch`.
+- **Logic** (`Helpers/OpeningHours`): status for any moment from the concrete periods of yesterday to 8 days ahead, merged where they touch (18:00–24:00 then 00:00–02:00 reads "open until 02:00"), in the branch's zone. Labels in the 7 menu languages with localised weekday names: "Open until 23:00", "Open 24 hours", "Closed · opens 19:00 / tomorrow 08:00 / Friday 09:00", "Closed". Unit-tested for overnight, split days, 24 hours, wrapping round the week and daylight-saving changes.
+- **Branch form:** "Opening hours" section: on/off switch, time zone, seven rows (Closed, times, optional second period), "Copy Monday to all days". Validation per day: both times, second period after the first, past-midnight days have one period, a late night may not run into the next day's opening. Errors are listed in the section and the typed values are kept. With the switch off, valid days are saved for later and nothing blocks saving.
+- **Menu:** a chip next to address and phone with a green or red dot **and** the status in words. Tapping it opens the week, with today highlighted. The status is worked out when the page loads.
+- **SEO:** `openingHoursSpecification` per period in the Restaurant JSON-LD (24 hours closes at 23:59).
+- **Insights** now counts days in the branch's own time zone.
 
 ## 8. Time-based menus (2 days)
 

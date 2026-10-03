@@ -14,6 +14,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Category> Categories { get; set; }
     public DbSet<Product> Products { get; set; }
     public DbSet<MenuEvent> MenuEvents { get; set; }
+    public DbSet<BranchHours> BranchHours { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -69,6 +70,22 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.HasIndex(x => x.CreatedUtc); // retention cleanup
             e.Property(x => x.Lang).HasMaxLength(8);
         });
+
+        builder.Entity<BranchHours>(e =>
+        {
+            e.HasOne(h => h.Branch)
+                .WithMany(b => b.OpeningHours)
+                .HasForeignKey(h => h.BranchId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(h => new { h.BranchId, h.DayOfWeek });
+            // Matches the Branch filter: a deleted branch's hours are never read on their own.
+            e.HasQueryFilter(h => !h.Branch!.IsDeleted);
+        });
+
+        builder.Entity<Branch>()
+            .Property(b => b.TimeZone)
+            .HasMaxLength(64)
+            .HasDefaultValue("Europe/Tirane");
 
         // Decimal precision for Price
         builder.Entity<Product>()

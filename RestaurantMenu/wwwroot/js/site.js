@@ -173,6 +173,40 @@
         });
     });
 
+    /* ---------- Opening hours (branch form) ---------- */
+    document.querySelectorAll('[data-hours]').forEach(function (section) {
+        section.addEventListener('click', function (e) {
+            var row = e.target.closest('[data-hours-row]');
+            if (e.target.closest('[data-add-second]') && row) {
+                row.querySelector('[data-second]').hidden = false;
+                row.querySelector('[data-add-second]').hidden = true;
+                row.querySelector('[data-second] input').focus();
+            }
+            if (e.target.closest('[data-remove-second]') && row) {
+                row.querySelectorAll('[data-second] input').forEach(function (i) { i.value = ''; });
+                row.querySelector('[data-second]').hidden = true;
+                row.querySelector('[data-add-second]').hidden = false;
+                row.querySelector('[data-add-second]').focus();
+            }
+            if (e.target.closest('[data-copy-first-day]')) {
+                var rows = section.querySelectorAll('[data-hours-row]');
+                var first = rows[0];
+                var values = Array.prototype.map.call(first.querySelectorAll('input'), function (i) {
+                    return i.type === 'checkbox' ? i.checked : i.value;
+                });
+                Array.prototype.slice.call(rows, 1).forEach(function (r) {
+                    r.querySelectorAll('input').forEach(function (i, n) {
+                        if (i.type === 'checkbox') i.checked = values[n]; else i.value = values[n];
+                    });
+                    var hasSecond = !first.querySelector('[data-second]').hidden;
+                    r.querySelector('[data-second]').hidden = !hasSecond;
+                    r.querySelector('[data-add-second]').hidden = hasSecond;
+                });
+                toast('Copied Monday to every day');
+            }
+        });
+    });
+
     /* ---------- Print page ---------- */
     document.addEventListener('click', function (e) {
         if (e.target.closest('[data-print]')) window.print();
