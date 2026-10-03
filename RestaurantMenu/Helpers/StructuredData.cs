@@ -87,7 +87,7 @@ public static class StructuredData
         foreach (var category in (branch.Categories ?? new List<Category>()).OrderBy(c => c.Priority))
         {
             var items = new List<object>();
-            foreach (var product in (category.Products ?? new List<Product>()).OrderBy(p => p.DisplayOrder))
+            foreach (var product in (category.Products ?? new List<Product>()).OrderBy(p => p.DisplayOrder).ThenBy(p => p.Id))
             {
                 var item = new Dictionary<string, object?>
                 {

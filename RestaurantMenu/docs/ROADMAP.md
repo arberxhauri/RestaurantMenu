@@ -70,10 +70,11 @@ Keep migrations **additive** (new columns with defaults, new tables). During a z
 - **Menu:** diet tags and "Contains: …" on each card, an Allergens block in the dish sheet (declared / none / "not provided, ask your server"), and a filter sheet next to search: "Show only" diets (all must match) and "Hide dishes containing" allergens. **Undeclared dishes are hidden while an allergen is selected**, and the sheet says so. Live count, badge, a summary bar with Clear, works together with search, remembered per menu in the guest's browser. The filter button only appears once the restaurant has declared something. All labels are in the 7 menu languages (`Helpers/DietaryText.cs`; have native speakers review them).
 - **SEO:** JSON-LD `suitableForDiet` (Vegan, Vegetarian, GlutenFree, Halal diets).
 
-## 4. Drag to reorder dishes (half a day)
+## 4. Drag to reorder dishes: done
 
-- **Endpoint:** `ProductController.UpdateOrder([FromBody] UpdatePrioritiesRequest)` that sets `DisplayOrder = index` (copy `CategoryController.UpdatePriorities`).
-- **UI:** in `Branch/Details.cshtml` add `data-sortable` to each `.dish-group` and a `.drag-handle` per dish. Generalise the Sortable block in `site.js` to read the endpoint and id attribute from data attributes.
+- **Endpoint:** `ProductController.UpdateOrder([FromBody] { categoryId, productIds })`, antiforgery-protected, ownership-checked, one query for the category's dishes. `DisplayOrder` becomes the position. The list must be exactly the category's current dishes (no missing, duplicate, deleted or foreign ids), otherwise **409** with "reload the page", so a stale tab can't scramble the order.
+- **UI:** a drag handle on every dish row in Branch Details; each category's dishes reorder on their own (no dragging between categories; change the category in the dish form). The Sortable block in `site.js` is now generic (`data-sortable`, `-item`, `-key`, `-extra`, `-state`) and drives categories too. New for both: **keyboard reordering** (focus a handle, Arrow Up / Down; moves are announced and batched into one save), **revert to the last saved order** if a save fails, and only the newest save's result counts.
+- **Ordering fixes:** dishes are ordered by `DisplayOrder` then `Id` everywhere (back office, guest menu, JSON-LD); most existing dishes share `DisplayOrder = 0`, so the order was undefined and could differ between pages. The "Order in category" number field is gone; new dishes go to the end of their category, editing keeps the position, and moving a dish to another category puts it at the end of that category.
 
 ## 5. Menu analytics (2 to 3 days)
 

@@ -28,7 +28,7 @@ public class MenuController : Controller
         var branch = await _context.Branches
             .AsNoTracking()
             .Include(b => b.Categories.OrderBy(c => c.Priority))
-            .ThenInclude(c => c.Products.OrderBy(p => p.DisplayOrder))
+            .ThenInclude(c => c.Products.OrderBy(p => p.DisplayOrder).ThenBy(p => p.Id))
             .FirstOrDefaultAsync(b => b.Name.Replace(" ", "").ToLower() == decodedName.ToLower() && !b.IsDeleted);
 
         if (branch == null)

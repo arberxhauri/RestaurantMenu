@@ -230,7 +230,7 @@ a.icon-btn { text-decoration: none; }
 /* ---------- Panels ---------- */
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); }
 .panel-head {
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px;
     padding: 16px 20px;
     border-bottom: 1px solid var(--line);
 }
@@ -368,6 +368,8 @@ a.icon-btn { text-decoration: none; }
     touch-action: none;
 }
 .drag-handle:active { cursor: grabbing; }
+.drag-handle:hover { color: var(--ink); }
+.drag-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 6px; color: var(--ink); }
 .row-main { flex: 1; min-width: 0; }
 .row-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row-sub { font-size: 13px; color: var(--ink-3); }
@@ -391,6 +393,10 @@ a.icon-btn { text-decoration: none; }
     padding: 12px 20px;
 }
 .dish + .dish { border-top: 1px solid var(--line-2); }
+.dish { background: var(--surface); }
+.dish > .drag-handle { margin: 0 -6px 0 -12px; }
+.dish.sortable-ghost { opacity: .4; }
+.dish.sortable-chosen { box-shadow: var(--shadow-md); border-radius: var(--r-sm); position: relative; z-index: 2; }
 .dish-thumb { position: relative; width: 56px; height: 56px; flex: none; }
 .dish-thumb img, .dish-thumb .placeholder { width: 100%; height: 100%; border-radius: 12px; object-fit: cover; }
 .dish-thumb .placeholder { display: grid; place-items: center; background: var(--bg-2); color: var(--ink-3); font-size: 22px; }
@@ -441,21 +447,22 @@ a.icon-btn { text-decoration: none; }
 @media (prefers-reduced-motion: reduce) { .avail-switch, .avail-thumb { transition: none; } }
 
 /* Phones: two lines so the name keeps its width.
-   [photo] name + chip ....... edit delete
-   [photo] price ............. switch      */
+   [::] [photo] name + chip ....... edit delete
+   [::] [photo] price ............. switch      */
 @media (max-width: 575.98px) {
     .dish {
         display: grid;
-        grid-template-columns: 56px minmax(0, 1fr) auto;
+        grid-template-columns: 22px 56px minmax(0, 1fr) auto;
         align-items: center;
         column-gap: 12px; row-gap: 6px;
-        padding: 12px 16px;
+        padding: 12px 16px 12px 8px;
     }
-    .dish-thumb { grid-column: 1; grid-row: 1 / span 2; }
-    .dish-main { grid-column: 2; grid-row: 1; }
-    .dish-price { grid-column: 2; grid-row: 2; font-size: 13.5px; }
-    .dish > .row-actions { grid-column: 3; grid-row: 1; }
-    .dish > form[data-availability] { grid-column: 3; grid-row: 2; justify-self: end; margin-right: 6px; }
+    .dish > .drag-handle { grid-column: 1; grid-row: 1 / span 2; margin: 0; width: 22px; }
+    .dish-thumb { grid-column: 2; grid-row: 1 / span 2; }
+    .dish-main { grid-column: 3; grid-row: 1; }
+    .dish-price { grid-column: 3; grid-row: 2; font-size: 13.5px; }
+    .dish > .row-actions { grid-column: 4; grid-row: 1; }
+    .dish > form[data-availability] { grid-column: 4; grid-row: 2; justify-self: end; margin-right: 6px; }
 }
 
 .scroll-panel { max-height: 70vh; overflow-y: auto; overscroll-behavior: contain; }

@@ -247,43 +247,115 @@
         });
     });
 
-    /* ---------- Drag to reorder categories ---------- */
-    // Sortable is loaded by the page's Scripts section, after this file, so wait for load.
-    window.addEventListener('load', function () {
-    var sortable = document.querySelector('[data-sortable]');
-    if (!sortable || !window.Sortable) return;
-    {
-        var state = document.querySelector('[data-sort-state]');
-        var tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
-        window.Sortable.create(sortable, {
-            handle: '.drag-handle',
-            animation: 160,
-            ghostClass: 'sortable-ghost',
-            chosenClass: 'sortable-chosen',
-            onEnd: function () {
-                var ids = Array.prototype.map.call(sortable.querySelectorAll('[data-category-id]'), function (li) {
-                    return parseInt(li.getAttribute('data-category-id'), 10);
-                });
+    /* ---------- Drag to reorder (categories and dishes) ----------
+       <ul|div data-sortable="endpoint" data-sortable-item="data-category-id"
+               data-sortable-key="categoryIds" [data-sortable-extra='{"categoryId":5}']
+               [data-sortable-state="selector for a status line; otherwise a toast"]>
+       Children with the item attribute move by their .drag-handle: dragged (SortableJS),
+       or with ArrowUp / ArrowDown while the handle has focus. The order is posted as
+       { <key>: [ids], ...extra }. If saving fails the list returns to the last saved order. */
+    var sortToken = document.querySelector('input[name="__RequestVerificationToken"]');
+
+    function initSortable(list) {
+        var endpoint = list.getAttribute('data-sortable');
+        var itemAttr = list.getAttribute('data-sortable-item');
+        var key = list.getAttribute('data-sortable-key');
+        var extra = {};
+        try { extra = JSON.parse(list.getAttribute('data-sortable-extra') || '{}'); } catch (e) { /* none */ }
+        var stateSel = list.getAttribute('data-sortable-state');
+        var state = stateSel ? document.querySelector(stateSel) : null;
+
+        function items() {
+            return Array.prototype.filter.call(list.children, function (el) { return el.hasAttribute(itemAttr); });
+        }
+        function ids() { return items().map(function (el) { return parseInt(el.getAttribute(itemAttr), 10); }); }
+        function report(message) { if (state) state.textContent = message; else toast(message); }
+        function renumber() {
+            list.querySelectorAll('[data-position]').forEach(function (el, i) { el.textContent = i + 1; });
+        }
+        function restore(order) {
+            var byId = {};
+            items().forEach(function (el) { byId[el.getAttribute(itemAttr)] = el; });
+            // Re-appending in order keeps any non-item children (a group title) in front.
+            order.forEach(function (id) { if (byId[id]) list.appendChild(byId[id]); });
+            renumber();
+        }
+
+        var saved = ids();      // order the server has
+        var seq = 0;            // newest request; older responses are ignored
+        var savedSeq = 0;
+        var timer = null;
+
+        function save(delay) {
+            renumber();
+            clearTimeout(timer);
+            timer = setTimeout(function () {
+                var order = ids();
+                if (order.join() === saved.join()) return;
+                var mine = ++seq;
                 if (state) state.textContent = 'Saving order…';
-                fetch(sortable.getAttribute('data-sortable'), {
+                var body = {};
+                Object.keys(extra).forEach(function (k) { body[k] = extra[k]; });
+                body[key] = order;
+                fetch(endpoint, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'RequestVerificationToken': tokenInput ? tokenInput.value : ''
+                        'Accept': 'application/json',
+                        'RequestVerificationToken': sortToken ? sortToken.value : ''
                     },
-                    body: JSON.stringify({ categoryIds: ids })
+                    body: JSON.stringify(body),
+                    credentials: 'same-origin'
                 }).then(function (r) {
-                    if (!r.ok) throw new Error(r.status);
+                    if (r.status === 409) {
+                        return r.json().catch(function () { return {}; }).then(function (j) {
+                            throw new Error(j.message || 'This list changed somewhere else. Reload the page.');
+                        });
+                    }
+                    // A signed-out session is redirected to the login page, which is not JSON.
+                    if (!r.ok || r.redirected) throw new Error('');
                     return r.json();
                 }).then(function () {
-                    if (state) state.textContent = 'Order saved. Guests see it now.';
-                    // keep the visible position numbers in sync
-                    sortable.querySelectorAll('[data-position]').forEach(function (el, i) { el.textContent = i + 1; });
-                }).catch(function () {
-                    if (state) state.textContent = 'Could not save the new order. Reload and try again.';
+                    if (mine > savedSeq) { saved = order; savedSeq = mine; }
+                    if (mine === seq) report('Order saved. Guests see it now.');
+                }).catch(function (err) {
+                    if (mine !== seq) return;
+                    restore(saved);
+                    report(err.message || 'Could not save the new order. Reload the page and try again.');
                 });
-            }
+            }, delay);
+        }
+
+        list.addEventListener('keydown', function (e) {
+            if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+            var handle = e.target.closest('.drag-handle');
+            var item = handle && handle.closest('[' + itemAttr + ']');
+            if (!item || item.parentNode !== list) return;
+            var all = items();
+            var from = all.indexOf(item);
+            var to = e.key === 'ArrowUp' ? from - 1 : from + 1;
+            e.preventDefault();
+            if (to < 0 || to >= all.length) return;
+            list.insertBefore(item, e.key === 'ArrowUp' ? all[to] : all[to].nextSibling);
+            handle.focus();
+            report((item.getAttribute('data-sort-name') || 'Item') + ' moved to position ' + (to + 1) + ' of ' + all.length);
+            save(700); // several key presses in a row become one save
         });
+
+        if (window.Sortable) {
+            window.Sortable.create(list, {
+                handle: '.drag-handle',
+                draggable: '[' + itemAttr + ']',
+                animation: 160,
+                ghostClass: 'sortable-ghost',
+                chosenClass: 'sortable-chosen',
+                onEnd: function () { save(0); }
+            });
+        }
     }
+
+    // Sortable is loaded by the page's Scripts section, after this file, so wait for load.
+    window.addEventListener('load', function () {
+        document.querySelectorAll('[data-sortable]').forEach(initSortable);
     });
 })();

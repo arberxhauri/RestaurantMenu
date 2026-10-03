@@ -238,7 +238,7 @@
                     </header>
 
                     <ul class="m-items">
-                        @foreach (var product in category.Products!.OrderBy(p => p.DisplayOrder))
+                        @foreach (var product in category.Products!.OrderBy(p => p.DisplayOrder).ThenBy(p => p.Id))
                         {
                             var name = TranslationHelper.GetTranslation(product.Name, product.NameTranslations, currentLang);
                             var desc = TranslationHelper.GetTranslation(product.Description ?? "", product.DescriptionTranslations, currentLang);

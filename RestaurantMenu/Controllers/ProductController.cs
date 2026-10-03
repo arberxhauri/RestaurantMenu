@@ -104,6 +104,9 @@ public async Task<IActionResult> Create(Product product, IFormFile? image, IForm
             }
         }
 
+        // New dishes go to the end of their category; owners drag them into place on Branch Details.
+        product.DisplayOrder = await NextDisplayOrder(product.CategoryId);
+
         _context.Products.Add(product);
         await _context.SaveChangesAsync();
 
@@ -194,8 +197,13 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
         existingProduct.Description = product.Description;
         existingProduct.Nutritions = product.Nutritions;
         existingProduct.Price = product.Price;
+        // The order is set by dragging on Branch Details, not by this form. A dish moved to
+        // another category goes to the end of it.
+        if (existingProduct.CategoryId != product.CategoryId)
+        {
+            existingProduct.DisplayOrder = await NextDisplayOrder(product.CategoryId);
+        }
         existingProduct.CategoryId = product.CategoryId;
-        existingProduct.DisplayOrder = product.DisplayOrder;
         existingProduct.Allergens = product.Allergens;
         existingProduct.Diets = product.Diets;
 
@@ -313,6 +321,56 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
             TempData["Success"] = $"{product.Name} is back on the menu.";
             return RedirectToAction("Details", "Branch", new { id = product.BranchId });
         }
+
+        /// <summary>
+        /// Saves the order of one category's dishes after a drag (or keyboard move) on Branch
+        /// Details: DisplayOrder becomes the position in the list. The list must be exactly
+        /// the category's current dishes, so a stale page (a dish added, moved or deleted in
+        /// another tab) gets 409 instead of silently scrambling the order.
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateOrder([FromBody] UpdateDishOrderRequest? request)
+        {
+            if (request?.ProductIds == null || request.ProductIds.Count == 0)
+            {
+                return BadRequest();
+            }
+
+            var user = await _userManager.GetUserAsync(User);
+            var dishes = await _context.Products
+                .Where(p => p.CategoryId == request.CategoryId
+                            && p.Category!.Branch!.UserId == user.Id
+                            && !p.Category.Branch.IsDeleted)
+                .ToListAsync();
+
+            if (dishes.Count == 0)
+            {
+                return NotFound();
+            }
+
+            var posted = request.ProductIds;
+            if (posted.Distinct().Count() != posted.Count
+                || posted.Count != dishes.Count
+                || !dishes.All(d => posted.Contains(d.Id)))
+            {
+                return Conflict(new { message = "This category changed somewhere else. Reload the page to see the latest dishes." });
+            }
+
+            var byId = dishes.ToDictionary(d => d.Id);
+            for (var i = 0; i < posted.Count; i++)
+            {
+                byId[posted[i]].DisplayOrder = i;
+            }
+            await _context.SaveChangesAsync();
+
+            return Json(new { success = true });
+        }
+
+        private async Task<int> NextDisplayOrder(int categoryId) =>
+            (await _context.Products
+                .Where(p => p.CategoryId == categoryId)
+                .MaxAsync(p => (int?)p.DisplayOrder) ?? -1) + 1;
 
         /// <summary>
         /// Marks a dish available or sold out. The switch on Branch Details sends the state it
@@ -447,4 +505,10 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
             return RedirectToAction("Edit", new { id = product.Id });
         }
 
+    }
+
+    public class UpdateDishOrderRequest
+    {
+        public int CategoryId { get; set; }
+        public List<int> ProductIds { get; set; } = new();
     }

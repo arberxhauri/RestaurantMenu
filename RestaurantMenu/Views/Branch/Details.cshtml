@@ -75,13 +75,14 @@
             }
             else
             {
-                <ul class="row-list" data-sortable="@Url.Action("UpdatePriorities", "Category")">
+                <ul class="row-list" data-sortable="@Url.Action("UpdatePriorities", "Category")" data-sortable-item="data-category-id"
+                    data-sortable-key="categoryIds" data-sortable-state="[data-sort-state]">
                     @for (var i = 0; i < categories.Count; i++)
                     {
                         var category = categories[i];
                         var count = category.Products?.Count ?? 0;
-                        <li class="row-item" data-category-id="@category.Id">
-                            <button type="button" class="drag-handle" aria-label="Drag to reorder @category.Name" title="Drag to reorder">
+                        <li class="row-item" data-category-id="@category.Id" data-sort-name="@category.Name">
+                            <button type="button" class="drag-handle" aria-label="Move @category.Name (drag, or use the arrow keys)" title="Drag to reorder">
                                 <i class="ph ph-dots-six-vertical" aria-hidden="true"></i>
                             </button>
                             <div class="row-main">
@@ -141,11 +142,16 @@
                 <div class="scroll-panel">
                     @foreach (var category in categories.Where(c => c.Products != null && c.Products.Any()))
                     {
-                        <div class="dish-group">
+                        @* Each category's dishes reorder on their own (DisplayOrder is per category). *@
+                        <div class="dish-group" data-sortable="@Url.Action("UpdateOrder", "Product")" data-sortable-item="data-product-id"
+                             data-sortable-key="productIds" data-sortable-extra='{"categoryId":@category.Id}'>
                             <h3 class="dish-group-title">@category.Name</h3>
-                            @foreach (var product in category.Products!.OrderBy(p => p.DisplayOrder))
+                            @foreach (var product in category.Products!.OrderBy(p => p.DisplayOrder).ThenBy(p => p.Id))
                             {
-                                <div class="dish @(product.IsAvailable ? "" : "is-soldout")" data-dish>
+                                <div class="dish @(product.IsAvailable ? "" : "is-soldout")" data-dish data-product-id="@product.Id" data-sort-name="@product.Name">
+                                    <button type="button" class="drag-handle" aria-label="Move @product.Name (drag, or use the arrow keys)" title="Drag to reorder">
+                                        <i class="ph ph-dots-six-vertical" aria-hidden="true"></i>
+                                    </button>
                                     <div class="dish-thumb">
                                         @if (!string.IsNullOrEmpty(product.Image))
                                         {
