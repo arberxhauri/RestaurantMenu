@@ -5,43 +5,15 @@
     ViewData["Title"] = Model.Name + " - Menu";
     Layout = null;
 
-    // Theme colours are extracted from the branch logo when it is uploaded.
-    var primaryColor = "#C8642A";
-    var secondaryColor = "#A4501F";
-    var accentColor = "#7E3D17";
-
-    if (!string.IsNullOrEmpty(Model.ThemeColors))
-    {
-        try
-        {
-            var colors = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(Model.ThemeColors);
-            if (colors != null)
-            {
-                primaryColor = colors.GetValueOrDefault("Primary") ?? colors.GetValueOrDefault("primary") ?? primaryColor;
-                secondaryColor = colors.GetValueOrDefault("Secondary") ?? colors.GetValueOrDefault("secondary") ?? secondaryColor;
-                accentColor = colors.GetValueOrDefault("Accent") ?? colors.GetValueOrDefault("accent") ?? accentColor;
-            }
-        }
-        catch { /* keep the defaults */ }
-    }
-
-    // Pick readable text for anything filled with the brand colour.
-    static double Luminance(string hex)
-    {
-        try
-        {
-            hex = hex.TrimStart('#');
-            if (hex.Length == 3) hex = string.Concat(hex.Select(c => $"{c}{c}"));
-            double Channel(int i)
-            {
-                var v = int.Parse(hex.Substring(i, 2), NumberStyles.HexNumber) / 255.0;
-                return v <= 0.03928 ? v / 12.92 : Math.Pow((v + 0.055) / 1.055, 2.4);
-            }
-            return 0.2126 * Channel(0) + 0.7152 * Channel(2) + 0.0722 * Channel(4);
-        }
-        catch { return 0.2; }
-    }
-    var onBrand = Luminance(primaryColor) > 0.42 ? "#141414" : "#FFFFFF";
+    // Brand: colours (from the logo or set in Branch Edit → Brand), header style and
+    // light/dark. Text colours on brand colours are derived for contrast (BrandTheme).
+    var theme = BrandTheme.Parse(Model.ThemeColors);
+    var primaryColor = theme.Primary;
+    var headerStyle = theme.Header == "photo" && string.IsNullOrEmpty(Model.Banner) ? "colour" : theme.Header;
+    // Header text: white on photos (they get a dark scrim), black or white on colour.
+    // Minimal headers use the page ink, set in menu.css.
+    var heroInk = headerStyle == "colour" ? theme.HeaderText : "#FFFFFF";
+    var themeClass = theme.Appearance switch { "light" => "theme-light", "dark" => "theme-dark", _ => "" };
 
     var currentLang = ViewBag.CurrentLanguage as string ?? "en";
     var supportedLanguages = (ViewBag.SupportedLanguages as string[]) ?? new[] { "en" };
@@ -107,7 +79,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     @await Html.PartialAsync("_SeoMeta", seo)
-    @if (!string.IsNullOrEmpty(Model.Banner))
+    @if (headerStyle == "photo")
     {
         <link rel="preload" as="image" href="@Model.Banner" fetchpriority="high" />
     }
@@ -115,14 +87,20 @@
     <link rel="stylesheet" href="~/css/menu.css" asp-append-version="true" />
     <style>
         :root {
-            --brand: @primaryColor;
-            --brand-2: @secondaryColor;
-            --brand-3: @accentColor;
-            --on-brand: @onBrand;
+            --brand: @theme.Primary;
+            --brand-2: @theme.Secondary;
+            --brand-3: @theme.Accent;
+            --on-brand: @theme.OnPrimary;
+            --on-brand-3: @theme.OnAccent;
+            --brand-ink-light: @theme.PrimaryInkLight;
+            --brand-ink-dark: @theme.PrimaryInkDark;
+            --accent-ink-light: @theme.AccentInkLight;
+            --accent-ink-dark: @theme.AccentInkDark;
+            --hero-ink: @heroInk;
         }
     </style>
 </head>
-<body class="menu-page"
+<body class="menu-page @themeClass"
       data-storage-key="@storageKey"
       data-branch-id="@Model.Id"
       data-event-url="@Url.Action("Event", "Menu")"
@@ -143,8 +121,8 @@
 
     <a class="skip-link" href="#menu">Skip to menu</a>
 
-    <header class="m-hero @(string.IsNullOrEmpty(Model.Banner) ? "m-hero--plain" : "")" id="top">
-        @if (!string.IsNullOrEmpty(Model.Banner))
+    <header class="m-hero m-hero--@headerStyle" id="top">
+        @if (headerStyle == "photo")
         {
             <img class="m-hero-img" src="@Model.Banner" alt="" fetchpriority="high" />
         }

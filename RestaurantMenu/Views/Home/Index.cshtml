@@ -25,6 +25,7 @@
     @await Html.PartialAsync("_SeoMeta", (SeoMetadata)ViewData["Seo"]!)
     <link rel="preload" as="image" href="~/img/hero-table.webp" fetchpriority="high" />
     <partial name="_HeadAssets" />
+    <link rel="stylesheet" href="~/css/device.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/landing.css" asp-append-version="true" />
 </head>
 <body>

@@ -86,6 +86,7 @@ public async Task<IActionResult> Create(Branch branch, IFormFile? logo, IFormFil
 
     var hoursForm = OpeningHours.FromForm(form);
     var hours = ApplyHours(branch, hoursForm);
+    var (brand, brandTouched) = ReadBrand(null, form);
     
     // Set supported languages
     if (selectedLanguages != null && selectedLanguages.Length > 0)
@@ -105,10 +106,9 @@ public async Task<IActionResult> Create(Branch branch, IFormFile? logo, IFormFil
         if (logo != null && logo.Length > 0)
         {
             branch.Logo = await SaveImage(logo, "logos");
-            
-            // Extract theme colors from logo
-            branch.ThemeColors = await ExtractThemeColors(logo);
+            await ApplyLogoColours(brand, logo, brandTouched);
         }
+        branch.ThemeColors = brand.ToJson();
 
         if (banner != null && banner.Length > 0)
         {
@@ -125,29 +125,67 @@ public async Task<IActionResult> Create(Branch branch, IFormFile? logo, IFormFil
 
     ViewBag.Currencies = CurrencyHelper.GetCurrencies();
     ViewBag.Hours = hoursForm;
+    ViewBag.Brand = brand;
     return View(branch);
 }
 
-        private async Task<string> ExtractThemeColors(IFormFile logo)
+        /// <summary>
+        /// Reads the Brand section. Colours must be hex (the pickers always send that);
+        /// anything else is a form error and the stored value stays. "Touched" means the
+        /// owner changed a colour in this save, which wins over a newly uploaded logo.
+        /// </summary>
+        private (BrandTheme Theme, bool Touched) ReadBrand(string? storedJson, IFormCollection form)
+        {
+            var theme = BrandTheme.Parse(storedJson);
+            if (!form.ContainsKey("brand_primary"))
+            {
+                return (theme, false);
+            }
+
+            string? Hex(string key) => BrandTheme.NormalizeHex(form[key].ToString());
+            var posted = new[] { Hex("brand_primary"), Hex("brand_secondary"), Hex("brand_accent") };
+            var shown = new[] { Hex("brand_shown_primary"), Hex("brand_shown_secondary"), Hex("brand_shown_accent") };
+            if (posted.Any(c => c == null))
+            {
+                ModelState.AddModelError("Brand", "Colours must look like #C8642A. Use the colour pickers.");
+            }
+            else
+            {
+                (theme.Primary, theme.Secondary, theme.Accent) = (posted[0]!, posted[1]!, posted[2]!);
+            }
+
+            var appearance = form["brand_appearance"].ToString();
+            var header = form["brand_header"].ToString();
+            if (BrandTheme.Appearances.Contains(appearance)) theme.Appearance = appearance;
+            if (BrandTheme.Headers.Contains(header)) theme.Header = header;
+
+            return (theme, !posted.SequenceEqual(shown));
+        }
+
+        /// <summary>
+        /// A new logo: remember its colours (for "Use logo colours") and use them on the menu,
+        /// unless the owner chose colours by hand in this same save.
+        /// </summary>
+        private async Task ApplyLogoColours(BrandTheme theme, IFormFile logo, bool touched)
         {
             try
             {
                 var colors = await _colorService.ExtractColorsFromImage(logo);
-                return System.Text.Json.JsonSerializer.Serialize(colors);
-            }
-            catch
-            {
-                // Return default colors on error
-                var defaultColors = new
+                var p = BrandTheme.NormalizeHex(colors.Primary);
+                var sec = BrandTheme.NormalizeHex(colors.Secondary);
+                var a = BrandTheme.NormalizeHex(colors.Accent);
+                if (p == null || sec == null || a == null) return;
+                (theme.LogoPrimary, theme.LogoSecondary, theme.LogoAccent) = (p, sec, a);
+                if (!touched)
                 {
-                    primary = "#f6ad55",
-                    secondary = "#ed8936",
-                    accent = "#dd6b20"
-                };
-                return System.Text.Json.JsonSerializer.Serialize(defaultColors);
+                    (theme.Primary, theme.Secondary, theme.Accent) = (p, sec, a);
+                }
+            }
+            catch (Exception)
+            {
+                // An unreadable image keeps the current colours.
             }
         }
-
 
 
         [HttpGet]
@@ -196,6 +234,7 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
 
     var hoursForm = OpeningHours.FromForm(form);
     var hours = ApplyHours(branch, hoursForm);
+    var (brand, brandTouched) = ReadBrand(existingBranch.ThemeColors, form);
 
     if (ModelState.IsValid)
     {
@@ -230,11 +269,9 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
             }
 
             existingBranch.Logo = await SaveImage(logo, "logos");
-
-            // Extract theme colors from new logo
-            var colors = await _colorService.ExtractColorsFromImage(logo);
-            existingBranch.ThemeColors = System.Text.Json.JsonSerializer.Serialize(colors);
+            await ApplyLogoColours(brand, logo, brandTouched);
         }
+        existingBranch.ThemeColors = brand.ToJson();
 
         // Handle banner upload
         if (banner != null && banner.Length > 0)
@@ -257,6 +294,7 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
     ViewBag.Currencies = CurrencyHelper.GetCurrencies();
     ViewBag.SelectedLanguages = existingBranch.SupportedLanguages.Split(',');
     ViewBag.Hours = hoursForm;
+    ViewBag.Brand = brand;
     // Show what was typed, not what is saved.
     existingBranch.HoursEnabled = branch.HoursEnabled;
     existingBranch.TimeZone = branch.TimeZone;
@@ -437,21 +475,8 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
 
         // The primary colour extracted from the logo, only if it is a plain hex colour,
         // because it is written into a style attribute.
-        private static string BrandColor(string? themeColors)
-        {
-            const string fallback = "#C8642A";
-            if (string.IsNullOrEmpty(themeColors)) return fallback;
-            try
-            {
-                var colors = JsonSerializer.Deserialize<Dictionary<string, string>>(themeColors);
-                var primary = colors?.GetValueOrDefault("Primary") ?? colors?.GetValueOrDefault("primary");
-                return primary != null && Regex.IsMatch(primary, "^#[0-9a-fA-F]{3,8}$") ? primary : fallback;
-            }
-            catch (JsonException)
-            {
-                return fallback;
-            }
-        }
+        // The menu's main colour, for the printed cards' frame.
+        private static string BrandColor(string? themeColors) => BrandTheme.Parse(themeColors).Primary;
 
         [HttpPost]
         public async Task<IActionResult> Delete(int id)

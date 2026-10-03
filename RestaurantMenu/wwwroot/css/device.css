@@ -1,0 +1,29 @@
+/* Phone mock-up: the landing page's hero device and the live preview on Branch Edit.
+   Size it with width/height on .device; the screen is clipped to the rounded frame. */
+.device { position: relative; width: 290px; height: 595px; }
+.device-screen {
+    position: absolute;
+    inset: 0;
+    border-radius: 38px;
+    overflow: hidden;
+    background: var(--surface);
+}
+.device-banner { position: absolute; inset: 0 0 auto 0; width: 100%; height: 42%; object-fit: cover; }
+.device-frame {
+    position: absolute;
+    inset: -11px;
+    border: 11px solid #0E1210;
+    border-radius: 49px;
+    box-shadow: 0 0 0 1.5px #39413C, var(--shadow-lg);
+    pointer-events: none;
+}
+.device-frame::before {
+    content: "";
+    position: absolute;
+    top: 9px; left: 50%;
+    width: 88px; height: 24px;
+    transform: translateX(-50%);
+    border-radius: var(--r-pill);
+    background: #0E1210;
+}
+

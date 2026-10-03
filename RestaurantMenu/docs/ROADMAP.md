@@ -99,6 +99,8 @@ Keep migrations **additive** (new columns with defaults, new tables). During a z
 - **Fixed alongside:** the category form lost typed translations when saving failed validation (the dish form was fixed in item 3).
 - **Not done here:** moving the guest UI strings to `.resx`. That depends on a native-speaker review of the wording; today the strings live in one place per feature (`ui` in `Views/Menu/Index.cshtml`, `Helpers/DietaryText.cs`, `Helpers/TableText.cs`).
 
+---
+
 ## 7. Opening hours and "Open now": done
 
 - **Model:** `BranchHours { BranchId, DayOfWeek, Opens, Closes }`, several per day allowed (lunch and dinner), a day without any is closed, so no `IsClosed` column is needed. `Closes <= Opens` runs past midnight (18:00–02:00); `Closes == Opens` is open 24 hours. `Branch.HoursEnabled` (off by default, so a branch without hours never looks closed) and `Branch.TimeZone` (default `Europe/Tirane`, a list of nearby zones in the form). Migration `AddOpeningHours`; `BranchHours` has the same soft-delete filter as `Branch`.
@@ -134,6 +136,26 @@ Sizes, half and full portions, extras. A prerequisite for ordering (item 14).
 - **Menu:** the dish's options travel as JSON on the card. Dishes with a required choice that changes the price show "from €5.50". Their + opens the dish sheet: required single choice = round buttons with the first one selected, optional single choice = a box that can be cleared, several = tick boxes stopped at the limit; prices per option, the total updates live, and "Please choose: Sauce" if a required group is missing. Everything is translated in 7 languages.
 - **Your list:** each combination is its own line ("Calzone · Large, Cream, Cheese ×2") with the right unit price and total; the same combination again adds 1. Lists saved before this change still work.
 - **Later (ordering):** the server must re-check choices and prices from the option ids, since the list's prices live in the guest's browser.
+
+## 11. Branding editor: done
+
+- **Data:** `Branch.ThemeColors` JSON, read and written by `Helpers/BrandTheme`: `Primary`, `Secondary`, `Accent`, `Appearance` (auto / light / dark), `Header` (photo / colour / minimal), and `LogoPrimary/Secondary/Accent` (the colours last taken from the logo, for "Use logo colours"). Every older format still reads (the logo-only JSON, and the lowercase keys of the old fallback). No migration.
+- **Roles of the colours:** main = buttons, prices, the selected category; second = blends with the main colour in the header; highlight = dish badges (Chef's pick, New) and the badge on Recommended cards. Before this the accent colour wasn't used anywhere.
+- **Contrast is guaranteed rather than refused:** text on a colour is near-black or white, whichever contrasts more, and pure black if neither reaches 4.5:1 (it then always does). Coloured text (prices, badges) is darkened or lightened just enough to reach 4.5:1 on the menu's light and dark backgrounds. Checked over 4,096 colours in the unit tests. The form explains it when a colour is clearly unreadable as chosen (below 3:1) in a mode the menu uses. On save only malformed colours are refused.
+- **Logo upload:** the new logo's colours are always remembered and are used on the menu unless the owner changed the colours in the same save.
+- **Branch form:** "Brand" section: three colour pickers with hex fields, "Use logo colours", header style and light/dark cards. A live phone preview in the side column (shared `wwwroot/css/device.css`, extracted from the landing page) sticks while editing and has Light/Dark tabs. It uses the same contrast maths in JS, so it shows exactly what guests get.
+- **Menu:** forced light or dark (`theme-light` / `theme-dark`, also sets `color-scheme`). Header text and chips follow the header's background (white on photos, chosen black or white on colour, ink when minimal). Photo without a banner falls back to colour, and the banner is only preloaded for photo headers. The printed QR cards use the main colour.
+
+## 12. Staff accounts per branch (3 days)
+
+`BranchMember { BranchId, UserId, Role (Manager, Editor) }`. Editors can change dishes and availability but not delete branches. Replace `b.UserId == user.Id` checks with a single `IBranchAccess.CanEdit(user, branchId)` service so the rule lives in one place.
+
+## 13. Invites, email, password reset (2 to 3 days)
+
+- Email provider (Resend, Postmark or SendGrid) behind `IEmailSender`.
+- Admin "New owner" sends an invite link (`GenerateEmailConfirmationTokenAsync` + set-password page) instead of showing a password.
+- "Forgot password" on the login page (`GeneratePasswordResetTokenAsync`).
+- Later: self-serve signup with a trial, which makes the landing's "Get started free" literally true.
 
 ---
 

@@ -306,6 +306,127 @@
         });
     });
 
+    /* ---------- Brand (branch form): pickers, contrast, live preview ----------
+       Same contrast rules as Helpers/BrandTheme.cs, so the preview shows what guests get:
+       text on a colour is black or white, coloured text is shaded until it reads at 4.5:1. */
+    var brandSection = document.querySelector('[data-brand]');
+    if (brandSection) (function () {
+        var LIGHT_BG = '#F4F4F2', DARK_BG = '#1C1C1F', DARK_TEXT = '#141414';
+        function norm(v) {
+            var m = /^#?([0-9a-f]{6}|[0-9a-f]{3})$/i.exec((v || '').trim());
+            if (!m) return null;
+            var h = m[1].length === 3 ? m[1].replace(/(.)/g, '$1$1') : m[1];
+            return '#' + h.toUpperCase();
+        }
+        function rgb(h) { return [1, 3, 5].map(function (i) { return parseInt(h.substr(i, 2), 16); }); }
+        function lum(h) {
+            var c = rgb(h).map(function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+            return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+        }
+        function contrast(a, b) { var x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+        function textOn(bg) {
+            var w = contrast('#FFFFFF', bg), d = contrast(DARK_TEXT, bg);
+            if (Math.max(w, d) >= 4.5) return w >= d ? '#FFFFFF' : DARK_TEXT;
+            return '#000000';
+        }
+        function textOn2(a, b) {
+            var w = Math.min(contrast('#FFFFFF', a), contrast('#FFFFFF', b));
+            var d = Math.min(contrast(DARK_TEXT, a), contrast(DARK_TEXT, b));
+            if (Math.max(w, d) >= 4.5 || w >= d) return w >= d ? '#FFFFFF' : DARK_TEXT;
+            return '#000000';
+        }
+        function hex(r, g, b) { return '#' + [r, g, b].map(function (v) { return ('0' + Math.round(v).toString(16)).slice(-2); }).join('').toUpperCase(); }
+        function readable(c, bg) {
+            if (contrast(c, bg) >= 4.5) return c;
+            var to = lum(bg) > 0.5 ? 0 : 255, p = rgb(c);
+            for (var t = 0.04; t <= 1.0001; t += 0.04) {
+                var m = hex(p[0] + (to - p[0]) * t, p[1] + (to - p[1]) * t, p[2] + (to - p[2]) * t);
+                if (contrast(m, bg) >= 4.5) return m;
+            }
+            return lum(bg) > 0.5 ? DARK_TEXT : '#FFFFFF';
+        }
+
+        // The preview sits in the form's side column, outside the Brand section.
+        var preview = document.querySelector('[data-brand-preview]');
+        var modeButtons = document.querySelectorAll('[data-preview-mode]');
+        var notesEl = brandSection.querySelector('[data-brand-notes]');
+        var hasBanner = !!preview.getAttribute('data-banner');
+        var previewMode = 'light';
+        var keys = ['primary', 'secondary', 'accent'];
+        function field(k) { return brandSection.querySelector('[data-brand-hex="' + k + '"]'); }
+        function picker(k) { return brandSection.querySelector('[data-brand-picker="' + k + '"]'); }
+        function current(k) { return norm(field(k).value) || norm(picker(k).value); }
+        function checked(name) { var el = brandSection.querySelector('input[name="' + name + '"]:checked'); return el ? el.value : ''; }
+
+        function update() {
+            var p = current('primary'), s2 = current('secondary'), a = current('accent');
+            var header = checked('brand_header');
+            if (header === 'photo' && !hasBanner) header = 'colour';
+            var appearance = checked('brand_appearance');
+            var mode = appearance === 'auto' ? previewMode : appearance;
+            var ink = mode === 'dark' ? DARK_BG : LIGHT_BG;
+            preview.setAttribute('data-header', header);
+            preview.setAttribute('data-mode', mode);
+            var st = preview.style;
+            st.setProperty('--bp-brand', p); st.setProperty('--bp-brand-2', s2); st.setProperty('--bp-brand-3', a);
+            st.setProperty('--bp-on-brand', textOn(p));
+            st.setProperty('--bp-hero-ink', header === 'minimal' ? 'var(--bp-ink)' : textOn2(p, s2));
+            st.setProperty('--bp-price', readable(p, ink));
+            st.setProperty('--bp-badge-ink', readable(a, ink));
+            modeButtons.forEach(function (b) {
+                b.setAttribute('aria-pressed', b.getAttribute('data-preview-mode') === mode ? 'true' : 'false');
+                b.disabled = appearance !== 'auto' && b.getAttribute('data-preview-mode') !== appearance;
+            });
+            var notes = [], light = appearance !== 'dark', dark = appearance !== 'light';
+            if (light && contrast(p, LIGHT_BG) < 3) notes.push('The main colour is very light, so prices on a light menu use a darker shade of it.');
+            if (dark && contrast(p, DARK_BG) < 3) notes.push('The main colour is very dark, so prices on a dark menu use a lighter shade of it.');
+            if ((light && contrast(a, LIGHT_BG) < 3) || (dark && contrast(a, DARK_BG) < 3)) notes.push('Badge text uses an adjusted shade of the highlight colour so it stays readable.');
+            notesEl.textContent = '';
+            notes.forEach(function (n) { var li = document.createElement('li'); li.textContent = n; notesEl.appendChild(li); });
+        }
+
+        keys.forEach(function (k) {
+            picker(k).addEventListener('input', function () {
+                field(k).value = picker(k).value.toUpperCase();
+                field(k).classList.remove('is-invalid');
+                update();
+            });
+            field(k).addEventListener('input', function () {
+                var v = norm(field(k).value);
+                field(k).classList.toggle('is-invalid', !v);
+                if (v) { picker(k).value = v.toLowerCase(); update(); }
+            });
+            field(k).addEventListener('blur', function () {
+                var v = norm(field(k).value);
+                if (v) field(k).value = v;
+            });
+        });
+        brandSection.addEventListener('change', function (e) {
+            if (e.target.name === 'brand_header' || e.target.name === 'brand_appearance') update();
+        });
+        modeButtons.forEach(function (b) {
+            b.addEventListener('click', function () { previewMode = b.getAttribute('data-preview-mode'); update(); });
+        });
+        var reset = brandSection.querySelector('[data-brand-reset]');
+        if (reset) reset.addEventListener('click', function () {
+            keys.forEach(function (k) {
+                var logo = norm(field(k).getAttribute('data-logo'));
+                if (logo) { field(k).value = logo; picker(k).value = logo.toLowerCase(); field(k).classList.remove('is-invalid'); }
+            });
+            update();
+            toast('Colours from your logo');
+        });
+        var nameInput = document.getElementById('Name');
+        var nameEl = preview.querySelector('[data-bp-name]');
+        var initialEl = preview.querySelector('[data-bp-initial]');
+        if (nameInput) nameInput.addEventListener('input', function () {
+            var v = nameInput.value.trim();
+            nameEl.textContent = v || 'Your restaurant';
+            if (initialEl) initialEl.textContent = (v || 'R').charAt(0);
+        });
+        update();
+    })();
+
     /* ---------- Print page ---------- */
     document.addEventListener('click', function (e) {
         if (e.target.closest('[data-print]')) window.print();

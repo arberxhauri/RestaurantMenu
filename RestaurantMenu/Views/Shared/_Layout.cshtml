@@ -33,6 +33,7 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <partial name="_HeadAssets" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    @await RenderSectionAsync("Styles", required: false)
 </head>
 <body class="@(signedIn ? "app-body" : "public-body")">
     <a class="skip-link" href="#main">Skip to content</a>
