@@ -63,6 +63,15 @@
         .Where(c => c.Products != null && c.Products.Any())
         .OrderBy(c => c.Priority)
         .ToList();
+
+    // Time-based categories (breakfast, happy hour…), judged now in the branch's time zone.
+    // Hidden ones leave the page only; the structured data keeps the full menu.
+    var menuZone = OpeningHours.Zone(Model.TimeZone);
+    var menuNow = DateTime.UtcNow;
+    var serving = categories.ToDictionary(c => c.Id, c => ServingTimes.Status(c, menuZone, menuNow));
+    var hiddenNow = categories.Count(c => c.HideWhenUnavailable && serving[c.Id] is { IsOpen: false });
+    categories = categories.Where(c => !(c.HideWhenUnavailable && serving[c.Id] is { IsOpen: false })).ToList();
+    bool NotServed(Category c) => serving[c.Id] is { IsOpen: false };
     var hasDietary = categories.SelectMany(c => c.Products!).Any(p => p.Allergens != null || p.Diets != Diet.None);
 
     // Built in MenuController; the theme colour is only known here.
@@ -213,7 +222,7 @@
                     @foreach (var category in categories)
                     {
                         var slug = category.Name.Replace(" ", "-").ToLower();
-                        <a class="m-chip" href="#@slug" data-chip="@slug">@TranslationHelper.GetTranslation(category.Name, category.NameTranslations, currentLang)</a>
+                        <a class="m-chip @(NotServed(category) ? "m-chip--later" : "")" href="#@slug" data-chip="@slug">@TranslationHelper.GetTranslation(category.Name, category.NameTranslations, currentLang)</a>
                     }
                 </div>
                 @if (hasDietary)
@@ -239,9 +248,16 @@
         @if (!categories.Any())
         {
             <div class="m-empty">
-                <i class="ph ph-cooking-pot" aria-hidden="true"></i>
-                <h2>@ui.Soon</h2>
-                <p>@ui.SoonHint</p>
+                <i class="ph @(hiddenNow > 0 ? "ph-clock" : "ph-cooking-pot")" aria-hidden="true"></i>
+                @if (hiddenNow > 0)
+                {
+                    <h2>@ServingTimes.NothingNow(currentLang)</h2>
+                }
+                else
+                {
+                    <h2>@ui.Soon</h2>
+                    <p>@ui.SoonHint</p>
+                }
             </div>
         }
         else
@@ -258,12 +274,25 @@
                 var slug = category.Name.Replace(" ", "-").ToLower();
                 var categoryName = TranslationHelper.GetTranslation(category.Name, category.NameTranslations, currentLang);
                 var count = category.Products!.Count;
+                var servingStatus = serving[category.Id];
+                var later = servingStatus is { IsOpen: false };
 
-                <section class="m-cat" id="@slug" aria-labelledby="h-@slug" data-cat>
+                <section class="m-cat @(later ? "is-later" : "")" id="@slug" aria-labelledby="h-@slug" data-cat>
                     <header class="m-cat-head">
                         <h2 id="h-@slug">@categoryName</h2>
                         <span class="m-cat-count">@count @(count == 1 ? ui.Item : ui.Items)</span>
                     </header>
+                    @if (servingStatus != null)
+                    {
+                        <p class="m-cat-note">
+                            <i class="ph ph-clock" aria-hidden="true"></i>
+                            @if (later)
+                            {
+                                <strong>@ServingTimes.NextNote(servingStatus, currentLang, category.AvailableFrom == null)</strong><span aria-hidden="true"> · </span>
+                            }
+                            <span>@ServingTimes.ServedNote(category, currentLang)</span>
+                        </p>
+                    }
 
                     <ul class="m-items">
                         @foreach (var product in category.Products!.OrderBy(p => p.DisplayOrder).ThenBy(p => p.Id))
@@ -282,6 +311,7 @@
                             <li class="m-item @(hasImage ? "has-img" : "") @(soldOut ? "is-soldout" : "")"
                                 data-item
                                 data-soldout="@(soldOut ? "true" : "false")"
+                                data-later="@(later ? "true" : "false")"
                                 data-allergens="@(product.Allergens == null ? -1 : (int)product.Allergens)"
                                 data-diets="@((int)product.Diets)"
                                 data-allergen-text="@allergenText"
@@ -330,7 +360,8 @@
                                         <img class="m-item-img" src="@product.Image" alt="" width="112" height="112" loading="lazy" decoding="async" />
                                     }
                                 </button>
-                                @if (!soldOut)
+                                @* Not saveable while sold out or outside the category's serving times. *@
+                                @if (!soldOut && !later)
                                 {
                                     <button class="m-save" type="button" data-save aria-pressed="false" aria-label="@ui.Save: @name">
                                         <i class="ph ph-plus" aria-hidden="true"></i>

@@ -91,6 +91,10 @@
                             <div class="row-main">
                                 <div class="row-title">@category.Name</div>
                                 <div class="row-sub">Position <span data-position>@(i + 1)</span>, @count @(count == 1 ? "dish" : "dishes")</div>
+                                @if (ServingTimes.IsRestricted(category))
+                                {
+                                    <div class="row-sub"><i class="ph ph-clock" aria-hidden="true"></i> @ServingTimes.Schedule(category, "en")@(category.HideWhenUnavailable ? ", hidden outside" : "")</div>
+                                }
                             </div>
                             <div class="row-actions">
                                 <a asp-controller="Category" asp-action="Edit" asp-route-id="@category.Id" class="icon-btn" aria-label="Edit @category.Name" title="Edit">

@@ -879,3 +879,11 @@ a.chip--link:hover { background: var(--accent-soft); color: var(--accent); }
 .hours-row:has(.hours-closed input:checked) .hours-day { color: var(--ink-3); }
 .hours-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 14px; }
 
+
+/* ---------- Category schedule (When it's served) ---------- */
+.schedule:has(#scheduleEnabled:not(:checked)) .schedule-body { display: none; }
+.schedule fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+.schedule legend { float: none; font-size: 14px; }
+.schedule-times { display: flex; flex-wrap: wrap; gap: 12px 16px; }
+.schedule-times > div { width: 150px; }
+.schedule .hint { display: block; }

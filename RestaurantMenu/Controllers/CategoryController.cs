@@ -36,6 +36,7 @@ namespace RestaurantMenu.Controllers
             ViewBag.BranchId = branchId;
             ViewBag.BranchName = branch.Name;
             ViewBag.SupportedLanguages = branch.SupportedLanguages.Split(',');
+            ViewBag.Schedule = ServingTimes.ToForm(null);
             return View();
         }
 
@@ -52,6 +53,12 @@ namespace RestaurantMenu.Controllers
             }
 
             ModelState.Remove("Branch");
+
+            var schedule = ServingTimes.FromForm(form);
+            foreach (var error in ServingTimes.Apply(schedule, category))
+            {
+                ModelState.AddModelError("Schedule", error);
+            }
 
             if (ModelState.IsValid)
             {
@@ -85,6 +92,7 @@ namespace RestaurantMenu.Controllers
             ViewBag.SupportedLanguages = branch.SupportedLanguages.Split(',');
             // Keep what was typed: without this the translation fields come back empty.
             ViewBag.ExistingTranslations = PostedTranslations(form);
+            ViewBag.Schedule = schedule;
             return View(category);
         }
 
@@ -105,6 +113,7 @@ namespace RestaurantMenu.Controllers
             ViewBag.BranchId = category.BranchId;
             ViewBag.BranchName = category.Branch.Name;
             ViewBag.SupportedLanguages = category.Branch.SupportedLanguages.Split(',');
+            ViewBag.Schedule = ServingTimes.ToForm(category);
             
             // Parse existing translations for form
             ViewBag.ExistingTranslations = new Dictionary<string, string>();
@@ -136,9 +145,18 @@ namespace RestaurantMenu.Controllers
 
             ModelState.Remove("Branch");
 
+            // Written onto the tracked category, but only saved if everything is valid.
+            var schedule = ServingTimes.FromForm(form);
+            foreach (var error in ServingTimes.Apply(schedule, existingCategory))
+            {
+                ModelState.AddModelError("Schedule", error);
+            }
+
             if (ModelState.IsValid)
             {
                 existingCategory.Name = category.Name;
+                // The edit form has a Position field; it used to be ignored on save.
+                existingCategory.Priority = Math.Clamp(category.Priority, 0, 999);
 
                 // Handle translations
                 var supportedLanguages = existingCategory.Branch.SupportedLanguages.Split(',');
@@ -165,6 +183,7 @@ namespace RestaurantMenu.Controllers
             ViewBag.SupportedLanguages = existingCategory.Branch.SupportedLanguages.Split(',');
             // Keep what was typed: without this the translation fields come back empty.
             ViewBag.ExistingTranslations = PostedTranslations(form);
+            ViewBag.Schedule = schedule;
             return View(category);
         }
 

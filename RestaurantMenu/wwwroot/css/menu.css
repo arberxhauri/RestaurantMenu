@@ -395,6 +395,16 @@
 .m-item.is-soldout .m-item-img { filter: grayscale(1); opacity: .6; }
 
 .m-item[hidden], .m-cat[hidden] { display: none; }
+
+/* Time-based categories: a note under the title; greyed while not served. */
+.m-cat-note { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: -6px 4px 14px; font-size: 14px; color: var(--ink-2); }
+.m-cat-note .ph { color: var(--ink-3); }
+.m-cat-note strong { color: var(--ink); font-weight: 600; }
+.m-cat.is-later .m-item-open { background: color-mix(in oklab, var(--surface) 55%, var(--bg)); }
+.m-cat.is-later .m-item-name, .m-cat.is-later .m-item-price { color: var(--ink-3); }
+.m-cat.is-later .m-item-img { filter: grayscale(.85); opacity: .7; }
+.m-cat.is-later .m-item-open { padding-right: 16px; }
+.m-chip--later { opacity: .6; }
 .m-noresults { text-align: center; color: var(--ink-3); padding: 48px 0 0; }
 
 .m-empty { text-align: center; padding: 96px 16px; display: flex; flex-direction: column; align-items: center; gap: 10px; }

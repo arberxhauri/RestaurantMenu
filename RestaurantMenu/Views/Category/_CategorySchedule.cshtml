@@ -1,0 +1,62 @@
+@using RestaurantMenu.Helpers
+@{
+    var schedule = ViewBag.Schedule as ServingTimes.Form ?? ServingTimes.ToForm(null);
+    var errors = ViewData.ModelState.TryGetValue("Schedule", out var state) ? state.Errors.Select(e => e.ErrorMessage).ToList() : new List<string>();
+}
+@* Breakfast, lunch, happy hour. Times are in the branch's time zone (Branch → Edit → Opening hours). *@
+<section class="form-section schedule" data-schedule>
+    <h2>When it's served</h2>
+    <p>For breakfast, lunch or happy hour. The menu follows the clock by itself, so you never edit it twice a day.</p>
+    @if (errors.Any())
+    {
+        <ul class="hours-errors" role="alert">
+            @foreach (var e in errors)
+            {
+                <li>@e</li>
+            }
+        </ul>
+    }
+    <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" role="switch" id="scheduleEnabled" name="schedule_enabled" value="true" @(schedule.Enabled ? "checked" : "") />
+        <label class="form-check-label" for="scheduleEnabled">Only at certain times</label>
+    </div>
+
+    <div class="schedule-body">
+        <fieldset class="mb-3">
+            <legend class="form-label">Days</legend>
+            <div class="lang-chips">
+                @foreach (var day in OpeningHours.Week)
+                {
+                    <label class="lang-chip">
+                        <input type="checkbox" name="schedule_days" value="@day" @(schedule.Days.Contains(day) ? "checked" : "") />
+                        <span>@day.ToString()[..3]</span>
+                    </label>
+                }
+            </div>
+        </fieldset>
+
+        <div class="schedule-times mb-3">
+            <div>
+                <label class="form-label" for="scheduleFrom">From</label>
+                <input class="form-control" type="time" id="scheduleFrom" name="schedule_from" value="@schedule.From" />
+            </div>
+            <div>
+                <label class="form-label" for="scheduleTo">To</label>
+                <input class="form-control" type="time" id="scheduleTo" name="schedule_to" value="@schedule.To" />
+            </div>
+        </div>
+        <span class="hint mb-3">Leave both times empty for the whole day. Past midnight works too, for example 22:00 to 02:00.</span>
+
+        <fieldset>
+            <legend class="form-label">Outside these times</legend>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" id="scheduleGrey" name="schedule_hide" value="false" @(!schedule.Hide ? "checked" : "") />
+                <label class="form-check-label" for="scheduleGrey">Show it greyed out, with when it's available</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" id="scheduleHide" name="schedule_hide" value="true" @(schedule.Hide ? "checked" : "") />
+                <label class="form-check-label" for="scheduleHide">Hide it from the menu</label>
+            </div>
+        </fieldset>
+    </div>
+</section>

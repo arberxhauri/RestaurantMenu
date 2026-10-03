@@ -64,6 +64,7 @@
             priceLabel: li.dataset.priceLabel,
             img: li.dataset.img,
             soldOut: li.dataset.soldout === 'true',
+            later: li.dataset.later === 'true',
             allergenText: li.dataset.allergenText,
             tags: li.querySelector('[data-tags]')
         };
@@ -215,13 +216,13 @@
         dish.querySelector('[data-dish-price]').textContent = current.priceLabel;
         if (current.img) { dishImg.src = current.img; dishImg.alt = current.name; dishImg.hidden = false; }
         else { dishImg.hidden = true; dishImg.removeAttribute('src'); }
-        dishSave.hidden = current.soldOut;
+        dishSave.hidden = current.soldOut || current.later;
         dishSoldOut.hidden = !current.soldOut;
         syncDishSave();
         openSheet(dish);
     }
     dishSave.addEventListener('click', function () {
-        if (!current || current.soldOut) return;
+        if (!current || current.soldOut || current.later) return;
         toggle(current);
         syncDishSave();
     });

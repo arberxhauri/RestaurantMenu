@@ -108,9 +108,15 @@ Keep migrations **additive** (new columns with defaults, new tables). During a z
 - **SEO:** `openingHoursSpecification` per period in the Restaurant JSON-LD (24 hours closes at 23:59).
 - **Insights** now counts days in the branch's own time zone.
 
-## 8. Time-based menus (2 days)
+## 8. Time-based menus: done
 
-Breakfast, lunch and happy hour. `Category.AvailableFrom/To` (`TimeOnly?`) and `Category.Days` (flags). The menu greys out or hides categories outside their window (server-side with the branch time zone). The form gets the fields on Category Edit.
+Breakfast, lunch and happy hour without editing the menu twice a day.
+
+- **Model:** `Category.AvailableDays` (`[Flags]`, `None` = every day), `AvailableFrom` / `AvailableTo` (`TimeOnly?`, both empty = all day, To earlier than From runs past midnight) and `HideWhenUnavailable`. Migration `AddCategorySchedule`; existing categories are served all the time, as before.
+- **Logic** (`Helpers/ServingTimes`): the window is turned into opening-hours periods, so `OpeningHours.GetStatus` (overnight, week wrap, the branch's time zone) decides whether a category is served. The wording is in all 7 languages: "Served Mon–Fri · 08:00–11:30", "Available from 17:00 / tomorrow from 08:00 / Monday from 08:00", "Available Saturday" for all-day windows. Unit-tested together with item 7.
+- **Category form** (create and edit): "When it's served" section with an "Only at certain times" switch, day chips, from and to times, and greyed-out or hidden outside the times. Each problem gets its own message and the typed values are kept. Branch Details shows each category's schedule.
+- **Menu:** a note under the title while the category is served. Outside its times it is greyed out with "Available …", its + buttons are hidden and its nav chip is muted, or it is removed from the page if set to hidden. If everything is hidden the menu says "Nothing is being served right now". The structured data always keeps the full menu, so search engines see the same menu at any hour.
+- **Fixed alongside:** the Position field on Category Edit was ignored when saving.
 
 ## 9. Specials and featured dishes (1 day)
 
