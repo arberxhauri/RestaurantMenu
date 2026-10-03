@@ -77,6 +77,18 @@
     letter-spacing: -.04em;
     text-wrap: balance;
 }
+/* "Table 14", from the QR code's ?t= */
+.m-table {
+    align-self: flex-start;
+    display: inline-flex; align-items: center; gap: 7px;
+    margin-top: -4px;
+    padding: 7px 14px;
+    border-radius: var(--r-pill);
+    background: var(--brand);
+    color: var(--on-brand);
+    font-weight: 600; font-size: 15px;
+    box-shadow: 0 2px 10px rgb(0 0 0 / .25);
+}
 .m-meta { display: flex; flex-wrap: wrap; gap: 8px; }
 .m-meta a {
     display: inline-flex; align-items: center; gap: 6px;
@@ -384,6 +396,15 @@
 .m-btn--brand[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
 .m-btn--ghost { background: transparent; border-color: var(--line); color: var(--ink-2); }
 
+.m-list-table {
+    align-self: flex-start;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 12px;
+    border-radius: var(--r-pill);
+    background: var(--brand-soft);
+    color: var(--brand-ink);
+    font-weight: 600; font-size: 14px;
+}
 .m-list-hint { color: var(--ink-3); font-size: 14px; }
 .m-list { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; }
 .m-list li { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }

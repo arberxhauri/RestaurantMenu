@@ -18,7 +18,7 @@ public class MenuController : Controller
     }
 
     [Route("menu/{branchName}")]
-    public async Task<IActionResult> Index(string branchName, string lang = "en")
+    public async Task<IActionResult> Index(string branchName, string lang = "en", int? t = null)
     {
         branchName = branchName.Trim();
 
@@ -43,13 +43,17 @@ public class MenuController : Controller
             lang = "en"; // Fallback to English
         }
 
+        // ?t= is the table the guest's QR code was printed for. Anything out of range is
+        // ignored rather than shown, so a mistyped link still opens the menu.
+        var table = SeoService.ValidTable(t);
+
         // The lookup above is case- and space-insensitive, so one menu is reachable at
         // several spellings. Send every variant to the one canonical URL with a 301 so
         // links and ranking signals accumulate on a single address instead of scattering.
         var canonicalSlug = SeoService.Slug(branch.Name);
         if (!string.Equals(decodedName, canonicalSlug, StringComparison.Ordinal))
         {
-            return RedirectPermanent(_seo.MenuUrl(branch.Name, lang));
+            return RedirectPermanent(_seo.MenuUrl(branch.Name, lang, table));
         }
 
         // Collected before any are hidden: a guest may have saved a dish to their list
@@ -73,6 +77,7 @@ public class MenuController : Controller
 
         ViewBag.CurrencySymbol = CurrencyHelper.GetCurrencySymbol(branch.Currency);
         ViewBag.CurrentLanguage = lang;
+        ViewBag.Table = table;
         ViewBag.SupportedLanguages = supportedLanguages;
         ViewBag.ThemeColors = branch.ThemeColors;
 

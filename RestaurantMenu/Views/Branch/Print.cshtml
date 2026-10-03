@@ -1,0 +1,146 @@
+@using RestaurantMenu.Helpers
+@using RestaurantMenu.ViewModels
+@model PrintViewModel
+@{
+    Layout = null;
+    var branch = Model.Branch;
+    var isTent = Model.Layout == PrintViewModel.Tent;
+    var pages = Model.Cards.Chunk(Model.PerPage).ToList();
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>QR codes &amp; print - @branch.Name</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <partial name="_HeadAssets" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/print.css" asp-append-version="true" />
+</head>
+<body class="print-page" style="--card-brand: @Model.BrandColor">
+
+    @* Everything in the bar is screen-only; print.css hides it on paper. *@
+    <header class="print-bar">
+        <div class="print-bar-head">
+            <a class="btn btn-quiet btn-sm" asp-action="Details" asp-route-id="@branch.Id">
+                <i class="ph ph-arrow-left" aria-hidden="true"></i>@branch.Name
+            </a>
+            <h1>QR codes &amp; print</h1>
+            <button type="button" class="btn btn-primary" data-print>
+                <i class="ph ph-printer" aria-hidden="true"></i>Print @pages.Count @(pages.Count == 1 ? "page" : "pages")
+            </button>
+        </div>
+
+        <form method="get" asp-action="Print" asp-route-id="@branch.Id" class="print-form" data-autosubmit>
+            <fieldset class="print-field">
+                <legend>Layout</legend>
+                <div class="seg">
+                    <label><input type="radio" name="layout" value="@PrintViewModel.Tent" @(isTent ? "checked" : "") /><span><i class="ph ph-tent" aria-hidden="true"></i>Table tents <small>2 per A4, fold in half</small></span></label>
+                    <label><input type="radio" name="layout" value="@PrintViewModel.Sticker" @(!isTent ? "checked" : "") /><span><i class="ph ph-sticker" aria-hidden="true"></i>Stickers <small>12 per A4</small></span></label>
+                </div>
+            </fieldset>
+
+            <fieldset class="print-field">
+                <legend>Tables</legend>
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" role="switch" id="noTables" name="noTables" value="true" @(Model.NoTables ? "checked" : "") />
+                    <label class="form-check-label" for="noTables">No table numbers (one code for the whole menu)</label>
+                </div>
+                <div class="print-range" data-when="tables">
+                    <label>From <input class="form-control form-control-sm" type="number" name="from" min="1" max="@SeoService.MaxTable" value="@Model.From" inputmode="numeric" /></label>
+                    <label>to <input class="form-control form-control-sm" type="number" name="to" min="1" max="@SeoService.MaxTable" value="@Model.To" inputmode="numeric" /></label>
+                </div>
+                <div class="print-range" data-when="copies">
+                    <label>Copies <input class="form-control form-control-sm" type="number" name="copies" min="1" max="@PrintViewModel.MaxCards" value="@Model.Copies" inputmode="numeric" /></label>
+                </div>
+            </fieldset>
+
+            <fieldset class="print-field print-field--grow">
+                <legend>Text</legend>
+                <div class="print-range">
+                    @if (Model.Languages.Length > 1)
+                    {
+                        <label>Language
+                            <select class="form-select form-select-sm" name="lang">
+                                @foreach (var l in Model.Languages)
+                                {
+                                    <option value="@l" selected="@(l == Model.Language)">@LanguageHelper.GetLanguageName(l)</option>
+                                }
+                            </select>
+                        </label>
+                    }
+                    <label class="flex-grow-1">Headline
+                        <input class="form-control form-control-sm" type="text" name="headline" maxlength="60" value="@Model.Headline" placeholder="@TableText.ScanPrompt(Model.Language)" />
+                    </label>
+                </div>
+            </fieldset>
+
+            <noscript><button type="submit" class="btn btn-outline-secondary btn-sm">Update preview</button></noscript>
+        </form>
+
+        @if (Model.Notice != null)
+        {
+            <p class="print-notice" role="status"><i class="ph ph-info" aria-hidden="true"></i>@Model.Notice</p>
+        }
+
+        <div class="print-help">
+            <p><i class="ph ph-lightbulb" aria-hidden="true"></i>In the print dialog choose <strong>A4</strong>, scale <strong>100%</strong> (Actual size) and margins <strong>None</strong>. Thick paper (200 g/m² or more) makes tents stand up.</p>
+            <p class="print-downloads">
+                Menu code for designers or a print shop:
+                <a asp-action="Qr" asp-route-id="@branch.Id" asp-route-format="png" asp-route-download="true">PNG</a>
+                <a asp-action="Qr" asp-route-id="@branch.Id" asp-route-format="svg" asp-route-download="true">SVG</a>
+                <span class="hint d-inline">Every code opens <span class="mono">@Model.ShortUrl</span></span>
+            </p>
+        </div>
+    </header>
+
+    @{
+        void Card(PrintCard card)
+        {
+            <div class="qr-card">
+                <div class="qr-card-brand">
+                    @if (!string.IsNullOrEmpty(branch.Logo))
+                    {
+                        <img class="qr-card-logo" src="@branch.Logo" alt="" />
+                    }
+                    <span class="qr-card-name" translate="no">@branch.Name</span>
+                </div>
+                <p class="qr-card-headline" lang="@Model.Language">@Model.Headline</p>
+                <div class="qr-card-code" role="img" aria-label="QR code for @card.Url">@Html.Raw(card.Svg)</div>
+                @if (card.TableLabel != null)
+                {
+                    <p class="qr-card-table" lang="@Model.Language">@card.TableLabel</p>
+                }
+                <p class="qr-card-url">@Model.ShortUrl</p>
+            </div>
+        }
+    }
+
+    <main class="sheets" aria-label="Print preview">
+        @for (var p = 0; p < pages.Count; p++)
+        {
+            <section class="sheet sheet--@Model.Layout" aria-label="Page @(p + 1) of @pages.Count">
+                @foreach (var card in pages[p])
+                {
+                    if (isTent)
+                    {
+                        @* Folded along the dashed line: the upper face is upside down so it reads upright from the other side. *@
+                        <div class="tent">
+                            <div class="tent-face tent-face--back">@{ Card(card); }</div>
+                            <div class="tent-face">@{ Card(card); }</div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="sticker">@{ Card(card); }</div>
+                    }
+                }
+            </section>
+        }
+    </main>
+
+    <script src="~/js/site.js" asp-append-version="true"></script>
+</body>
+</html>

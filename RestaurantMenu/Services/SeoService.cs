@@ -68,16 +68,31 @@ public class SeoService
     /// The public menu URL for a branch. <paramref name="language"/> is appended only
     /// when it is a non-default language, so the English page stays on the bare URL
     /// rather than competing with an identical ?lang=en duplicate.
+    /// <paramref name="table"/> (?t=) is the table a QR code was printed for. It never
+    /// goes into canonical or hreflang URLs, which always call this without it.
     /// </summary>
-    public string MenuUrl(string branchName, string? language = null)
+    public string MenuUrl(string branchName, string? language = null, int? table = null)
     {
         var url = $"{BaseUrl}/menu/{Uri.EscapeDataString(Slug(branchName))}";
-        return string.IsNullOrEmpty(language) || language == DefaultLanguage
-            ? url
-            : $"{url}?lang={Uri.EscapeDataString(language)}";
+        var query = new List<string>(2);
+        if (!string.IsNullOrEmpty(language) && language != DefaultLanguage)
+        {
+            query.Add($"lang={Uri.EscapeDataString(language)}");
+        }
+        if (table != null)
+        {
+            query.Add($"t={table}");
+        }
+        return query.Count == 0 ? url : $"{url}?{string.Join("&", query)}";
     }
 
     public const string DefaultLanguage = "en";
+
+    /// <summary>Highest table number a menu link or QR code accepts.</summary>
+    public const int MaxTable = 9999;
+
+    /// <summary>The table number if it is one a QR code could carry, otherwise null.</summary>
+    public static int? ValidTable(int? table) => table is >= 1 and <= MaxTable ? table : null;
 
     /// <summary>
     /// The branch's URL segment. MenuController compares names case-insensitively with

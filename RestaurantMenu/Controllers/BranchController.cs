@@ -5,6 +5,9 @@ using Microsoft.EntityFrameworkCore;
 using RestaurantMenu.Helpers;
 using RestaurantMenu.Models;
 using RestaurantMenu.Services;
+using RestaurantMenu.ViewModels;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 
 using RestaurantMenu.Filters;
 namespace RestaurantMenu.Controllers;
@@ -18,19 +21,22 @@ namespace RestaurantMenu.Controllers;
         private readonly IWebHostEnvironment _webHostEnvironment;
         private readonly ColorExtractionService _colorService;
         private readonly IConfiguration _config;
+        private readonly QrCodeService _qr;
         
         public BranchController(
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
             IWebHostEnvironment webHostEnvironment,
             ColorExtractionService colorService,
-            IConfiguration config)
+            IConfiguration config,
+            QrCodeService qr)
         {
             _context = context;
             _userManager = userManager;
             _webHostEnvironment = webHostEnvironment;
             _colorService = colorService;
             _config = config;
+            _qr = qr;
         }
         
         private string DiskMountPath =>
@@ -252,6 +258,149 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
             }
 
             return View(branch);
+        }
+
+        /// <summary>
+        /// The QR code for a branch's menu, optionally for one table (?t=). SVG for the web
+        /// and design tools, PNG for print shops; download=true saves it as a file.
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> Qr(int id, int? table = null, string format = "svg", bool download = false)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            var branch = await _context.Branches
+                .AsNoTracking()
+                .FirstOrDefaultAsync(b => b.Id == id && b.UserId == user.Id && !b.IsDeleted);
+
+            if (branch == null)
+            {
+                return NotFound();
+            }
+
+            if (table != null && SeoService.ValidTable(table) == null)
+            {
+                return BadRequest($"Table numbers go from 1 to {SeoService.MaxTable}.");
+            }
+
+            format = format.ToLowerInvariant();
+            if (format != "svg" && format != "png")
+            {
+                return BadRequest("Format must be svg or png.");
+            }
+
+            var link = _qr.MenuLink(branch, table);
+            var fileName = $"{SeoService.Slug(branch.Name)}-{(table == null ? "menu" : $"table-{table}")}-qr.{format}";
+
+            // The code changes only when the branch is renamed, so let the browser keep it for a while.
+            Response.Headers.CacheControl = "private, max-age=3600";
+
+            var (bytes, contentType) = format == "png"
+                ? (_qr.Png(link), "image/png")
+                : (System.Text.Encoding.UTF8.GetBytes(_qr.Svg(link)), "image/svg+xml");
+
+            return download ? File(bytes, contentType, fileName) : File(bytes, contentType);
+        }
+
+        /// <summary>
+        /// Printable table tents (two A6 tents per A4 page) or sticker sheets (twelve per A4
+        /// page), one QR code per table. All options are query parameters, so a print setup
+        /// can be bookmarked and the page works without JavaScript.
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> Print(int id, string layout = PrintViewModel.Tent, int from = 1, int to = 10,
+            bool noTables = false, int copies = 0, string? lang = null, string? headline = null)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            var branch = await _context.Branches
+                .AsNoTracking()
+                .FirstOrDefaultAsync(b => b.Id == id && b.UserId == user.Id && !b.IsDeleted);
+
+            if (branch == null)
+            {
+                return NotFound();
+            }
+
+            layout = layout == PrintViewModel.Sticker ? PrintViewModel.Sticker : PrintViewModel.Tent;
+            var perPage = layout == PrintViewModel.Tent ? 2 : 12;
+
+            var languages = branch.SupportedLanguages.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (languages.Length == 0) languages = new[] { "en" };
+            var language = lang != null && languages.Contains(lang) ? lang : languages[0];
+
+            headline = string.IsNullOrWhiteSpace(headline) ? TableText.ScanPrompt(language) : headline.Trim();
+            if (headline.Length > 60) headline = headline[..60];
+
+            // Correct the range instead of failing: a print page should always show something.
+            string? notice = null;
+            var tables = new List<int?>();
+            if (noTables)
+            {
+                if (copies < 1) copies = perPage; // one full page
+                if (copies > PrintViewModel.MaxCards) { copies = PrintViewModel.MaxCards; notice = $"Limited to {PrintViewModel.MaxCards} copies per print."; }
+                tables.AddRange(Enumerable.Repeat<int?>(null, copies));
+            }
+            else
+            {
+                from = Math.Clamp(from, 1, SeoService.MaxTable);
+                to = Math.Clamp(to, 1, SeoService.MaxTable);
+                if (to < from) (from, to) = (to, from);
+                if (to - from + 1 > PrintViewModel.MaxCards)
+                {
+                    to = from + PrintViewModel.MaxCards - 1;
+                    notice = $"Up to {PrintViewModel.MaxCards} tables per print, so this shows tables {from} to {to}. Print the rest in a second run.";
+                }
+                for (var t = from; t <= to; t++) tables.Add(t);
+            }
+
+            // One SVG per distinct link: whole-menu copies are all the same code.
+            var svgByLink = new Dictionary<string, string>();
+            var cards = tables.Select(t =>
+            {
+                var link = _qr.MenuLink(branch, t);
+                if (!svgByLink.TryGetValue(link, out var svg))
+                {
+                    svg = _qr.Svg(link);
+                    svgByLink[link] = svg;
+                }
+                return new PrintCard(t, t == null ? null : TableText.Label(t.Value, language), svg, link);
+            }).ToList();
+
+            var menuUrl = _qr.MenuLink(branch, null);
+
+            return View(new PrintViewModel
+            {
+                Branch = branch,
+                Layout = layout,
+                From = from,
+                To = to,
+                NoTables = noTables,
+                Copies = noTables ? copies : perPage,
+                Language = language,
+                Languages = languages,
+                Headline = headline,
+                ShortUrl = Regex.Replace(menuUrl, "^https?://", ""),
+                BrandColor = BrandColor(branch.ThemeColors),
+                Notice = notice,
+                Cards = cards
+            });
+        }
+
+        // The primary colour extracted from the logo, only if it is a plain hex colour,
+        // because it is written into a style attribute.
+        private static string BrandColor(string? themeColors)
+        {
+            const string fallback = "#C8642A";
+            if (string.IsNullOrEmpty(themeColors)) return fallback;
+            try
+            {
+                var colors = JsonSerializer.Deserialize<Dictionary<string, string>>(themeColors);
+                var primary = colors?.GetValueOrDefault("Primary") ?? colors?.GetValueOrDefault("primary");
+                return primary != null && Regex.IsMatch(primary, "^#[0-9a-fA-F]{3,8}$") ? primary : fallback;
+            }
+            catch (JsonException)
+            {
+                return fallback;
+            }
         }
 
         [HttpPost]

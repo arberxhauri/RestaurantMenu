@@ -47,6 +47,17 @@
         }
     });
 
+    /* ---------- Print page ---------- */
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('[data-print]')) window.print();
+    });
+    // Option forms update the preview as soon as a choice changes (the form is a plain GET).
+    document.querySelectorAll('form[data-autosubmit]').forEach(function (form) {
+        form.addEventListener('change', function () {
+            if (form.requestSubmit) form.requestSubmit(); else form.submit();
+        });
+    });
+
     /* Preview image follows the photo dropzone. Registered before the dropzones
        initialise, because they announce their current image straight away. */
     document.addEventListener('dropzone:change', function (e) {

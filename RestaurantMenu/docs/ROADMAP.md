@@ -49,14 +49,16 @@ Keep migrations **additive** (new columns with defaults, new tables). During a z
 - **Deploy:** nothing manual. The migration is applied automatically at startup (see section 0). `docs/migrations/2026-10-03-add-product-availability.sql` is kept for manual use with `Database__AutoMigrate=false`.
 - **Possible follow-ups:** "Mark all available" for the start of the next service; live refresh of open guest menus (SignalR, item 14).
 
-## 2. QR codes and printable table tents (1 to 2 days)
+## 2. QR codes and printable table tents: done
 
 **Why:** every restaurant needs this on day one, and it's what the guest actually scans.
 
-- **Server:** NuGet `QRCoder`. `BranchController.Qr(int id, int? table, string format = "svg")` returns `image/svg+xml` or PNG for the URL `/menu/{slug}?t={table}`.
-- **Print page:** `Views/Branch/Print.cshtml` with `@media print` and A6 tent / A4 sticker-sheet layouts: logo, "Scan for the menu", QR, table number. Owner picks tables 1 to N.
-- **Menu:** read `t` in `MenuController.Index`, pass `ViewBag.Table`, show "Table 14" under the name (the landing demo already shows this) and include it in "Your list".
-- **Dashboard:** add "QR & print" to the branch card dropdown and the Branch Details header actions.
+- **No schema change.** The table travels on the link as `/menu/{slug}?t=14` (1 to 9999). `SeoService.MenuUrl(name, lang, table)` builds every menu link; canonical and hreflang URLs never carry `t`, so table links don't create duplicate search results.
+- **Server:** NuGet `QRCoder` (pure .NET, works in the Linux container) behind `Services/QrCodeService`. `BranchController.Qr(id, table?, format=svg|png, download?)` (owner only) returns the code; `BranchController.Print(id, layout, from, to, noTables, copies, lang, headline)` renders the print page with the SVGs inline, so nothing has to load before printing.
+- **Print page** (`Views/Branch/Print.cshtml`, `wwwroot/css/print.css`): table tents (two per A4, each a strip folded in half with the top face upside down so both sides read upright) or stickers (12 per A4 with cut guides). Tables N to M (up to 200 per print), or a whole-menu code without a table number. The card language and headline can be changed; each card has the logo, name, headline, the QR code in the brand colour frame, "Table 14" and the typed address. All options are in the URL, so a setup can be bookmarked. PNG and SVG downloads are there for print shops.
+- **Entry points:** "QR & print" in the Branch Details header and in the branch card menu on the dashboard.
+- **Menu:** `MenuController` reads `t` (invalid values are ignored) and keeps it through the canonical 301 and the language switcher. The menu shows a "Table 14" chip under the name and the table at the top of "Your list", translated (`Helpers/TableText`).
+- **Note:** codes encode `Seo:BaseUrl` when it is set, otherwise the host the owner is using. Set `Seo__BaseUrl` before printing if a custom domain is planned, so printed codes never point at the onrender.com address.
 
 ## 3. Structured allergens and dietary tags (2 days)
 

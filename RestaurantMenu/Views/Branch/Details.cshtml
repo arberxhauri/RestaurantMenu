@@ -40,6 +40,9 @@
         <a class="btn btn-outline-secondary btn-sm" href="@menuUrl" target="_blank" rel="noopener">
             <i class="ph ph-arrow-square-out" aria-hidden="true"></i>Live menu
         </a>
+        <a class="btn btn-outline-secondary btn-sm" asp-action="Print" asp-route-id="@Model.Id">
+            <i class="ph ph-qr-code" aria-hidden="true"></i>QR &amp; print
+        </a>
         <button type="button" class="btn btn-outline-secondary btn-sm" data-copy="@menuUrl" data-copy-done="Menu link copied">
             <i class="ph ph-link" aria-hidden="true"></i>Copy link
         </button>

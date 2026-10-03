@@ -47,6 +47,10 @@
     var supportedLanguages = (ViewBag.SupportedLanguages as string[]) ?? new[] { "en" };
     string currencySymbol = ViewBag.CurrencySymbol ?? "";
     var soldOutIds = (ViewBag.SoldOutIds as List<int>) ?? new List<int>();
+    // From the table QR code (?t=14). Kept on the language links so switching language keeps the table.
+    var table = ViewBag.Table as int?;
+    var tableLabel = table == null ? null : TableText.Label(table.Value, currentLang);
+    var tableQuery = table == null ? "" : $"&t={table}";
     // Format prices in the menu's language so they match the guest list (menu.js uses Intl with <html lang>).
     CultureInfo priceCulture;
     try { priceCulture = CultureInfo.GetCultureInfo(currentLang); } catch (CultureNotFoundException) { priceCulture = CultureInfo.InvariantCulture; }
@@ -127,7 +131,7 @@
                     @foreach (var lang in supportedLanguages)
                     {
                         <li>
-                            <a href="?lang=@lang" lang="@lang" hreflang="@lang" aria-current="@(lang == currentLang ? "true" : null)">
+                            <a href="?lang=@lang@tableQuery" lang="@lang" hreflang="@lang" aria-current="@(lang == currentLang ? "true" : null)">
                                 @LanguageHelper.GetLanguageName(lang)
                                 @if (lang == currentLang)
                                 {
@@ -150,6 +154,10 @@
                 <span class="m-logo m-logo--initial" aria-hidden="true">@Model.Name.Substring(0, 1)</span>
             }
             <h1 class="m-name" translate="no">@Model.Name</h1>
+            @if (tableLabel != null)
+            {
+                <p class="m-table"><i class="ph-fill ph-armchair" aria-hidden="true"></i><span>@tableLabel</span></p>
+            }
             <div class="m-meta">
                 <a href="https://www.google.com/maps/search/?api=1&query=@Uri.EscapeDataString(Model.Address)" target="_blank" rel="noopener noreferrer">
                     <i class="ph ph-map-pin" aria-hidden="true"></i><span>@Model.Address</span>
@@ -310,6 +318,10 @@
         <button class="m-sheet-close" type="button" data-close aria-label="@ui.Close"><i class="ph ph-x" aria-hidden="true"></i></button>
         <div class="m-sheet-body">
             <h2 id="listSheetTitle">@ui.List</h2>
+            @if (tableLabel != null)
+            {
+                <p class="m-list-table"><i class="ph-fill ph-armchair" aria-hidden="true"></i>@tableLabel</p>
+            }
             <p class="m-list-hint">@ui.Show</p>
             <ul class="m-list" data-list aria-live="polite"></ul>
             <div class="m-list-foot" data-list-foot>

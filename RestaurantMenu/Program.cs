@@ -98,6 +98,7 @@ builder.Services.Configure<RouteOptions>(options => options.LowercaseUrls = true
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<SeoService>();
+builder.Services.AddScoped<QrCodeService>();
 
 // 6. Cookie settings
 builder.Services.ConfigureApplicationCookie(options =>

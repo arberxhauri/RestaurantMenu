@@ -105,6 +105,11 @@ else
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li>
+                                <a class="dropdown-item" asp-controller="Branch" asp-action="Print" asp-route-id="@branch.Id">
+                                    <i class="ph ph-qr-code" aria-hidden="true"></i>QR &amp; print
+                                </a>
+                            </li>
+                            <li>
                                 <a class="dropdown-item" asp-controller="Branch" asp-action="Edit" asp-route-id="@branch.Id">
                                     <i class="ph ph-pencil-simple" aria-hidden="true"></i>Edit details
                                 </a>

@@ -1,0 +1,116 @@
+/* =========================================================================
+   Branch/Print: QR table tents and sticker sheets.
+   Sheets are real A4 (210 x 297 mm). On screen they are a scaled preview;
+   on paper only the sheets print, one per page, edge to edge.
+   ========================================================================= */
+
+@page { size: A4 portrait; margin: 0; }
+
+.print-page { background: var(--bg); }
+
+/* ---------- Controls (screen only) ---------- */
+.print-bar {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 14px 24px 16px;
+    background: color-mix(in oklab, var(--surface) 94%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+}
+.print-bar-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.print-bar-head h1 { margin: 0 auto 0 0; font-size: 20px; }
+.print-form { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px 28px; }
+.print-field { margin: 0; padding: 0; border: 0; min-width: 0; }
+.print-field--grow { flex: 1 1 280px; }
+.print-field legend { float: none; margin: 0 0 6px; font-size: 12.5px; font-weight: 600; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
+.print-range { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.print-range label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ink-2); }
+.print-range input[type=number] { width: 92px; }
+.print-range select { min-width: 140px; }
+/* Show the range or the copies field depending on the switch (no JavaScript needed). */
+.print-form:has(#noTables:checked) [data-when="tables"],
+.print-form:not(:has(#noTables:checked)) [data-when="copies"] { display: none; }
+
+.seg { display: flex; flex-wrap: wrap; gap: 8px; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg span {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+    font-size: 14px; font-weight: 600;
+    cursor: pointer;
+}
+.seg span small { font-weight: 400; color: var(--ink-3); }
+.seg input:checked + span { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.print-notice { margin: 0; display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-radius: var(--r-sm); background: var(--warn-soft); color: var(--warn); font-size: 14px; }
+.print-help { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 24px; font-size: 13px; color: var(--ink-3); }
+.print-help p { margin: 0; }
+.print-help p > .ph { margin-right: 4px; vertical-align: -1px; }
+.print-downloads { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.print-downloads a { font-weight: 600; color: var(--accent); }
+
+/* ---------- Sheets ---------- */
+.sheets { display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 28px 16px 64px; }
+.sheet {
+    width: 210mm; height: 297mm;
+    flex: none;
+    overflow: hidden;
+    background: #fff;
+    color: #111;
+    box-shadow: 0 2px 4px rgb(0 0 0 / .08), 0 12px 32px rgb(0 0 0 / .12);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+@media screen and (max-width: 900px) { .sheet { zoom: .62; } }
+@media screen and (max-width: 560px) { .sheet { zoom: .42; } .print-bar { padding: 12px 16px; } }
+@media screen and (max-width: 360px) { .sheet { zoom: .36; } }
+
+/* Tents: two 105 x 297 mm strips per page, each folded at half height into two A6 faces. */
+.sheet--tent { display: grid; grid-template-columns: 1fr 1fr; }
+.tent { display: grid; grid-template-rows: 1fr 1fr; min-height: 0; }
+.tent + .tent { border-left: .3mm dashed #b5b5b5; }        /* cut */
+.tent-face { min-height: 0; padding: 9mm 8mm; }
+.tent-face--back { transform: rotate(180deg); border-top: .3mm dashed #b5b5b5; } /* fold (bottom edge once rotated) */
+
+/* Stickers: 3 x 4 grid of 70 x 74.25 mm with light cut guides. */
+.sheet--sticker { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(4, 1fr); }
+.sticker { min-height: 0; padding: 5mm; outline: .2mm dashed #cfcfcf; outline-offset: -.1mm; }
+
+/* ---------- Card (one face of a tent, or one sticker) ---------- */
+.qr-card {
+    height: 100%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3mm;
+    text-align: center;
+    font-family: var(--font-body);
+}
+.qr-card p { margin: 0; }
+.qr-card-brand { display: flex; align-items: center; justify-content: center; gap: 2.5mm; max-width: 100%; }
+.qr-card-logo { width: 11mm; height: 11mm; border-radius: 2.5mm; object-fit: contain; flex: none; }
+.qr-card-name { font: 700 5.2mm/1.15 var(--font-display); letter-spacing: -.02em; overflow-wrap: anywhere; }
+.qr-card-headline { font-size: 4mm; font-weight: 600; color: #333; }
+.qr-card-code { width: 56mm; aspect-ratio: 1; padding: 2mm; border: .8mm solid var(--card-brand); border-radius: 4mm; background: #fff; }
+.qr-card-code svg { display: block; width: 100%; height: 100%; }
+.qr-card-table { font: 700 8mm/1 var(--font-display); letter-spacing: -.02em; color: #111; }
+.qr-card-url { font: 500 2.8mm/1.2 var(--font-mono); color: #555; overflow-wrap: anywhere; }
+
+.sheet--sticker .qr-card { gap: 1.8mm; }
+.sheet--sticker .qr-card-logo { width: 7mm; height: 7mm; border-radius: 1.5mm; }
+.sheet--sticker .qr-card-name { font-size: 3.6mm; }
+.sheet--sticker .qr-card-headline { font-size: 2.9mm; }
+.sheet--sticker .qr-card-code { width: 35mm; padding: 1.2mm; border-width: .6mm; border-radius: 2.5mm; }
+.sheet--sticker .qr-card-table { font-size: 5.2mm; }
+.sheet--sticker .qr-card-url { font-size: 2.2mm; }
+
+/* ---------- Paper ---------- */
+@media print {
+    .print-page { background: #fff; }
+    .print-bar { display: none; }
+    .sheets { display: block; padding: 0; }
+    .sheet { box-shadow: none; zoom: 1; break-after: page; }
+    .sheet:last-child { break-after: auto; }
+}
