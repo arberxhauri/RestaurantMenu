@@ -892,3 +892,22 @@ a.chip--link:hover { background: var(--accent-soft); color: var(--accent); }
 .schedule-times { display: flex; flex-wrap: wrap; gap: 12px 16px; }
 .schedule-times > div { width: 150px; }
 .schedule .hint { display: block; }
+
+/* ---------- Sizes & add-ons (dish form) ---------- */
+.opt-groups { display: flex; flex-direction: column; gap: 14px; margin-bottom: 14px; }
+.opt-groups:empty { display: none; }
+.opt-group { margin: 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); min-width: 0; }
+.opt-group-head { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+.opt-rules { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; margin: 10px 0 12px; font-size: 14px; color: var(--ink-2); }
+.opt-rules .form-check { margin: 0; display: inline-flex; align-items: center; gap: 6px; padding: 0; }
+.opt-rules .form-check-input { margin: 0; float: none; }
+.opt-max { display: inline-flex; align-items: center; gap: 8px; }
+.opt-max input { width: 72px; }
+.opt-rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.opt-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px auto; gap: 8px; align-items: center; }
+.opt-price .input-group-text { font-size: 13px; }
+.opt-tr { grid-column: 1 / -1; display: none; flex-wrap: wrap; gap: 6px; }
+.opt-tr input { flex: 1 1 150px; }
+.form-section:has(#optShowTr:checked) .opt-tr { display: flex; }
+.opt-add { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+@media (max-width: 575.98px) { .opt-row { grid-template-columns: minmax(0, 1fr) auto; } .opt-price { grid-column: 1; grid-row: 2; } }

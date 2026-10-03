@@ -87,7 +87,12 @@
         var token = form && form.querySelector('input[name="__RequestVerificationToken"]');
         if (!form || !run) return;
 
-        function target(field, lang) { return form.querySelector('[name="translation_' + field + '_' + lang + '"]'); }
+        function target(field, lang) {
+            if (field.indexOf('opt_') === 0) {
+                return form.querySelector('[data-tr-for="' + field.slice(4) + '"][lang="' + lang + '"]');
+            }
+            return form.querySelector('[name="translation_' + field + '_' + lang + '"]');
+        }
 
         // A suggestion stays highlighted until the owner touches it.
         form.addEventListener('input', function (e) {
@@ -107,7 +112,12 @@
                 return;
             }
 
-            var fields = Object.keys(sources).filter(function (f) { return english[f]; });
+            // Option group and option names from the Sizes & add-ons section.
+            form.querySelectorAll('[data-tr-key]').forEach(function (el) {
+                var v = el.value.trim();
+                if (v) english['opt_' + el.getAttribute('data-tr-key')] = v;
+            });
+            var fields = Object.keys(english).filter(function (f) { return english[f]; });
             var alreadyFilled = languages.some(function (l) {
                 return fields.some(function (f) { var el = target(f, l); return el && el.value.trim(); });
             });
@@ -163,6 +173,9 @@
                 state.textContent = count
                     ? 'Filled ' + count + (count === 1 ? ' field' : ' fields') + '. Check each language, then save.'
                     : 'No suggestions came back. Try again or translate by hand.';
+                // Show the option translations that were just filled in.
+                var showTr = form.querySelector('#optShowTr');
+                if (showTr && form.querySelector('.opt-tr .is-suggested')) showTr.checked = true;
             }).catch(function (err) {
                 state.textContent = err.message || 'Translation failed. Try again.';
             }).then(function () {
@@ -204,6 +217,92 @@
                 });
                 toast('Copied Monday to every day');
             }
+        });
+    });
+
+    /* ---------- Sizes & add-ons repeater (dish form) ----------
+       Rows are cloned from <template>s. Field names carry indexes (og-0-o-1-price) that
+       are rewritten in DOM order on submit, so adding and removing rows never leaves gaps. */
+    document.querySelectorAll('[data-options]').forEach(function (section) {
+        var list = section.querySelector('[data-option-groups]');
+        var groupTpl = section.querySelector('[data-group-template]');
+        var optionTpl = section.querySelector('[data-option-template]');
+        var form = section.closest('form');
+        var counter = 0;
+        function uniqueKey() { counter++; return 'n' + Date.now().toString(36) + counter; }
+        function rekey(root, placeholder, key) {
+            root.querySelectorAll('[data-tr-key="' + placeholder + '"],[data-tr-for="' + placeholder + '"]').forEach(function (el) {
+                if (el.hasAttribute('data-tr-key')) el.setAttribute('data-tr-key', key);
+                if (el.hasAttribute('data-tr-for')) el.setAttribute('data-tr-for', key);
+            });
+        }
+        function newOption(name, price) {
+            var frag = optionTpl.content.cloneNode(true);
+            rekey(frag, '__o__', uniqueKey());
+            var row = frag.querySelector('[data-option]');
+            if (name) row.querySelector('input[name$="-name"]').value = name;
+            if (price) row.querySelector('input[name$="-price"]').value = price;
+            return row;
+        }
+        function addGroup(preset) {
+            var frag = groupTpl.content.cloneNode(true);
+            var group = frag.querySelector('[data-group]');
+            rekey(group, '__g__', uniqueKey());
+            var rows = group.querySelector('[data-option-rows]');
+            rows.querySelectorAll('[data-option]').forEach(function (r) { r.remove(); });
+            var nameInput = group.querySelector('input[name$="-name"]');
+            var required = group.querySelector('input[name$="-required"]');
+            var max = group.querySelector('input[name$="-max"]');
+            if (preset === 'size') {
+                nameInput.value = 'Size'; required.checked = true; max.value = '1';
+                rows.appendChild(newOption('Small', '')); rows.appendChild(newOption('Large', '1.50'));
+            } else if (preset === 'extras') {
+                nameInput.value = 'Extras'; required.checked = false; max.value = '3';
+                rows.appendChild(newOption('', '')); rows.appendChild(newOption('', ''));
+            } else {
+                rows.appendChild(newOption('', '')); rows.appendChild(newOption('', ''));
+            }
+            list.appendChild(group);
+            (preset === 'extras' ? rows.querySelector('input') : nameInput).focus();
+        }
+        section.addEventListener('click', function (e) {
+            var add = e.target.closest('[data-add-group]');
+            if (add) { addGroup(add.getAttribute('data-add-group')); return; }
+            if (e.target.closest('[data-add-option]')) {
+                var row = newOption('', '');
+                e.target.closest('[data-group]').querySelector('[data-option-rows]').appendChild(row);
+                row.querySelector('input').focus();
+                return;
+            }
+            var removeOption = e.target.closest('[data-remove-option]');
+            if (removeOption) {
+                var group = removeOption.closest('[data-group]');
+                removeOption.closest('[data-option]').remove();
+                var next = group.querySelector('[data-option] input') || group.querySelector('[data-add-option]');
+                next.focus();
+                return;
+            }
+            var removeGroup = e.target.closest('[data-remove-group]');
+            if (removeGroup) {
+                var g = removeGroup.closest('[data-group]');
+                var name = g.querySelector('input').value.trim();
+                if (name && !window.confirm('Remove the group "' + name + '" and its options?')) return;
+                g.remove();
+                section.querySelector('[data-add-group]').focus();
+            }
+        });
+        if (form) form.addEventListener('submit', function () {
+            list.querySelectorAll('[data-group]').forEach(function (g, gi) {
+                g.querySelectorAll('[name^="og-"]').forEach(function (input) {
+                    if (input.closest('[data-option]')) return;
+                    input.name = input.name.replace(/^og-\d+-/, 'og-' + gi + '-');
+                });
+                g.querySelectorAll('[data-option]').forEach(function (o, oi) {
+                    o.querySelectorAll('[name^="og-"]').forEach(function (input) {
+                        input.name = input.name.replace(/^og-\d+-o-\d+-/, 'og-' + gi + '-o-' + oi + '-');
+                    });
+                });
+            });
         });
     });
 

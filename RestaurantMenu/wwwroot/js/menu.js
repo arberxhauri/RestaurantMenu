@@ -11,7 +11,11 @@
         saved: body.dataset.labelSaved,
         empty: body.dataset.labelEmpty,
         emptyHint: body.dataset.labelEmptyHint,
-        soldOut: body.dataset.labelSoldout
+        soldOut: body.dataset.labelSoldout,
+        required: body.dataset.labelRequired || 'Required',
+        optional: body.dataset.labelOptional || 'Optional',
+        upTo: body.dataset.labelUpTo || 'up to {0}',
+        pleaseChoose: body.dataset.labelPleaseChoose || 'Please choose: {0}'
     };
     // Every sold-out dish, including ones the restaurant hides, so a guest's saved list can flag them.
     var SOLD_OUT = {};
@@ -43,15 +47,22 @@
         try {
             var raw = localStorage.getItem(KEY);
             var parsed = raw ? JSON.parse(raw) : [];
+            // key = dish id, plus the chosen options for dishes with choices. Lists saved
+            // before options existed have no key: their dish id is used.
             list = Array.isArray(parsed) ? parsed.map(function (i) {
-                return { id: String(i.id), name: String(i.name), price: Number(i.price) || 0, qty: Math.max(1, Number(i.qty) || 1) };
+                return {
+                    key: String(i.key || i.id), id: String(i.id), name: String(i.name),
+                    price: Number(i.price) || 0, qty: Math.max(1, Number(i.qty) || 1),
+                    optText: i.optText ? String(i.optText) : ''
+                };
             }) : [];
         } catch (e) { list = []; }
     }
     function persist() {
         try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) { /* not fatal */ }
     }
-    function find(id) { return list.find(function (i) { return i.id === id; }); }
+    function find(key) { return list.find(function (i) { return i.key === key; }); }
+    function listed(id) { return list.some(function (i) { return i.id === id; }); }
 
     var items = Array.prototype.slice.call(document.querySelectorAll('[data-item]'));
     function itemData(li) {
@@ -67,14 +78,33 @@
             later: li.dataset.later === 'true',
             badge: li.dataset.badge,
             allergenText: li.dataset.allergenText,
+            options: li.dataset.options ? JSON.parse(li.dataset.options) : null,
             tags: li.querySelector('[data-tags]')
         };
     }
 
+    // Dishes without choices: the + button adds or removes the dish.
     function toggle(data) {
         var existing = find(data.id);
-        if (existing) list = list.filter(function (i) { return i.id !== data.id; });
-        else { list.push({ id: data.id, name: data.name, price: data.price, qty: 1 }); track('add', data.id); }
+        if (existing) list = list.filter(function (i) { return i !== existing; });
+        else { list.push({ key: data.id, id: data.id, name: data.name, price: data.price, qty: 1, optText: '' }); track('add', data.id); }
+        persist();
+        render();
+    }
+
+    // Dishes with choices: each combination is its own line; the same one again adds 1.
+    function addWithOptions(data, picks) {
+        var ids = picks.map(function (c) { return c.o.id; }).sort(function (a, b) { return a - b; });
+        var key = data.id + ':' + ids.join('-');
+        var existing = find(key);
+        if (existing) existing.qty += 1;
+        else list.push({
+            key: key, id: data.id, name: data.name,
+            price: data.price + picks.reduce(function (s, c) { return s + c.o.delta; }, 0),
+            qty: 1,
+            optText: picks.map(function (c) { return c.o.name; }).join(', ')
+        });
+        track('add', data.id);
         persist();
         render();
     }
@@ -95,7 +125,7 @@
         items.forEach(function (li) {
             var btn = li.querySelector('[data-save]');
             if (!btn) return; // sold out: no + button
-            var on = !!find(li.dataset.id);
+            var on = listed(li.dataset.id);
             btn.setAttribute('aria-pressed', on ? 'true' : 'false');
             btn.setAttribute('aria-label', (on ? L.saved : L.save) + ': ' + li.dataset.name);
             btn.innerHTML = on ? '<i class="ph-fill ph-check" aria-hidden="true"></i>' : '<i class="ph ph-plus" aria-hidden="true"></i>';
@@ -126,6 +156,12 @@
             var name = document.createElement('div');
             name.className = 'm-list-name';
             name.textContent = i.name;
+            if (i.optText) {
+                var opts = document.createElement('small');
+                opts.className = 'm-list-opts';
+                opts.textContent = i.optText;
+                name.appendChild(opts);
+            }
             var unit = document.createElement('small');
             unit.textContent = fmt(i.price);
             name.appendChild(unit);
@@ -164,6 +200,8 @@
     items.forEach(function (li) {
         var btn = li.querySelector('[data-save]');
         if (btn) btn.addEventListener('click', function () {
+            // Razor renders null data-* attributes as empty strings, so compare the value.
+            if (btn.getAttribute('data-choose') === 'true') { openDish(li); return; } // needs choices first
             toggle(itemData(li));
             btn.classList.remove('is-pop');
             void btn.offsetWidth; // restart the feedback animation
@@ -191,9 +229,98 @@
     var dishImg = dish.querySelector('[data-dish-img]');
     var dishSave = dish.querySelector('[data-dish-save]');
     var dishSoldOut = dish.querySelector('[data-dish-soldout]');
+    var optWrap = dish.querySelector('[data-dish-options]');
+    var optError = dish.querySelector('[data-dish-options-error]');
+    var dishPrice = dish.querySelector('[data-dish-price]');
     var current = null;
 
+    /* Option groups in the dish sheet. Built with textContent: names come from the restaurant. */
+    function groupBox(g) { return optWrap.querySelector('[data-group="' + g.id + '"]'); }
+    function picked() {
+        var out = [];
+        (current.options || []).forEach(function (g) {
+            var box = groupBox(g);
+            g.options.forEach(function (o) {
+                var input = box.querySelector('input[value="' + o.id + '"]');
+                if (input && input.checked) out.push({ g: g, o: o });
+            });
+        });
+        return out;
+    }
+    function syncOptions() {
+        var locked = current.soldOut || current.later;
+        (current.options || []).forEach(function (g) {
+            if (g.max <= 1) return;
+            var inputs = groupBox(g).querySelectorAll('input');
+            var n = Array.prototype.filter.call(inputs, function (i) { return i.checked; }).length;
+            inputs.forEach(function (i) { if (!i.checked) i.disabled = locked || n >= g.max; });
+        });
+        var price = current.price + picked().reduce(function (s, c) { return s + c.o.delta; }, 0);
+        dishPrice.textContent = fmt(price);
+    }
+    function renderOptions() {
+        optWrap.textContent = '';
+        optError.hidden = true;
+        var groups = current.options || [];
+        optWrap.hidden = groups.length === 0;
+        var locked = current.soldOut || current.later;
+        groups.forEach(function (g) {
+            var box = document.createElement('fieldset');
+            box.className = 'm-opt-group';
+            box.setAttribute('data-group', g.id);
+            var legend = document.createElement('legend');
+            var title = document.createElement('span');
+            title.textContent = g.name;
+            var rule = document.createElement('span');
+            rule.className = 'm-opt-rule';
+            rule.textContent = (g.min > 0 ? L.required : L.optional) + (g.max > 1 ? ' · ' + L.upTo.replace('{0}', g.max) : '');
+            legend.appendChild(title);
+            legend.appendChild(rule);
+            box.appendChild(legend);
+            // Required single choice: round buttons, first one preselected.
+            // Optional single choice: a box that can be unticked. Several: tick boxes up to max.
+            var radio = g.max === 1 && g.min > 0;
+            g.options.forEach(function (o, n) {
+                var label = document.createElement('label');
+                label.className = 'm-opt';
+                var input = document.createElement('input');
+                input.type = radio ? 'radio' : 'checkbox';
+                input.name = 'opt-' + g.id;
+                input.value = o.id;
+                input.disabled = locked;
+                input.checked = radio && n === 0;
+                var name = document.createElement('span');
+                name.className = 'm-opt-name';
+                name.textContent = o.name;
+                var delta = document.createElement('span');
+                delta.className = 'm-opt-price tabular';
+                delta.textContent = o.delta ? (o.delta > 0 ? '+' : '−') + fmt(Math.abs(o.delta)) : '';
+                label.appendChild(input);
+                label.appendChild(name);
+                label.appendChild(delta);
+                box.appendChild(label);
+            });
+            optWrap.appendChild(box);
+        });
+        if (groups.length) syncOptions();
+    }
+    optWrap.addEventListener('change', function (e) {
+        var input = e.target;
+        var g = (current.options || []).filter(function (x) { return 'opt-' + x.id === input.name; })[0];
+        if (g && g.max === 1 && input.type === 'checkbox' && input.checked) {
+            groupBox(g).querySelectorAll('input').forEach(function (i) { if (i !== input) i.checked = false; });
+        }
+        optError.hidden = true;
+        syncOptions();
+    });
+
     function syncDishSave() {
+        if (current && current.options) { // dishes with choices always add a new line
+            dishSave.setAttribute('aria-pressed', 'false');
+            dishSave.querySelector('i').className = 'ph ph-plus';
+            dish.querySelector('[data-dish-save-label]').textContent = L.save;
+            return;
+        }
         var on = current && !!find(current.id);
         dishSave.setAttribute('aria-pressed', on ? 'true' : 'false');
         dishSave.querySelector('i').className = on ? 'ph-fill ph-check' : 'ph ph-plus';
@@ -214,7 +341,8 @@
         tags.textContent = '';
         if (current.tags) tags.appendChild(current.tags.cloneNode(true));
         tags.hidden = !current.tags;
-        dish.querySelector('[data-dish-price]').textContent = current.priceLabel;
+        dishPrice.textContent = current.priceLabel;
+        renderOptions();
         if (current.img) { dishImg.src = current.img; dishImg.alt = current.name; dishImg.hidden = false; }
         else { dishImg.hidden = true; dishImg.removeAttribute('src'); }
         dishSave.hidden = current.soldOut || current.later;
@@ -227,6 +355,22 @@
     }
     dishSave.addEventListener('click', function () {
         if (!current || current.soldOut || current.later) return;
+        if (current.options) {
+            var choice = picked();
+            var missing = current.options.filter(function (g) {
+                return g.min > 0 && choice.filter(function (c) { return c.g === g; }).length < g.min;
+            });
+            if (missing.length) {
+                optError.textContent = L.pleaseChoose.replace('{0}', missing.map(function (g) { return g.name; }).join(', '));
+                optError.hidden = false;
+                var first = groupBox(missing[0]).querySelector('input');
+                if (first) first.focus();
+                return;
+            }
+            addWithOptions(current, choice);
+            closeSheet(dish);
+            return;
+        }
         toggle(current);
         syncDishSave();
     });

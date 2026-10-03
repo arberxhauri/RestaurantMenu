@@ -134,6 +134,10 @@
       data-label-soldout="@ui.SoldOut"
       data-soldout-ids="@string.Join(",", soldOutIds)"
       data-label-show-dishes="@dt.ShowDishes"
+      data-label-required="@ProductOptions.For(currentLang).Required"
+      data-label-optional="@ProductOptions.For(currentLang).Optional"
+      data-label-up-to="@ProductOptions.For(currentLang).UpTo"
+      data-label-please-choose="@ProductOptions.For(currentLang).PleaseChoose"
       data-label-show-one-dish="@dt.ShowOneDish"
       data-label-without="@dt.Without">
 
@@ -344,6 +348,12 @@
                             var desc = TranslationHelper.GetTranslation(product.Description ?? "", product.DescriptionTranslations, currentLang);
                             var nutrition = TranslationHelper.GetTranslation(product.Nutritions ?? "", product.NutritionsTranslations, currentLang);
                             var price = currencySymbol + product.Price.ToString("N2", priceCulture);
+                            // With a required choice that changes the price, show the lowest: "from €8.50".
+                            var fromPrice = ProductOptions.FromPrice(product);
+                            var priceShown = fromPrice is { } fp
+                                ? string.Format(ProductOptions.For(currentLang).From, currencySymbol + fp.ToString("N2", priceCulture))
+                                : price;
+                            var hasOptions = ProductOptions.HasOptions(product);
                             var hasImage = !string.IsNullOrEmpty(product.Image);
                             var soldOut = !product.IsAvailable;
                             var allergenText = product.Allergens == null ? dt.Unknown
@@ -356,6 +366,7 @@
                                 data-soldout="@(soldOut ? "true" : "false")"
                                 data-later="@(later ? "true" : "false")"
                                 data-badge="@Highlights.BadgeName(product.Badge, currentLang)"
+                                data-options="@(hasOptions ? ProductOptions.ClientJson(product, currentLang) : null)"
                                 data-allergens="@(product.Allergens == null ? -1 : (int)product.Allergens)"
                                 data-diets="@((int)product.Diets)"
                                 data-allergen-text="@allergenText"
@@ -396,7 +407,7 @@
                                             <span class="m-item-nutri"><i class="ph ph-info" aria-hidden="true"></i>@nutrition</span>
                                         }
                                         <span class="m-item-foot">
-                                            <span class="m-item-price tabular">@price</span>
+                                            <span class="m-item-price tabular">@priceShown</span>
                                             @if (soldOut)
                                             {
                                                 <span class="m-soldout">@ui.SoldOut</span>
@@ -411,7 +422,7 @@
                                 @* Not saveable while sold out or outside the category's serving times. *@
                                 @if (!soldOut && !later)
                                 {
-                                    <button class="m-save" type="button" data-save aria-pressed="false" aria-label="@ui.Save: @name">
+                                    <button class="m-save" type="button" data-save aria-pressed="false" aria-label="@ui.Save: @name" data-choose="@(hasOptions ? "true" : null)" aria-haspopup="@(hasOptions ? "dialog" : null)">
                                         <i class="ph ph-plus" aria-hidden="true"></i>
                                     </button>
                                 }
@@ -456,6 +467,8 @@
                 <span>@ui.Nutrition</span>
                 <p data-dish-nutri></p>
             </div>
+            <div class="m-dish-opts" data-dish-options hidden></div>
+            <p class="m-dish-opts-error" data-dish-options-error role="alert" hidden></p>
             <div class="m-dish-foot">
                 <span class="m-dish-price tabular" data-dish-price></span>
                 <span class="m-soldout m-soldout--lg" data-dish-soldout hidden>@ui.SoldOut</span>

@@ -48,6 +48,7 @@ namespace RestaurantMenu.Controllers;
             ViewBag.Categories = new SelectList(branch.Categories, "Id", "Name");
             ViewBag.SupportedLanguages = branch.SupportedLanguages.Split(',');
             ViewBag.CurrencySymbol = CurrencyHelper.GetCurrencySymbol(branch.Currency);
+            ViewBag.Options = new List<ProductOptions.GroupForm>();
             return View();
         }
 
@@ -71,6 +72,10 @@ public async Task<IActionResult> Create(Product product, IFormFile? image, IForm
     // The select only offers known badges; anything else (unreadable or unknown) means none.
     if (ModelState.TryGetValue(nameof(Product.Badge), out var badgeState) && badgeState.Errors.Count > 0) ModelState.Remove(nameof(Product.Badge));
     if (!Enum.IsDefined(product.Badge)) product.Badge = DishBadge.None;
+    var optionLanguages = OtherLanguages(branch.SupportedLanguages);
+    var optionForm = ProductOptions.FromForm(form, optionLanguages);
+    var (optionGroups, optionErrors) = ProductOptions.Validate(optionForm);
+    foreach (var error in optionErrors) ModelState.AddModelError("Options", error);
 
     if (ModelState.IsValid)
     {
@@ -110,6 +115,7 @@ public async Task<IActionResult> Create(Product product, IFormFile? image, IForm
         // New dishes go to the end of their category; owners drag them into place on Branch Details.
         product.DisplayOrder = await NextDisplayOrder(product.CategoryId);
 
+        product.OptionGroups = optionGroups;
         _context.Products.Add(product);
         await _context.SaveChangesAsync();
 
@@ -123,6 +129,7 @@ public async Task<IActionResult> Create(Product product, IFormFile? image, IForm
     ViewBag.SupportedLanguages = branch.SupportedLanguages.Split(',');
     ViewBag.CurrencySymbol = CurrencyHelper.GetCurrencySymbol(branch.Currency);
     KeepPostedTranslations(form);
+    ViewBag.Options = optionForm;
     return View(product);
 }
 
@@ -132,6 +139,7 @@ public async Task<IActionResult> Create(Product product, IFormFile? image, IForm
         {
             var user = await _userManager.GetUserAsync(User);
             var product = await _context.Products
+                .Include(p => p.OptionGroups!).ThenInclude(g => g.Options)
                 .Include(p => p.Category)
                 .ThenInclude(c => c.Branch)
                 .ThenInclude(b => b.Categories)
@@ -148,6 +156,7 @@ public async Task<IActionResult> Create(Product product, IFormFile? image, IForm
             ViewBag.Categories = new SelectList(branch.Categories, "Id", "Name", product.CategoryId);
             ViewBag.SupportedLanguages = branch.SupportedLanguages.Split(',');
             ViewBag.CurrencySymbol = CurrencyHelper.GetCurrencySymbol(branch.Currency);
+            ViewBag.Options = ProductOptions.ToForm(product.OptionGroups, OtherLanguages(branch.SupportedLanguages));
 
             // Parse existing translations
             ViewBag.NameTranslations = ParseTranslations(product.NameTranslations);
@@ -180,6 +189,7 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
 {
     var user = await _userManager.GetUserAsync(User);
     var existingProduct = await _context.Products
+        .Include(p => p.OptionGroups!).ThenInclude(g => g.Options)
         .Include(p => p.Category)
             .ThenInclude(c => c.Branch)
                 .ThenInclude(b => b.Categories)
@@ -195,6 +205,10 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
     // The select only offers known badges; anything else (unreadable or unknown) means none.
     if (ModelState.TryGetValue(nameof(Product.Badge), out var badgeState) && badgeState.Errors.Count > 0) ModelState.Remove(nameof(Product.Badge));
     if (!Enum.IsDefined(product.Badge)) product.Badge = DishBadge.None;
+    var optionLanguages = OtherLanguages(existingProduct.Category.Branch.SupportedLanguages);
+    var optionForm = ProductOptions.FromForm(form, optionLanguages);
+    var (optionGroups, optionErrors) = ProductOptions.Validate(optionForm);
+    foreach (var error in optionErrors) ModelState.AddModelError("Options", error);
 
     if (ModelState.IsValid)
     {
@@ -214,6 +228,10 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
         existingProduct.Diets = product.Diets;
         existingProduct.IsFeatured = product.IsFeatured;
         existingProduct.Badge = product.Badge;
+
+        // Options are replaced as a whole: the form always posts the full list.
+        _context.ProductOptionGroups.RemoveRange(existingProduct.OptionGroups ?? new List<ProductOptionGroup>());
+        existingProduct.OptionGroups = optionGroups;
 
         // Handle image upload
         if (image != null && image.Length > 0)
@@ -270,6 +288,7 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
     ViewBag.SupportedLanguages = existingProduct.Category.Branch.SupportedLanguages.Split(',');
     ViewBag.CurrencySymbol = CurrencyHelper.GetCurrencySymbol(existingProduct.Category.Branch.Currency);
     KeepPostedTranslations(form);
+    ViewBag.Options = optionForm;
     product.Image = existingProduct.Image; // not posted; keeps the photo in the form and preview
     return View(product);
 }
@@ -374,6 +393,9 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
 
             return Json(new { success = true });
         }
+
+        private static string[] OtherLanguages(string supportedLanguages) =>
+            supportedLanguages.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Where(l => l != "en").ToArray();
 
         private async Task<int> NextDisplayOrder(int categoryId) =>
             (await _context.Products

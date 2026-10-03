@@ -15,6 +15,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Product> Products { get; set; }
     public DbSet<MenuEvent> MenuEvents { get; set; }
     public DbSet<BranchHours> BranchHours { get; set; }
+    public DbSet<ProductOptionGroup> ProductOptionGroups { get; set; }
+    public DbSet<ProductOption> ProductOptions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -86,6 +88,22 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .Property(b => b.TimeZone)
             .HasMaxLength(64)
             .HasDefaultValue("Europe/Tirane");
+
+        // Dish options: deleted with their dish (hard delete; a soft-deleted dish keeps them
+        // for Undo). Filters match the Product filter.
+        builder.Entity<ProductOptionGroup>(e =>
+        {
+            e.HasOne(g => g.Product).WithMany(p => p.OptionGroups).HasForeignKey(g => g.ProductId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(g => g.Name).HasMaxLength(60);
+            e.HasQueryFilter(g => !g.Product!.IsDeleted);
+        });
+        builder.Entity<ProductOption>(e =>
+        {
+            e.HasOne(o => o.Group).WithMany(g => g.Options).HasForeignKey(o => o.GroupId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(o => o.Name).HasMaxLength(60);
+            e.Property(o => o.PriceDelta).HasPrecision(18, 2);
+            e.HasQueryFilter(o => !o.Group!.Product!.IsDeleted);
+        });
 
         // Decimal precision for Price
         builder.Entity<Product>()

@@ -27,6 +27,9 @@ public class Product : ISoftDeletable
     public bool IsFeatured { get; set; }
     public DishBadge Badge { get; set; }
 
+    // Sizes and add-ons (ProductOptionGroup / ProductOption), saved with the dish form.
+    public ICollection<ProductOptionGroup>? OptionGroups { get; set; }
+
     public int CategoryId { get; set; }
     public Category? Category { get; set; }
         

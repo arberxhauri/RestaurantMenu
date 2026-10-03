@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using RestaurantMenu.Filters;
+using RestaurantMenu.Helpers;
 using RestaurantMenu.Models;
 using RestaurantMenu.Services;
 
@@ -23,6 +24,8 @@ public class TranslateController : Controller
         ["dish"] = new[] { "name", "description", "nutritions" },
         ["category"] = new[] { "name" }
     };
+
+    private static readonly System.Text.RegularExpressions.Regex OptionKey = new("^opt_[A-Za-z0-9_]{1,40}$");
 
     private readonly ApplicationDbContext _context;
     private readonly UserManager<ApplicationUser> _userManager;
@@ -72,6 +75,19 @@ public class TranslateController : Controller
         }
 
         var fields = allowed.ToDictionary(f => f, f => (request.Fields.GetValueOrDefault(f) ?? "").Trim());
+        // Dish forms also send option group and option names as opt_<key> (Sizes & add-ons).
+        if (request.Kind == "dish")
+        {
+            var extras = request.Fields
+                .Where(kv => OptionKey.IsMatch(kv.Key) && !string.IsNullOrWhiteSpace(kv.Value))
+                .Take(80)
+                .ToList();
+            if (extras.Any(kv => kv.Value!.Trim().Length > ProductOptions.MaxNameLength))
+            {
+                return BadRequest(new { message = $"Option names can be at most {ProductOptions.MaxNameLength} characters." });
+            }
+            foreach (var (key, value) in extras) fields[key] = value!.Trim();
+        }
         if (fields["name"].Length == 0)
         {
             return BadRequest(new { message = "Write the English name first." });

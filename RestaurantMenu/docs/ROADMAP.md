@@ -125,24 +125,15 @@ Breakfast, lunch and happy hour without editing the menu twice a day.
 - **Back office:** a star on every dish row (instant, goes back if saving fails, works by keyboard and without JavaScript) and a badge chip next to the name. A "Highlight" section in the dish form: "Recommend at the top of the menu" and a badge picker.
 - **Menu:** a "Recommended" row at the top: horizontal scroll-snap cards with large photos (a brand-coloured card with the initial if there is no photo) and the badge on the photo. It shows only dishes a guest can get right now (category served, not sold out), in menu order, up to 12. Tapping a card opens the dish's sheet, so adding to the list and analytics work as for any dish. The row hides while searching or filtering. Badges also appear on the dish cards and in the dish sheet.
 
-## 10. Variants and add-ons (3 to 4 days)
+## 10. Variants and add-ons: done
 
-Sizes, half and full, extra cheese. `ProductOption { ProductId, Name, PriceDelta, GroupName, MaxSelect }`. A repeater section in `_ProductForm.cshtml`; the dish sheet in the menu shows option groups; "Your list" stores the chosen options. This is a prerequisite for ordering (item 15).
+Sizes, half and full portions, extras. A prerequisite for ordering (item 14).
 
-## 11. Branding editor (2 days)
-
-Colours are currently auto-extracted from the logo (`ColorExtractionService`) with no override. Add a "Brand" section on Branch Edit: three colour pickers prefilled from `ThemeColors`, a light/dark/auto preference, a header style (photo, colour, minimal), and a live phone preview reusing the landing's `.device` component. Save into the existing `ThemeColors` JSON.
-
-## 12. Staff accounts per branch (3 days)
-
-`BranchMember { BranchId, UserId, Role (Manager, Editor) }`. Editors can change dishes and availability but not delete branches. Replace `b.UserId == user.Id` checks with a single `IBranchAccess.CanEdit(user, branchId)` service so the rule lives in one place.
-
-## 13. Invites, email, password reset (2 to 3 days)
-
-- Email provider (Resend, Postmark or SendGrid) behind `IEmailSender`.
-- Admin "New owner" sends an invite link (`GenerateEmailConfirmationTokenAsync` + set-password page) instead of showing a password.
-- "Forgot password" on the login page (`GeneratePasswordResetTokenAsync`).
-- Later: self-serve signup with a trial, which makes the landing's "Get started free" literally true.
+- **Model (normalised):** `ProductOptionGroup { ProductId, Name, NameTranslations, MinSelect, MaxSelect, DisplayOrder }` with `ProductOption { GroupId, Name, NameTranslations, PriceDelta, DisplayOrder }`, instead of one flat table that repeats the group's rules on every option. MinSelect 0/1 = optional/required; MaxSelect 1 = a single choice. Cascade delete; query filters match the dish's soft delete. Migration `AddProductOptions`.
+- **Dish form:** a "Sizes & add-ons" repeater (`_ProductOptions.cshtml`): group name, Required, "Guests can choose up to N", option rows with a price change (negative for cheaper), quick-add buttons for Sizes and Extras, and a "Show translations" switch with a field per menu language. "Fill translations" fills option names too (`opt_…` fields, ≤ 60 characters). Field names are renumbered on submit, so rows can be added and removed freely. Validation (`Helpers/ProductOptions`): names required and unique, valid amounts (2 decimals, comma or dot), max ≥ 1 (clamped to the number of options), at most 10 groups × 30 options; empty rows are ignored; each problem has its own message and the typed values are kept. Saving replaces the dish's groups as a whole.
+- **Menu:** the dish's options travel as JSON on the card. Dishes with a required choice that changes the price show "from €5.50". Their + opens the dish sheet: required single choice = round buttons with the first one selected, optional single choice = a box that can be cleared, several = tick boxes stopped at the limit; prices per option, the total updates live, and "Please choose: Sauce" if a required group is missing. Everything is translated in 7 languages.
+- **Your list:** each combination is its own line ("Calzone · Large, Cream, Cheese ×2") with the right unit price and total; the same combination again adds 1. Lists saved before this change still work.
+- **Later (ordering):** the server must re-check choices and prices from the option ids, since the list's prices live in the guest's browser.
 
 ---
 
