@@ -1,6 +1,8 @@
+using RestaurantMenu.Interfaces;
+
 namespace RestaurantMenu.Models;
 
-public class Product
+public class Product : ISoftDeletable
 {
     public int Id { get; set; }
     public string Name { get; set; }
@@ -18,4 +20,7 @@ public class Product
     public string? NameTranslations { get; set; }
     public string? DescriptionTranslations { get; set; }
     public string? NutritionsTranslations { get; set; }
+
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedOnUtc { get; set; }
 }

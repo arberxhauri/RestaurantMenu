@@ -207,6 +207,7 @@ a.icon-btn { text-decoration: none; }
 .flash--danger { background: var(--danger-soft); color: var(--danger); border-color: color-mix(in oklab, var(--danger) 25%, transparent); }
 .flash--warn { background: var(--warn-soft); color: var(--warn); border-color: color-mix(in oklab, var(--warn) 25%, transparent); }
 .flash p, .flash .icon-btn { color: inherit; }
+.flash-undo { margin: 0; align-self: center; }
 @keyframes flash-in { from { opacity: 0; transform: translateY(-6px); } }
 
 /* ---------- Page header ---------- */
@@ -573,6 +574,12 @@ a.icon-btn { text-decoration: none; }
 .usage-bar span { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
 .limit-form { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
 .limit-form .form-control { width: 76px; padding: 6px 10px; text-align: center; font-family: var(--font-mono); }
+
+/* One-time invite link panel (admin) */
+.invite-panel { border-color: var(--accent); background: var(--accent-soft); }
+.invite-panel h2 { display: flex; align-items: center; gap: 8px; }
+.invite-panel .form-control { background: var(--surface-2); }
+.user-cell .chip { display: inline-flex; }
 
 /* ---------- Auth screens ---------- */
 .auth { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); min-height: 100svh; }

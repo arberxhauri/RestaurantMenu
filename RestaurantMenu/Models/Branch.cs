@@ -1,6 +1,8 @@
+using RestaurantMenu.Interfaces;
+
 namespace RestaurantMenu.Models;
 
-public class Branch
+public class Branch : ISoftDeletable
 {
     public int Id { get; set; }
     public string Name { get; set; }

@@ -180,13 +180,52 @@ namespace RestaurantMenu.Controllers
 
             var branchId = category.BranchId;
 
-            // Delete all products in this category
-            _context.Products.RemoveRange(category.Products);
+            // Soft delete the category and its dishes together (SoftDeleteInterceptor).
+            var dishCount = category.Products?.Count ?? 0;
+            _context.Products.RemoveRange(category.Products ?? new List<Product>());
             _context.Categories.Remove(category);
             await _context.SaveChangesAsync();
 
-            TempData["Success"] = "Category and all its products deleted successfully!";
+            TempData["Success"] = $"{category.Name} and its {dishCount} dish(es) were removed from the menu.";
+            TempData["UndoUrl"] = Url.Action("Restore", "Category", new { id = category.Id });
             return RedirectToAction("Details", "Branch", new { id = branchId });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Restore(int id)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            var category = await _context.Categories
+                .IgnoreQueryFilters()
+                .Include(c => c.Branch)
+                .FirstOrDefaultAsync(c => c.Id == id && c.IsDeleted
+                                          && c.Branch!.UserId == user.Id && !c.Branch.IsDeleted);
+
+            if (category == null || category.DeletedOnUtc == null)
+            {
+                return NotFound();
+            }
+
+            // Bring back the dishes that went with it, not ones deleted separately earlier.
+            var from = category.DeletedOnUtc.Value.AddSeconds(-5);
+            var to = category.DeletedOnUtc.Value.AddSeconds(5);
+            var dishes = await _context.Products
+                .IgnoreQueryFilters()
+                .Where(p => p.CategoryId == id && p.IsDeleted && p.DeletedOnUtc >= from && p.DeletedOnUtc <= to)
+                .ToListAsync();
+
+            foreach (var dish in dishes)
+            {
+                dish.IsDeleted = false;
+                dish.DeletedOnUtc = null;
+            }
+            category.IsDeleted = false;
+            category.DeletedOnUtc = null;
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = $"{category.Name} and {dishes.Count} dish(es) are back on the menu.";
+            return RedirectToAction("Details", "Branch", new { id = category.BranchId });
         }
 
         [HttpPost]

@@ -6,19 +6,33 @@ Ordered by value per effort. Items 1 to 6 are small and make promises the landin
 
 ---
 
-## 0. Fix first (found during the redesign)
+## 0. Fix first: done in code, deploy steps left for you
 
-| Issue | Risk | Fix |
-|---|---|---|
-| `appsettings.json` contains the **production** Postgres connection string with password, committed to git | Anyone with repo access owns the database | Rotate the DB password on Render now. Move the string to a Render env var (`ConnectionStrings__DefaultConnection`) and delete it from `appsettings.json`. The git history still has it, so rotation is the real fix. |
-| `DbInitializer` seeds `admin@restaurantmenu.com` / `Admin@123` | Known default credentials on prod if the admin was never changed | Read the initial admin password from an env var, and set `MustChangePassword = true` on the seeded admin. |
-| Migrations were generated for SQL Server (`nvarchar`), but the app runs on Postgres | `dotnet ef database update` fails on a fresh Postgres DB; schema drift is invisible | Squash: delete `Migrations/`, run `dotnet ef migrations add InitialPostgres` against Postgres, then baseline prod (`__EFMigrationsHistory` insert) so it doesn't try to re-create tables. |
-| Admin can soft-delete their own account; the admin appears in the owners table | Lock-out | In `AdminController.Index` filter to `OWNER` role; in `SoftDeleteUser` refuse the current user's id. |
-| New owner's password is shown in a flash message | Shoulder-surfing, gets lost | See item 13 (invite email). Until then the flash no longer auto-hides (changed in this redesign). |
-| Unknown menu URL returns a blank 404 | Guests scanning an old QR see a browser error page | `app.UseStatusCodePagesWithReExecute("/home/status/{0}")` + a `Status` action/view in the public shell ("This menu has moved"). |
-| Category and product deletes are hard deletes | No undo | Make `Category`/`Product` implement `ISoftDeletable` and add query filters, same as `Branch`. |
+All seven issues found during the redesign are fixed and tested end to end (22 browser checks plus a simulated production upgrade).
 
-Already fixed in this pass: client-side validation never loaded (wrong script path), editing a dish ignored "Order", the Edit dish category list only showed one category, the guest favourites crashed on load, dashboard prices were hardcoded to `$`.
+| Issue | Status |
+|---|---|
+| Production DB password committed in `appsettings.json` | Removed from the file. Production reads `ConnectionStrings__DefaultConnection`; local runs use `appsettings.Development.json` (local `mqm_dev`). **You still must rotate the password**, because it remains in git history from commit `fefc839`. |
+| Default admin `Admin@123` | No password in code. `ADMIN_INITIAL_PASSWORD` env var, or a random one printed once to the server log. An existing admin still on `Admin@123` gets a new random password at startup (printed to the log) and must change it at next sign-in. "Must change password" is now enforced on every back-office page. |
+| SQL Server migrations on Postgres | Replaced by `InitialPostgres` (baseline matching production) + `SoftDeleteMenus`. `docs/migrations/prod-upgrade.sql` brings production in line; it is idempotent and was tested twice on a production-like copy. |
+| Admin could delete themselves / listed as owner | Owners list shows owners only. Admins can't be removed from that page (also refused server-side). Removing an owner now also signs them out and takes their menus offline, as the confirm dialog said. |
+| New owner's password shown on screen | No password is created. The owner gets an invite link (3 days, single use) to set their own: emailed when SMTP is configured, otherwise shown once to the admin with a Copy button. "Invite pending" status and "New invite link" action on the owners list. |
+| Blank 404 for unknown menu links | Friendly pages for 404 ("This menu isn't available" for menu links) and 403. |
+| Permanent deletes | Branches, categories and dishes are soft-deleted (branches never were, despite the `IsDeleted` column). Every delete shows **Undo**. Dish photos stay on disk so Undo is complete. A deleted branch no longer blocks its name. |
+
+Also fixed while doing this: admins were sent to the owner dashboard (access denied) after changing their password; the access-denied page didn't exist; sign-in keys weren't persisted, so every Render deploy signed everyone out (now stored on the persistent disk under `keys/`).
+
+### Deploy checklist
+
+1. **Render, Postgres:** rotate the database password. Take a backup.
+2. **Render, web service, Environment:**
+   - `ConnectionStrings__DefaultConnection` = the new connection string (Npgsql format, as before)
+   - optional `ADMIN_INITIAL_PASSWORD` (only used if the admin account doesn't exist yet)
+   - optional email: `Smtp__Host`, `Smtp__Port` (587), `Smtp__User`, `Smtp__Password`, `Smtp__From`
+3. **Before deploying**, run `psql "<external connection string>" -v ON_ERROR_STOP=1 -f docs/migrations/prod-upgrade.sql`.
+4. Deploy. If the admin still used `Admin@123`, find the replacement password in the Render logs ("The admin still used the old default password"), sign in, and choose a new one.
+
+From now on, schema changes are `dotnet ef migrations add <Name>` locally, then `dotnet ef migrations script <PreviousMigration> --idempotent` and run it on production before deploying.
 
 ---
 

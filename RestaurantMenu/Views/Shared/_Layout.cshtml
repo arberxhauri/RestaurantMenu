@@ -106,6 +106,15 @@
                                 <div class="flash flash--@f.Kind" role="status">
                                     <i class="ph @f.Icon" aria-hidden="true"></i>
                                     <p>@message</p>
+                                    @if (f.Key == "Success" && TempData["UndoUrl"] is string undoUrl)
+                                    {
+                                        <form action="@undoUrl" method="post" class="flash-undo">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                                <i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i>Undo
+                                            </button>
+                                        </form>
+                                    }
                                     <button type="button" class="icon-btn icon-btn--sm" data-dismiss-flash aria-label="Dismiss">
                                         <i class="ph ph-x" aria-hidden="true"></i>
                                     </button>

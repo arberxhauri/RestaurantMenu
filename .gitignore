@@ -7,3 +7,4 @@ obj/
 # non-HFS volume; committing them breaks the build (MSB1011 and CS2015).
 ._*
 .DS_Store
+

@@ -65,6 +65,22 @@ public class HomeController : Controller
         return View();
     }
 
+    // Re-executed by UseStatusCodePagesWithReExecute for 404s and other error statuses.
+    [NoIndex]
+    [Route("home/status/{code:int}")]
+    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+    public IActionResult Status(int code)
+    {
+        var feature = HttpContext.Features.Get<Microsoft.AspNetCore.Diagnostics.IStatusCodeReExecuteFeature>();
+        var originalPath = feature?.OriginalPath ?? "";
+
+        ViewData["Title"] = code == 404 ? "Not found" : "Something went wrong";
+        ViewBag.Code = code;
+        ViewBag.IsMenu = originalPath.StartsWith("/menu/", StringComparison.OrdinalIgnoreCase);
+        Response.StatusCode = code;
+        return View();
+    }
+
     [NoIndex]
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public IActionResult Error()

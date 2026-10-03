@@ -265,16 +265,44 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
 
             var branchId = product.BranchId;
 
-            if (!string.IsNullOrEmpty(product.Image))
-            {
-                DeleteImage(product.Image);
-            }
-
+            // Soft delete (SoftDeleteInterceptor): the photo stays on disk so Undo can bring the dish back whole.
             _context.Products.Remove(product);
             await _context.SaveChangesAsync();
 
-            TempData["Success"] = "Product deleted successfully!";
+            TempData["Success"] = $"{product.Name} was removed from the menu.";
+            TempData["UndoUrl"] = Url.Action("Restore", "Product", new { id = product.Id });
             return RedirectToAction("Details", "Branch", new { id = branchId });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Restore(int id)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            var product = await _context.Products
+                .IgnoreQueryFilters()
+                .Include(p => p.Category)
+                    .ThenInclude(c => c!.Branch)
+                .FirstOrDefaultAsync(p => p.Id == id && p.IsDeleted
+                                          && p.Category!.Branch!.UserId == user.Id && !p.Category.Branch.IsDeleted);
+
+            if (product == null)
+            {
+                return NotFound();
+            }
+
+            if (product.Category!.IsDeleted)
+            {
+                TempData["Error"] = $"{product.Name} can't come back on its own because its category was deleted too. Restore the category instead.";
+                return RedirectToAction("Details", "Branch", new { id = product.BranchId });
+            }
+
+            product.IsDeleted = false;
+            product.DeletedOnUtc = null;
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = $"{product.Name} is back on the menu.";
+            return RedirectToAction("Details", "Branch", new { id = product.BranchId });
         }
 
         private async Task<string> SaveImage(IFormFile file)

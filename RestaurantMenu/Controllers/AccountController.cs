@@ -62,6 +62,64 @@ public class AccountController : Controller
             return View(model);
         }
 
+        // Invite links from the admin land here. The token is an ASP.NET Identity password-reset
+        // token, valid for 3 days (see Program.cs).
+        [HttpGet]
+        [AllowAnonymous]
+        public async Task<IActionResult> SetPassword(string? userId, string? token)
+        {
+            var user = string.IsNullOrEmpty(userId) ? null : await _userManager.FindByIdAsync(userId);
+            if (user == null || string.IsNullOrEmpty(token))
+            {
+                ViewBag.LinkInvalid = true;
+                return View(new SetPasswordViewModel());
+            }
+
+            ViewBag.Email = user.Email;
+            return View(new SetPasswordViewModel { UserId = userId!, Token = token });
+        }
+
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SetPassword(SetPasswordViewModel model)
+        {
+            var user = await _userManager.FindByIdAsync(model.UserId);
+            if (user == null)
+            {
+                ViewBag.LinkInvalid = true;
+                return View(model);
+            }
+            ViewBag.Email = user.Email;
+
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+            var result = await _userManager.ResetPasswordAsync(user, model.Token, model.NewPassword);
+            if (!result.Succeeded)
+            {
+                if (result.Errors.Any(e => e.Code == "InvalidToken"))
+                {
+                    ViewBag.LinkInvalid = true;
+                    return View(model);
+                }
+                foreach (var error in result.Errors)
+                {
+                    ModelState.AddModelError("", error.Description);
+                }
+                return View(model);
+            }
+
+            user.EmailConfirmed = true;
+            user.MustChangePassword = false;
+            await _userManager.UpdateAsync(user);
+            await _signInManager.SignInAsync(user, isPersistent: false);
+            TempData["Success"] = "Your password is set. Welcome to My Quick Menu.";
+            return RedirectToAction("Index", "Dashboard");
+        }
+
         [HttpPost]
         [Authorize]
         public async Task<IActionResult> Logout()
@@ -92,7 +150,10 @@ public class AccountController : Controller
                     user.MustChangePassword = false;
                     await _userManager.UpdateAsync(user);
                     await _signInManager.RefreshSignInAsync(user);
-                    return RedirectToAction("Index", "Dashboard");
+                    TempData["Success"] = "Your password was changed.";
+                    return await _userManager.IsInRoleAsync(user, "ADMIN")
+                        ? RedirectToAction("Index", "Admin")
+                        : RedirectToAction("Index", "Dashboard");
                 }
 
                 foreach (var error in result.Errors)

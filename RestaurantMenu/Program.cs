@@ -7,14 +7,31 @@ using System.Globalization;
 using RestaurantMenu.Services;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Identity.UI.Services;
+using RestaurantMenu.Filters;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Uploaded images and data-protection keys live on Render's persistent disk.
+// Locally there is no /var/data (and it needs root), so default to ~/.myquickmenu. Not inside
+// the repo: on the exFAT drive macOS adds "._*" files that break the key ring.
+if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DISK_MOUNT_PATH")) && builder.Environment.IsDevelopment())
+{
+    Environment.SetEnvironmentVariable("DISK_MOUNT_PATH",
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".myquickmenu"));
+}
+var diskMount = Environment.GetEnvironmentVariable("DISK_MOUNT_PATH") ?? "/var/data";
+
 // 1. VALIDATE CONNECTION STRING FIRST
+// Never commit it. Production reads the ConnectionStrings__DefaultConnection environment
+// variable on Render; local development reads appsettings.Development.json.
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 if (string.IsNullOrEmpty(connectionString))
 {
-    throw new InvalidOperationException("❌ DefaultConnection missing from appsettings.json!");
+    throw new InvalidOperationException(
+        "No database connection string. Set the ConnectionStrings__DefaultConnection environment variable " +
+        "(Render: Environment tab) or ConnectionStrings:DefaultConnection in appsettings.Development.json for local runs.");
 }
 
 // 2. Register Soft Delete Interceptor
@@ -46,8 +63,23 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
-// 5. Controllers
-builder.Services.AddControllersWithViews();
+// Invite links (set your password) stay valid for 3 days.
+builder.Services.Configure<DataProtectionTokenProviderOptions>(o => o.TokenLifespan = TimeSpan.FromDays(3));
+
+// Keys that sign the login cookie and invite links. Without persisting them, every
+// deploy or restart on Render signs everyone out and breaks unused invite links.
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(Directory.CreateDirectory(Path.Combine(diskMount, "keys")))
+    .SetApplicationName("RestaurantMenu");
+
+// Email: SMTP settings come from environment variables (Smtp__Host, Smtp__Port,
+// Smtp__User, Smtp__Password, Smtp__From). Without them, invites are shown as a link to copy.
+builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
+builder.Services.AddTransient<IEmailSender, SmtpEmailSender>();
+
+// 5. Controllers. Users given a temporary password must replace it before anything else.
+builder.Services.AddControllersWithViews(options => options.Filters.Add<RequirePasswordChangeFilter>());
+builder.Services.AddScoped<RequirePasswordChangeFilter>();
 
 // 5a. SEO. Render terminates TLS at its proxy and forwards plain HTTP, so without
 // this the app sees Scheme == "http" and every canonical, og:url and sitemap entry
@@ -72,7 +104,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/Account/Login";
     options.LogoutPath = "/Account/Logout";
-    options.AccessDeniedPath = "/Account/AccessDenied";
+    options.AccessDeniedPath = "/home/status/403";
 });
 
 // 7. Authorization
@@ -88,9 +120,6 @@ var app = builder.Build();
 // Must run before anything reads Request.Scheme or Request.Host — including
 // UseHttpsRedirection and every SEO URL the views build.
 app.UseForwardedHeaders();
-
-// Pick disk mount path (set on Render). Default for local dev.
-var diskMount = Environment.GetEnvironmentVariable("DISK_MOUNT_PATH") ?? "/var/data";
 
 // This is where ALL uploaded images will live (persistent disk)
 var persistentImagesRoot = Path.Combine(diskMount, "images");
@@ -110,6 +139,9 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
 }
+
+// Friendly pages for 404s and other status codes (e.g. a menu link that no longer exists).
+app.UseStatusCodePagesWithReExecute("/home/status/{0}");
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();

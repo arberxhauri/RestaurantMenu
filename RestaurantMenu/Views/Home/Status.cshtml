@@ -1,0 +1,34 @@
+@{
+    int code = ViewBag.Code ?? 404;
+    bool isMenu = ViewBag.IsMenu == true;
+}
+
+<div class="error-page">
+    @if (isMenu)
+    {
+        <i class="ph ph-fork-knife" aria-hidden="true"></i>
+        <h1>This menu isn't available</h1>
+        <p>The restaurant may have changed its name or taken the menu offline. Ask a member of staff for the current QR code.</p>
+    }
+    else if (code == 404)
+    {
+        <i class="ph ph-compass" aria-hidden="true"></i>
+        <h1>We couldn't find that page</h1>
+        <p>The link may be old or mistyped.</p>
+    }
+    else if (code == 403)
+    {
+        <i class="ph ph-lock" aria-hidden="true"></i>
+        <h1>You don't have access to this page</h1>
+        <p>Sign in with the account that owns it, or ask your administrator.</p>
+    }
+    else
+    {
+        <i class="ph ph-cooking-pot" aria-hidden="true"></i>
+        <h1>Something went wrong</h1>
+        <p>Try again in a moment.</p>
+    }
+    <div class="page-actions justify-content-center mt-2">
+        <a class="btn btn-primary" asp-controller="Home" asp-action="Index">Go to My Quick Menu</a>
+    </div>
+</div>

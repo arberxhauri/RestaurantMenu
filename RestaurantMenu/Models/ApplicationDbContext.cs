@@ -43,10 +43,21 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 
         builder.Entity<Branch>()
             .HasQueryFilter(b => !b.IsDeleted);
-        
+
+        // Deleting is a soft delete (SoftDeleteInterceptor), so a category or dish is
+        // only hidden and can be restored. Deleting a category also deletes its dishes.
+        builder.Entity<Category>()
+            .HasQueryFilter(c => !c.IsDeleted);
+
+        builder.Entity<Product>()
+            .HasQueryFilter(p => !p.IsDeleted);
+
+        // Unique among live branches only: a deleted branch must not block its name,
+        // since the name is also the menu URL.
         builder.Entity<Branch>()
             .HasIndex(b => b.Name)
-            .IsUnique();
+            .IsUnique()
+            .HasFilter("\"IsDeleted\" = false");
 
         // Decimal precision for Price
         builder.Entity<Product>()

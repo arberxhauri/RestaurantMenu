@@ -4,6 +4,8 @@
         <TargetFramework>net8.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
+        <!-- Local debug runs may use a newer .NET runtime when 8 isn't installed. Release (Docker) is unaffected. -->
+        <RollForward Condition="'$(Configuration)' == 'Debug'">Major</RollForward>
     </PropertyGroup>
 
     <ItemGroup>

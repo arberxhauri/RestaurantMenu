@@ -265,10 +265,48 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
                 return NotFound();
             }
 
+            // Soft delete (SoftDeleteInterceptor): the menu goes offline but nothing is erased.
             _context.Branches.Remove(branch);
             await _context.SaveChangesAsync();
 
-            TempData["Success"] = "Branch deleted successfully!";
+            TempData["Success"] = $"{branch.Name} was deleted and its menu is offline.";
+            TempData["UndoUrl"] = Url.Action("Restore", "Branch", new { id = branch.Id });
+            return RedirectToAction("Index", "Dashboard");
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Restore(int id)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            var branch = await _context.Branches
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(b => b.Id == id && b.UserId == user.Id && b.IsDeleted);
+
+            if (branch == null)
+            {
+                return NotFound();
+            }
+
+            var liveCount = await _context.Branches.CountAsync(b => b.UserId == user.Id);
+            if (liveCount >= user.NumberOfBranches)
+            {
+                TempData["Error"] = $"{branch.Name} can't be restored: all your branch slots are in use.";
+                return RedirectToAction("Index", "Dashboard");
+            }
+
+            var nameTaken = await _context.Branches.AnyAsync(b => b.Name.ToLower() == branch.Name.ToLower());
+            if (nameTaken)
+            {
+                TempData["Error"] = $"{branch.Name} can't be restored because another branch now uses that name.";
+                return RedirectToAction("Index", "Dashboard");
+            }
+
+            branch.IsDeleted = false;
+            branch.DeletedOnUtc = null;
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = $"{branch.Name} is back and its menu is online again.";
             return RedirectToAction("Index", "Dashboard");
         }
 
