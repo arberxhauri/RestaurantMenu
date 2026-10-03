@@ -68,6 +68,9 @@ public async Task<IActionResult> Create(Product product, IFormFile? image, IForm
 
     ModelState.Remove("Category");
     ApplyDietary(product, allergenFlags, allergensNone, dietFlags);
+    // The select only offers known badges; anything else (unreadable or unknown) means none.
+    if (ModelState.TryGetValue(nameof(Product.Badge), out var badgeState) && badgeState.Errors.Count > 0) ModelState.Remove(nameof(Product.Badge));
+    if (!Enum.IsDefined(product.Badge)) product.Badge = DishBadge.None;
 
     if (ModelState.IsValid)
     {
@@ -189,6 +192,9 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
 
     ModelState.Remove("Category");
     ApplyDietary(product, allergenFlags, allergensNone, dietFlags);
+    // The select only offers known badges; anything else (unreadable or unknown) means none.
+    if (ModelState.TryGetValue(nameof(Product.Badge), out var badgeState) && badgeState.Errors.Count > 0) ModelState.Remove(nameof(Product.Badge));
+    if (!Enum.IsDefined(product.Badge)) product.Badge = DishBadge.None;
 
     if (ModelState.IsValid)
     {
@@ -206,6 +212,8 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
         existingProduct.CategoryId = product.CategoryId;
         existingProduct.Allergens = product.Allergens;
         existingProduct.Diets = product.Diets;
+        existingProduct.IsFeatured = product.IsFeatured;
+        existingProduct.Badge = product.Badge;
 
         // Handle image upload
         if (image != null && image.Length > 0)
@@ -371,6 +379,40 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
             (await _context.Products
                 .Where(p => p.CategoryId == categoryId)
                 .MaxAsync(p => (int?)p.DisplayOrder) ?? -1) + 1;
+
+        /// <summary>
+        /// Features a dish in the "Recommended" row at the top of the menu, or takes it out.
+        /// Same contract as ToggleAvailability: the star sends the state it now shows,
+        /// fetch gets JSON, a plain form post is redirected back to the branch.
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ToggleFeatured(int id, bool? isFeatured)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            var product = await _context.Products
+                .Include(p => p.Category)
+                    .ThenInclude(c => c.Branch)
+                .FirstOrDefaultAsync(p => p.Id == id && p.Category.Branch.UserId == user.Id && !p.Category.Branch.IsDeleted);
+
+            if (product == null)
+            {
+                return NotFound();
+            }
+
+            product.IsFeatured = isFeatured ?? !product.IsFeatured;
+            await _context.SaveChangesAsync();
+
+            if (Request.Headers.Accept.Any(a => a != null && a.Contains("application/json")))
+            {
+                return Json(new { id = product.Id, isFeatured = product.IsFeatured });
+            }
+
+            TempData["Success"] = product.IsFeatured
+                ? $"{product.Name} is now recommended at the top of the menu."
+                : $"{product.Name} is no longer recommended.";
+            return RedirectToAction("Details", "Branch", new { id = product.BranchId });
+        }
 
         /// <summary>
         /// Marks a dish available or sold out. The switch on Branch Details sends the state it

@@ -416,6 +416,11 @@ a.chip--link:hover { background: var(--accent-soft); color: var(--accent); }
 .dish-flag:hover { text-decoration: underline; }
 .dish-soldout { margin-left: 6px; padding: 2px 8px; font-size: 11.5px; vertical-align: 1px; }
 .dish-soldout[hidden] { display: none; }
+.dish-badge { margin-left: 6px; padding: 2px 8px; font-size: 11.5px; vertical-align: 1px; }
+.star-btn[aria-pressed="true"] { color: #C98A00; }
+.star-btn[aria-pressed="true"]:hover { color: #A87300; }
+.star-btn[aria-busy="true"] { opacity: .6; cursor: progress; }
+@media (prefers-color-scheme: dark) { .star-btn[aria-pressed="true"] { color: #F2C14E; } }
 .dish.is-soldout .dish-thumb img, .dish.is-soldout .dish-thumb .placeholder { filter: grayscale(1); opacity: .55; }
 .dish.is-soldout .dish-name { color: var(--ink-2); }
 .dish.is-soldout .dish-price { color: var(--ink-3); text-decoration: line-through; text-decoration-thickness: 1px; }

@@ -118,9 +118,12 @@ Breakfast, lunch and happy hour without editing the menu twice a day.
 - **Menu:** a note under the title while the category is served. Outside its times it is greyed out with "Available …", its + buttons are hidden and its nav chip is muted, or it is removed from the page if set to hidden. If everything is hidden the menu says "Nothing is being served right now". The structured data always keeps the full menu, so search engines see the same menu at any hour.
 - **Fixed alongside:** the Position field on Category Edit was ignored when saving.
 
-## 9. Specials and featured dishes (1 day)
+## 9. Specials and featured dishes: done
 
-`Product.IsFeatured`, `Product.Badge` ("New", "Chef's pick"). A horizontal scroll-snap row at the top of the menu with large photos. Owners toggle from the dish row on Branch Details.
+- **Model:** `Product.IsFeatured` and `Product.Badge`, a fixed `DishBadge` enum (New, Chef's pick, Popular, Seasonal, Today's special) instead of free text, so guests see it translated in all 7 languages (`Helpers/Highlights`). Migration `AddFeaturedDishes`.
+- **Server:** `ProductController.ToggleFeatured(id, isFeatured?)`, the same contract as the sold-out toggle: antiforgery, ownership check, the desired state is sent, JSON for fetch, redirect for a plain form post. Featured and badge are also saved from the dish form; an unknown badge value is treated as no badge.
+- **Back office:** a star on every dish row (instant, goes back if saving fails, works by keyboard and without JavaScript) and a badge chip next to the name. A "Highlight" section in the dish form: "Recommend at the top of the menu" and a badge picker.
+- **Menu:** a "Recommended" row at the top: horizontal scroll-snap cards with large photos (a brand-coloured card with the initial if there is no photo) and the badge on the photo. It shows only dishes a guest can get right now (category served, not sold out), in menu order, up to 12. Tapping a card opens the dish's sheet, so adding to the list and analytics work as for any dish. The row hides while searching or filtering. Badges also appear on the dish cards and in the dish sheet.
 
 ## 10. Variants and add-ons (3 to 4 days)
 

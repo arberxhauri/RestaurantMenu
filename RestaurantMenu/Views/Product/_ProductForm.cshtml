@@ -81,6 +81,31 @@
         </section>
 
         <section class="form-section">
+            <h2>Highlight</h2>
+            <p>Recommended dishes get a row with large photos at the top of the menu. A badge appears on the dish itself.</p>
+            <div class="fields">
+                <div class="span-2">
+                    <div class="form-check form-switch">
+                        <input asp-for="IsFeatured" class="form-check-input" role="switch" />
+                        <label asp-for="IsFeatured" class="form-check-label">Recommend at the top of the menu</label>
+                    </div>
+                    <span class="hint">You can also tap the star on the dish's row on the branch page.</span>
+                </div>
+                <div>
+                    <label asp-for="Badge" class="form-label">Badge</label>
+                    <select asp-for="Badge" class="form-select">
+                        <option value="@DishBadge.None">No badge</option>
+                        @foreach (var badge in Highlights.Badges)
+                        {
+                            <option value="@badge">@Highlights.BadgeName(badge, "en")</option>
+                        }
+                    </select>
+                    <span class="hint">Translated for guests in every menu language.</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="form-section">
             <h2>Placement &amp; price</h2>
             <p>Where the dish sits on the menu and what it costs. New dishes go to the end of their category; drag them into place on the branch page.</p>
             <div class="fields">

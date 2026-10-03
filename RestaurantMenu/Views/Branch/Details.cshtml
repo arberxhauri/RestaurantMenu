@@ -180,6 +180,10 @@
                                         <div class="dish-name">
                                             @product.Name
                                             <span class="chip chip--warn dish-soldout" data-soldout-chip @(product.IsAvailable ? "hidden" : "")>Sold out</span>
+                                            @if (product.Badge != DishBadge.None)
+                                            {
+                                                <span class="chip chip--accent dish-badge">@Highlights.BadgeName(product.Badge, "en")</span>
+                                            }
                                         </div>
                                         @if (!string.IsNullOrEmpty(product.Description))
                                         {
@@ -203,6 +207,15 @@
                                         </button>
                                     </form>
                                     <div class="row-actions">
+                                        @* Recommend at the top of the menu. A plain form post without JavaScript; site.js makes it instant. *@
+                                        <form asp-controller="Product" asp-action="ToggleFeatured" asp-route-id="@product.Id" method="post" data-featured data-name="@product.Name">
+                                            <input type="hidden" name="isFeatured" value="@(product.IsFeatured ? "false" : "true")" />
+                                            <button type="submit" class="icon-btn star-btn" aria-pressed="@(product.IsFeatured ? "true" : "false")"
+                                                    aria-label="Recommend @product.Name at the top of the menu"
+                                                    title="@(product.IsFeatured ? "Recommended. Tap to remove" : "Recommend at the top of the menu")">
+                                                <i class="@(product.IsFeatured ? "ph-fill" : "ph") ph-star" aria-hidden="true"></i>
+                                            </button>
+                                        </form>
                                         <a asp-controller="Product" asp-action="Edit" asp-route-id="@product.Id" class="icon-btn" aria-label="Edit @product.Name" title="Edit">
                                             <i class="ph ph-pencil-simple" aria-hidden="true"></i>
                                         </a>

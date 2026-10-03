@@ -65,6 +65,7 @@
             img: li.dataset.img,
             soldOut: li.dataset.soldout === 'true',
             later: li.dataset.later === 'true',
+            badge: li.dataset.badge,
             allergenText: li.dataset.allergenText,
             tags: li.querySelector('[data-tags]')
         };
@@ -217,6 +218,9 @@
         if (current.img) { dishImg.src = current.img; dishImg.alt = current.name; dishImg.hidden = false; }
         else { dishImg.hidden = true; dishImg.removeAttribute('src'); }
         dishSave.hidden = current.soldOut || current.later;
+        var badgeEl = dish.querySelector('[data-dish-badge]');
+        badgeEl.textContent = current.badge || '';
+        badgeEl.hidden = !current.badge;
         dishSoldOut.hidden = !current.soldOut;
         syncDishSave();
         openSheet(dish);
@@ -320,8 +324,18 @@
             shown += visible;
         });
         if (noResults) noResults.hidden = any;
+        // The recommended row isn't filtered; hide it while results are being narrowed down.
+        if (featuredRow) featuredRow.hidden = !!q || !!F.diets || !!F.allergens;
         renderFilterUi(shown);
     }
+
+    var featuredRow = document.querySelector('[data-featured-row]');
+    if (featuredRow) featuredRow.addEventListener('click', function (e) {
+        var card = e.target.closest('[data-feature]');
+        if (!card) return;
+        var li = document.querySelector('[data-item][data-id="' + card.getAttribute('data-feature') + '"]');
+        if (li) openDish(li);
+    });
 
     var filterSheet = document.querySelector('[data-filter-sheet]');
     var filterToggle = document.querySelector('[data-filter-toggle]');

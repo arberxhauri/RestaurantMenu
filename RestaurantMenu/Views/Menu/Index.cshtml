@@ -72,6 +72,14 @@
     var hiddenNow = categories.Count(c => c.HideWhenUnavailable && serving[c.Id] is { IsOpen: false });
     categories = categories.Where(c => !(c.HideWhenUnavailable && serving[c.Id] is { IsOpen: false })).ToList();
     bool NotServed(Category c) => serving[c.Id] is { IsOpen: false };
+
+    // "Recommended" row: featured dishes guests can order right now (served category, not
+    // sold out), in menu order. Each card opens the dish's own sheet.
+    var featured = categories.Where(c => !NotServed(c))
+        .SelectMany(c => c.Products!.OrderBy(p => p.DisplayOrder).ThenBy(p => p.Id))
+        .Where(p => p.IsFeatured && p.IsAvailable)
+        .Take(12)
+        .ToList();
     var hasDietary = categories.SelectMany(c => c.Products!).Any(p => p.Allergens != null || p.Diets != Diet.None);
 
     // Built in MenuController; the theme colour is only known here.
@@ -262,6 +270,41 @@
         }
         else
         {
+            @if (featured.Any())
+            {
+                <section class="m-featured" aria-labelledby="featured-title" data-featured-row>
+                    <h2 id="featured-title">@Highlights.Title(currentLang)</h2>
+                    <ul class="m-featured-scroll">
+                        @foreach (var fp in featured)
+                        {
+                            var fName = TranslationHelper.GetTranslation(fp.Name, fp.NameTranslations, currentLang);
+                            <li>
+                                <button class="m-feature" type="button" data-feature="@fp.Id" aria-haspopup="dialog">
+                                    <span class="m-feature-media">
+                                        @if (!string.IsNullOrEmpty(fp.Image))
+                                        {
+                                            <img src="@fp.Image" alt="" loading="lazy" decoding="async" />
+                                        }
+                                        else
+                                        {
+                                            <span class="m-feature-ph" aria-hidden="true">@fName.Substring(0, 1)</span>
+                                        }
+                                        @if (fp.Badge != DishBadge.None)
+                                        {
+                                            <span class="m-feature-badge">@Highlights.BadgeName(fp.Badge, currentLang)</span>
+                                        }
+                                    </span>
+                                    <span class="m-feature-text">
+                                        <span class="m-feature-name">@fName</span>
+                                        <span class="m-feature-price tabular">@(currencySymbol + fp.Price.ToString("N2", priceCulture))</span>
+                                    </span>
+                                </button>
+                            </li>
+                        }
+                    </ul>
+                </section>
+            }
+
             <div class="m-filterbar" data-filterbar hidden>
                 <i class="ph ph-sliders-horizontal" aria-hidden="true"></i>
                 <span data-filter-summary></span>
@@ -312,6 +355,7 @@
                                 data-item
                                 data-soldout="@(soldOut ? "true" : "false")"
                                 data-later="@(later ? "true" : "false")"
+                                data-badge="@Highlights.BadgeName(product.Badge, currentLang)"
                                 data-allergens="@(product.Allergens == null ? -1 : (int)product.Allergens)"
                                 data-diets="@((int)product.Diets)"
                                 data-allergen-text="@allergenText"
@@ -325,6 +369,10 @@
                                 data-search="@($"{name} {desc}".ToLowerInvariant())">
                                 <button class="m-item-open" type="button" data-open aria-haspopup="dialog">
                                     <span class="m-item-text">
+                                        @if (product.Badge != DishBadge.None)
+                                        {
+                                            <span class="m-item-badge">@Highlights.BadgeName(product.Badge, currentLang)</span>
+                                        }
                                         <span class="m-item-name">@name</span>
                                         @if (!string.IsNullOrEmpty(desc))
                                         {
@@ -396,6 +444,7 @@
         <button class="m-sheet-close" type="button" data-close aria-label="@ui.Close"><i class="ph ph-x" aria-hidden="true"></i></button>
         <img class="m-dish-img" data-dish-img alt="" hidden />
         <div class="m-sheet-body">
+            <span class="m-item-badge" data-dish-badge hidden></span>
             <h2 id="dishSheetName" data-dish-name></h2>
             <p class="m-dish-desc" data-dish-desc></p>
             <div class="m-dish-tags" data-dish-tags hidden></div>

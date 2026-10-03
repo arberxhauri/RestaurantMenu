@@ -382,6 +382,48 @@
         });
     });
 
+    /* ---------- Recommend (star) on Branch Details ----------
+       Same pattern as the sold-out switch: flips at once, saves in the background,
+       goes back to the last confirmed state if saving fails. */
+    document.querySelectorAll('form[data-featured]').forEach(function (form) {
+        var btn = form.querySelector('button');
+        var icon = btn.querySelector('i');
+        var name = form.getAttribute('data-name') || 'Dish';
+        var confirmed = btn.getAttribute('aria-pressed') === 'true';
+        var seq = 0;
+        function show(on) {
+            btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+            icon.className = (on ? 'ph-fill' : 'ph') + ' ph-star';
+            btn.title = on ? 'Recommended. Tap to remove' : 'Recommend at the top of the menu';
+            form.querySelector('input[name="isFeatured"]').value = on ? 'false' : 'true';
+        }
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            var want = btn.getAttribute('aria-pressed') !== 'true';
+            var data = new FormData(form);
+            data.set('isFeatured', want ? 'true' : 'false');
+            show(want);
+            var mine = ++seq;
+            btn.setAttribute('aria-busy', 'true');
+            fetch(form.action, { method: 'POST', headers: { 'Accept': 'application/json' }, body: data, credentials: 'same-origin' })
+                .then(function (r) {
+                    if (!r.ok || r.redirected) throw new Error(r.status);
+                    return r.json();
+                }).then(function (res) {
+                    confirmed = !!res.isFeatured;
+                    if (mine !== seq) return;
+                    show(confirmed);
+                    toast(confirmed ? name + ' is recommended at the top of the menu' : name + ' is no longer recommended');
+                }).catch(function () {
+                    if (mine !== seq) return;
+                    show(confirmed);
+                    toast('Could not update ' + name + '. Reload the page and try again.');
+                }).then(function () {
+                    if (mine === seq) btn.removeAttribute('aria-busy');
+                });
+        });
+    });
+
     /* ---------- Drag to reorder (categories and dishes) ----------
        <ul|div data-sortable="endpoint" data-sortable-item="data-category-id"
                data-sortable-key="categoryIds" [data-sortable-extra='{"categoryId":5}']

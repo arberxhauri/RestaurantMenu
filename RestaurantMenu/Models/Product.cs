@@ -22,6 +22,11 @@ public class Product : ISoftDeletable
     public Allergen? Allergens { get; set; }
     public Diet Diets { get; set; }
 
+    // Featured dishes get a row with large photos at the top of the menu; the badge is a
+    // short label on the dish ("Chef's pick"), translated for guests (Helpers/Highlights).
+    public bool IsFeatured { get; set; }
+    public DishBadge Badge { get; set; }
+
     public int CategoryId { get; set; }
     public Category? Category { get; set; }
         
@@ -33,4 +38,15 @@ public class Product : ISoftDeletable
 
     public bool IsDeleted { get; set; }
     public DateTime? DeletedOnUtc { get; set; }
+}
+
+/// <summary>A fixed set so guests see it in their language. Persisted as int; never renumber.</summary>
+public enum DishBadge
+{
+    None = 0,
+    New = 1,
+    ChefsPick = 2,
+    Popular = 3,
+    Seasonal = 4,
+    TodaysSpecial = 5
 }
