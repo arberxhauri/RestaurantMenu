@@ -101,6 +101,9 @@ builder.Services.Configure<RouteOptions>(options => options.LowercaseUrls = true
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<SeoService>();
 builder.Services.AddScoped<QrCodeService>();
+// Who may do what to a branch (owner, or staff member with a role). Used by every back-office controller.
+builder.Services.AddScoped<IBranchAccess, BranchAccess>();
+builder.Services.AddTransient<InviteMailer>();
 
 // Menu analytics: anonymous events (no cookies, no IP or device stored), owner reports,
 // and a daily cleanup of old events.

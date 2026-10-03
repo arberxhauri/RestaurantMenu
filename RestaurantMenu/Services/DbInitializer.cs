@@ -12,7 +12,8 @@ public static class DbInitializer
         var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
         // Create roles
-        string[] roleNames = { "ADMIN", "OWNER" };
+        // STAFF: people invited to help run someone else's branch (BranchMember).
+        string[] roleNames = { "ADMIN", "OWNER", "STAFF" };
         foreach (var roleName in roleNames)
         {
             if (!await roleManager.RoleExistsAsync(roleName))

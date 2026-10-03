@@ -5,26 +5,31 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using RestaurantMenu.Helpers;
 using RestaurantMenu.Models;
+using RestaurantMenu.Services;
 
 using RestaurantMenu.Filters;
 namespace RestaurantMenu.Controllers;
 
-[Authorize(Roles = "OWNER")]
+// Owners and their staff; what each may do is decided per branch by IBranchAccess.
+[Authorize(Roles = "OWNER,STAFF")]
     [NoIndex]
     public class ProductController : Controller
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IWebHostEnvironment _webHostEnvironment;
+        private readonly IBranchAccess _access;
 
         public ProductController(
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
-            IWebHostEnvironment webHostEnvironment)
+            IWebHostEnvironment webHostEnvironment,
+            IBranchAccess access)
         {
             _context = context;
             _userManager = userManager;
             _webHostEnvironment = webHostEnvironment;
+            _access = access;
         }
         
         private string DiskMountPath =>
@@ -34,9 +39,10 @@ namespace RestaurantMenu.Controllers;
         public async Task<IActionResult> Create(int branchId)
         {
             var user = await _userManager.GetUserAsync(User);
+            var allowed = _access.BranchIds(BranchPermission.EditDishes);
             var branch = await _context.Branches
                 .Include(b => b.Categories)
-                .FirstOrDefaultAsync(b => b.Id == branchId && b.UserId == user.Id && !b.IsDeleted);
+                .FirstOrDefaultAsync(b => b.Id == branchId && allowed.Contains(b.Id) && !b.IsDeleted);
 
             if (branch == null)
             {
@@ -58,9 +64,10 @@ public async Task<IActionResult> Create(Product product, IFormFile? image, IForm
     int[]? allergenFlags, bool allergensNone, int[]? dietFlags)
 {
     var user = await _userManager.GetUserAsync(User);
+    var allowed = _access.BranchIds(BranchPermission.EditDishes);
     var branch = await _context.Branches
         .Include(b => b.Categories)
-        .FirstOrDefaultAsync(b => b.Id == product.BranchId && b.UserId == user.Id && !b.IsDeleted);
+        .FirstOrDefaultAsync(b => b.Id == product.BranchId && allowed.Contains(b.Id) && !b.IsDeleted);
 
     if (branch == null)
     {
@@ -68,6 +75,12 @@ public async Task<IActionResult> Create(Product product, IFormFile? image, IForm
     }
 
     ModelState.Remove("Category");
+    // The category must be one of this branch's: otherwise a posted id could put the dish
+    // into another restaurant's menu.
+    if (!branch.Categories!.Any(c => c.Id == product.CategoryId))
+    {
+        ModelState.AddModelError(nameof(Product.CategoryId), "Choose one of this branch's categories.");
+    }
     ApplyDietary(product, allergenFlags, allergensNone, dietFlags);
     // The select only offers known badges; anything else (unreadable or unknown) means none.
     if (ModelState.TryGetValue(nameof(Product.Badge), out var badgeState) && badgeState.Errors.Count > 0) ModelState.Remove(nameof(Product.Badge));
@@ -138,12 +151,13 @@ public async Task<IActionResult> Create(Product product, IFormFile? image, IForm
         public async Task<IActionResult> Edit(int id)
         {
             var user = await _userManager.GetUserAsync(User);
+            var allowed = _access.BranchIds(BranchPermission.EditDishes);
             var product = await _context.Products
                 .Include(p => p.OptionGroups!).ThenInclude(g => g.Options)
                 .Include(p => p.Category)
                 .ThenInclude(c => c.Branch)
                 .ThenInclude(b => b.Categories)
-                .FirstOrDefaultAsync(p => p.Id == id && p.Category.Branch.UserId == user.Id && !p.Category.Branch.IsDeleted);
+                .FirstOrDefaultAsync(p => p.Id == id && allowed.Contains(p.Category.BranchId) && !p.Category.Branch.IsDeleted);
 
             if (product == null)
             {
@@ -188,12 +202,13 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
     int[]? allergenFlags, bool allergensNone, int[]? dietFlags)
 {
     var user = await _userManager.GetUserAsync(User);
+    var allowed = _access.BranchIds(BranchPermission.EditDishes);
     var existingProduct = await _context.Products
         .Include(p => p.OptionGroups!).ThenInclude(g => g.Options)
         .Include(p => p.Category)
             .ThenInclude(c => c.Branch)
                 .ThenInclude(b => b.Categories)
-        .FirstOrDefaultAsync(p => p.Id == product.Id && p.Category.Branch.UserId == user.Id && !p.Category.Branch.IsDeleted);
+        .FirstOrDefaultAsync(p => p.Id == product.Id && allowed.Contains(p.Category.BranchId) && !p.Category.Branch.IsDeleted);
 
     if (existingProduct == null)
     {
@@ -201,6 +216,11 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
     }
 
     ModelState.Remove("Category");
+    // Moving the dish is only possible within its own branch (see Create).
+    if (!existingProduct.Category.Branch.Categories!.Any(c => c.Id == product.CategoryId))
+    {
+        ModelState.AddModelError(nameof(Product.CategoryId), "Choose one of this branch's categories.");
+    }
     ApplyDietary(product, allergenFlags, allergensNone, dietFlags);
     // The select only offers known badges; anything else (unreadable or unknown) means none.
     if (ModelState.TryGetValue(nameof(Product.Badge), out var badgeState) && badgeState.Errors.Count > 0) ModelState.Remove(nameof(Product.Badge));
@@ -297,10 +317,11 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
         public async Task<IActionResult> Delete(int id)
         {
             var user = await _userManager.GetUserAsync(User);
+            var allowed = _access.BranchIds(BranchPermission.DeleteDishes);
             var product = await _context.Products
                 .Include(p => p.Category)
                     .ThenInclude(c => c.Branch)
-                .FirstOrDefaultAsync(p => p.Id == id && p.Category.Branch.UserId == user.Id && !p.Category.Branch.IsDeleted);
+                .FirstOrDefaultAsync(p => p.Id == id && allowed.Contains(p.Category.BranchId) && !p.Category.Branch.IsDeleted);
 
             if (product == null)
             {
@@ -327,10 +348,11 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
                 .IgnoreQueryFilters()
                 .Include(p => p.Category)
                     .ThenInclude(c => c!.Branch)
-                .FirstOrDefaultAsync(p => p.Id == id && p.IsDeleted
-                                          && p.Category!.Branch!.UserId == user.Id && !p.Category.Branch.IsDeleted);
+                .FirstOrDefaultAsync(p => p.Id == id && p.IsDeleted && !p.Category!.Branch!.IsDeleted);
 
-            if (product == null)
+            // Checked separately: IgnoreQueryFilters above would also switch off the filters
+            // inside an access subquery (deleted branches, removed staff).
+            if (product == null || !await _access.CanAsync(product.Category!.BranchId, BranchPermission.DeleteDishes))
             {
                 return NotFound();
             }
@@ -365,9 +387,11 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
             }
 
             var user = await _userManager.GetUserAsync(User);
+
+            var allowed = _access.BranchIds(BranchPermission.EditDishes);
             var dishes = await _context.Products
                 .Where(p => p.CategoryId == request.CategoryId
-                            && p.Category!.Branch!.UserId == user.Id
+                            && allowed.Contains(p.Category!.BranchId)
                             && !p.Category.Branch.IsDeleted)
                 .ToListAsync();
 
@@ -412,10 +436,11 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
         public async Task<IActionResult> ToggleFeatured(int id, bool? isFeatured)
         {
             var user = await _userManager.GetUserAsync(User);
+            var allowed = _access.BranchIds(BranchPermission.EditDishes);
             var product = await _context.Products
                 .Include(p => p.Category)
                     .ThenInclude(c => c.Branch)
-                .FirstOrDefaultAsync(p => p.Id == id && p.Category.Branch.UserId == user.Id && !p.Category.Branch.IsDeleted);
+                .FirstOrDefaultAsync(p => p.Id == id && allowed.Contains(p.Category.BranchId) && !p.Category.Branch.IsDeleted);
 
             if (product == null)
             {
@@ -447,10 +472,11 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
         public async Task<IActionResult> ToggleAvailability(int id, bool? isAvailable)
         {
             var user = await _userManager.GetUserAsync(User);
+            var allowed = _access.BranchIds(BranchPermission.EditDishes);
             var product = await _context.Products
                 .Include(p => p.Category)
                     .ThenInclude(c => c.Branch)
-                .FirstOrDefaultAsync(p => p.Id == id && p.Category.Branch.UserId == user.Id && !p.Category.Branch.IsDeleted);
+                .FirstOrDefaultAsync(p => p.Id == id && allowed.Contains(p.Category.BranchId) && !p.Category.Branch.IsDeleted);
 
             if (product == null)
             {
@@ -543,12 +569,13 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
         public async Task<IActionResult> RemoveImage(int id, string? returnTo = null)
         {
             var user = await _userManager.GetUserAsync(User);
+            var allowed = _access.BranchIds(BranchPermission.EditDishes);
 
             var product = await _context.Products
                 .Include(p => p.Category)
                 .ThenInclude(c => c.Branch)
                 .FirstOrDefaultAsync(p => p.Id == id
-                                          && p.Category.Branch.UserId == user.Id
+                                          && allowed.Contains(p.Category.BranchId)
                                           && !p.Category.Branch.IsDeleted);
 
             if (product == null)

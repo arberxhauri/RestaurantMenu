@@ -17,19 +17,16 @@ namespace RestaurantMenu.Controllers;
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ApplicationDbContext _context;
-        private readonly IEmailSender _emailSender;
-        private readonly SmtpOptions _smtp;
+        private readonly InviteMailer _mailer;
 
         public AdminController(
             UserManager<ApplicationUser> userManager,
             ApplicationDbContext context,
-            IEmailSender emailSender,
-            IOptions<SmtpOptions> smtp)
+            InviteMailer mailer)
         {
             _userManager = userManager;
             _context = context;
-            _emailSender = emailSender;
-            _smtp = smtp.Value;
+            _mailer = mailer;
         }
 
         public async Task<IActionResult> Index()
@@ -106,22 +103,15 @@ namespace RestaurantMenu.Controllers;
             var token = await _userManager.GeneratePasswordResetTokenAsync(user);
             var link = Url.Action("SetPassword", "Account", new { userId = user.Id, token }, Request.Scheme)!;
 
-            if (_smtp.IsConfigured)
+            if (await _mailer.SendSetPasswordAsync(user.Email!, user.FullName, "Your My Quick Menu account",
+                    "Your My Quick Menu account is ready. Choose your password to sign in:", link))
             {
-                try
-                {
-                    var name = System.Net.WebUtility.HtmlEncode(user.FullName);
-                    await _emailSender.SendEmailAsync(user.Email!, "Your My Quick Menu account",
-                        $"<p>Hi {name},</p><p>Your My Quick Menu account is ready. Choose your password to sign in:</p>" +
-                        $"<p><a href=\"{System.Net.WebUtility.HtmlEncode(link)}\">Set my password</a></p>" +
-                        "<p>The link works for 3 days.</p>");
-                    TempData["Success"] = $"Invite sent to {user.Email}. The link works for 3 days.";
-                    return;
-                }
-                catch (Exception)
-                {
-                    TempData["Warning"] = "The invite email could not be sent. Copy the link below and send it yourself.";
-                }
+                TempData["Success"] = $"Invite sent to {user.Email}. The link works for 3 days.";
+                return;
+            }
+            if (_mailer.CanEmail)
+            {
+                TempData["Warning"] = "The invite email could not be sent. Copy the link below and send it yourself.";
             }
 
             // No email configured (or it failed): show the link once so the admin can send it.

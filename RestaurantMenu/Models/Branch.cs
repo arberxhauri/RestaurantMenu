@@ -31,4 +31,7 @@ public class Branch : ISoftDeletable
     public ApplicationUser? User { get; set; }
         
     public ICollection<Category>? Categories { get; set; }
+
+    // Staff who help run this branch (Team on Branch Details).
+    public ICollection<BranchMember>? Members { get; set; }
 }

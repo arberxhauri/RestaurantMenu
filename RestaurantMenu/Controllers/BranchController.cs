@@ -12,7 +12,8 @@ using System.Text.RegularExpressions;
 using RestaurantMenu.Filters;
 namespace RestaurantMenu.Controllers;
 
-[Authorize(Roles = "OWNER")]
+// Owners and their staff; what each may do is decided per branch by IBranchAccess.
+[Authorize(Roles = "OWNER,STAFF")]
     [NoIndex]
     public class BranchController : Controller
     {
@@ -22,6 +23,7 @@ namespace RestaurantMenu.Controllers;
         private readonly ColorExtractionService _colorService;
         private readonly IConfiguration _config;
         private readonly QrCodeService _qr;
+        private readonly IBranchAccess _access;
         
         public BranchController(
             ApplicationDbContext context,
@@ -29,7 +31,8 @@ namespace RestaurantMenu.Controllers;
             IWebHostEnvironment webHostEnvironment,
             ColorExtractionService colorService,
             IConfiguration config,
-            QrCodeService qr)
+            QrCodeService qr,
+            IBranchAccess access)
         {
             _context = context;
             _userManager = userManager;
@@ -37,12 +40,15 @@ namespace RestaurantMenu.Controllers;
             _colorService = colorService;
             _config = config;
             _qr = qr;
+            _access = access;
         }
         
         private string DiskMountPath =>
             Environment.GetEnvironmentVariable("DISK_MOUNT_PATH") ?? "/var/data";
 
+        // New branches use the owner's branch quota, so only owners create them.
         [HttpGet]
+        [Authorize(Roles = "OWNER")]
         public async Task<IActionResult> Create()
         {
             var user = await _userManager.GetUserAsync(User);
@@ -61,6 +67,7 @@ namespace RestaurantMenu.Controllers;
         }
 
         [HttpPost]
+        [Authorize(Roles = "OWNER")]
 public async Task<IActionResult> Create(Branch branch, IFormFile? logo, IFormFile? banner, string[] selectedLanguages, IFormCollection form)
 {
     var user = await _userManager.GetUserAsync(User);
@@ -192,9 +199,10 @@ public async Task<IActionResult> Create(Branch branch, IFormFile? logo, IFormFil
         public async Task<IActionResult> Edit(int id)
         {
             var user = await _userManager.GetUserAsync(User);
+            var allowed = _access.BranchIds(BranchPermission.EditBranch);
             var branch = await _context.Branches
                 .Include(b => b.OpeningHours)
-                .FirstOrDefaultAsync(b => b.Id == id && b.UserId == user.Id && !b.IsDeleted);
+                .FirstOrDefaultAsync(b => b.Id == id && allowed.Contains(b.Id) && !b.IsDeleted);
 
             if (branch == null)
             {
@@ -212,9 +220,10 @@ public async Task<IActionResult> Create(Branch branch, IFormFile? logo, IFormFil
 public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile? banner, string[] selectedLanguages, IFormCollection form)
 {
     var user = await _userManager.GetUserAsync(User);
+    var allowed = _access.BranchIds(BranchPermission.EditBranch);
     var existingBranch = await _context.Branches
         .Include(b => b.OpeningHours)
-        .FirstOrDefaultAsync(b => b.Id == branch.Id && b.UserId == user.Id && !b.IsDeleted);
+        .FirstOrDefaultAsync(b => b.Id == branch.Id && allowed.Contains(b.Id) && !b.IsDeleted);
 
     if (existingBranch == null)
     {
@@ -306,14 +315,27 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
         public async Task<IActionResult> Details(int id)
         {
             var user = await _userManager.GetUserAsync(User);
+            var allowed = _access.BranchIds(BranchPermission.View);
             var branch = await _context.Branches
                 .Include(b => b.Categories)
                     .ThenInclude(c => c.Products)
-                .FirstOrDefaultAsync(b => b.Id == id && b.UserId == user.Id && !b.IsDeleted);
+                .FirstOrDefaultAsync(b => b.Id == id && allowed.Contains(b.Id) && !b.IsDeleted);
 
             if (branch == null)
             {
                 return NotFound();
+            }
+
+            // The page shows only what this person may do (IBranchAccess); the actions check again.
+            var role = await _access.RoleAsync(id);
+            ViewBag.Role = role;
+            if (BranchAccess.Allows(role, BranchPermission.ManageTeam))
+            {
+                ViewBag.Team = await _context.BranchMembers
+                    .Where(m => m.BranchId == id)
+                    .OrderBy(m => m.User!.FullName)
+                    .Select(m => new TeamMemberRow(m.Id, m.User!.FullName, m.User.Email!, m.Role, m.User.PasswordHash == null))
+                    .ToListAsync();
             }
 
             return View(branch);
@@ -327,9 +349,10 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
         public async Task<IActionResult> Insights(int id, [FromServices] MenuInsights insights, int days = 30)
         {
             var user = await _userManager.GetUserAsync(User);
+            var allowed = _access.BranchIds(BranchPermission.ViewInsights);
             var branch = await _context.Branches
                 .AsNoTracking()
-                .FirstOrDefaultAsync(b => b.Id == id && b.UserId == user.Id && !b.IsDeleted);
+                .FirstOrDefaultAsync(b => b.Id == id && allowed.Contains(b.Id) && !b.IsDeleted);
 
             if (branch == null)
             {
@@ -356,9 +379,10 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
         public async Task<IActionResult> Qr(int id, int? table = null, string format = "svg", bool download = false)
         {
             var user = await _userManager.GetUserAsync(User);
+            var allowed = _access.BranchIds(BranchPermission.Print);
             var branch = await _context.Branches
                 .AsNoTracking()
-                .FirstOrDefaultAsync(b => b.Id == id && b.UserId == user.Id && !b.IsDeleted);
+                .FirstOrDefaultAsync(b => b.Id == id && allowed.Contains(b.Id) && !b.IsDeleted);
 
             if (branch == null)
             {
@@ -399,9 +423,10 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
             bool noTables = false, int copies = 0, string? lang = null, string? headline = null)
         {
             var user = await _userManager.GetUserAsync(User);
+            var allowed = _access.BranchIds(BranchPermission.Print);
             var branch = await _context.Branches
                 .AsNoTracking()
-                .FirstOrDefaultAsync(b => b.Id == id && b.UserId == user.Id && !b.IsDeleted);
+                .FirstOrDefaultAsync(b => b.Id == id && allowed.Contains(b.Id) && !b.IsDeleted);
 
             if (branch == null)
             {
@@ -482,8 +507,9 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
         public async Task<IActionResult> Delete(int id)
         {
             var user = await _userManager.GetUserAsync(User);
+            var allowed = _access.BranchIds(BranchPermission.DeleteBranch);
             var branch = await _context.Branches
-                .FirstOrDefaultAsync(b => b.Id == id && b.UserId == user.Id && !b.IsDeleted);
+                .FirstOrDefaultAsync(b => b.Id == id && allowed.Contains(b.Id) && !b.IsDeleted);
 
             if (branch == null)
             {
@@ -504,6 +530,7 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
         public async Task<IActionResult> Restore(int id)
         {
             var user = await _userManager.GetUserAsync(User);
+            // Owner only, checked directly: a deleted branch is invisible to IBranchAccess.
             var branch = await _context.Branches
                 .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(b => b.Id == id && b.UserId == user.Id && b.IsDeleted);

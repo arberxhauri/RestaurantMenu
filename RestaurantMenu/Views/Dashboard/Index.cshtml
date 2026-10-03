@@ -6,6 +6,12 @@
     var branches = Model.ToList();
     bool canCreate = ViewBag.CanCreateBranch;
     int maxBranches = ViewBag.MaxBranches;
+    // Owners: their branches and quota. Staff: the branches they were invited to, with their role.
+    bool isOwner = ViewBag.IsOwner;
+    int ownedCount = ViewBag.OwnedCount;
+    var roles = ViewBag.Roles as Dictionary<int, BranchRole> ?? new();
+    BranchRole RoleOf(Branch b) => roles.GetValueOrDefault(b.Id, BranchRole.None);
+    bool Can(Branch b, BranchPermission p) => BranchAccess.Allows(RoleOf(b), p);
     var categoryCount = branches.Sum(b => b.Categories?.Count ?? 0);
     var productCount = branches.Sum(b => b.Categories?.Sum(c => c.Products?.Count ?? 0) ?? 0);
     var week = ViewBag.Week as Dictionary<int, (MenuInsights.Totals Current, MenuInsights.Totals Previous)> ?? new();
@@ -18,29 +24,39 @@
 <header class="page-head">
     <div>
         <h1>My branches</h1>
-        <p>Each branch has its own menu, colours and QR link.</p>
+        <p>@(isOwner ? "Each branch has its own menu, colours and QR link." : "The branches you help run.")</p>
     </div>
-    <div class="page-actions">
-        @if (canCreate)
-        {
-            <a asp-controller="Branch" asp-action="Create" class="btn btn-primary">
-                <i class="ph ph-plus" aria-hidden="true"></i>New branch
-            </a>
-        }
-        else
-        {
-            <span class="chip chip--warn"><i class="ph ph-info" aria-hidden="true"></i>All @maxBranches branch slots in use</span>
-        }
-    </div>
+    @if (isOwner)
+    {
+        <div class="page-actions">
+            @if (canCreate)
+            {
+                <a asp-controller="Branch" asp-action="Create" class="btn btn-primary">
+                    <i class="ph ph-plus" aria-hidden="true"></i>New branch
+                </a>
+            }
+            else
+            {
+                <span class="chip chip--warn"><i class="ph ph-info" aria-hidden="true"></i>All @maxBranches branch slots in use</span>
+            }
+        </div>
+    }
 </header>
 
 <div class="stats">
-    <div class="stat"><span class="stat-value">@branches.Count<small class="stat-label"> / @maxBranches</small></span><span class="stat-label">Branches</span></div>
+    @if (isOwner)
+    {
+        <div class="stat"><span class="stat-value">@ownedCount<small class="stat-label"> / @maxBranches</small></span><span class="stat-label">Branches</span></div>
+    }
+    else
+    {
+        <div class="stat"><span class="stat-value">@branches.Count</span><span class="stat-label">Branches</span></div>
+    }
     <div class="stat"><span class="stat-value">@categoryCount</span><span class="stat-label">Categories</span></div>
     <div class="stat"><span class="stat-value">@productCount</span><span class="stat-label">Dishes on menus</span></div>
 </div>
 
-@if (branches.Any())
+@if (week.Any())
 {
     <section class="mb-4" aria-labelledby="week-title">
         <h2 id="week-title" class="section-head">Last 7 days <span>@(branches.Count > 1 ? "across all branches" : "")</span></h2>
@@ -57,8 +73,16 @@
     <div class="panel">
         <div class="empty">
             <i class="ph ph-storefront" aria-hidden="true"></i>
-            <h2>Create your first branch</h2>
-            <p>Add the name, address and logo. You'll get a menu link and QR right after.</p>
+            @if (isOwner)
+            {
+                <h2>Create your first branch</h2>
+                <p>Add the name, address and logo. You'll get a menu link and QR right after.</p>
+            }
+            else
+            {
+                <h2>No branches yet</h2>
+                <p>You'll see a branch here as soon as its owner adds you to the team.</p>
+            }
             @if (canCreate)
             {
                 <a asp-controller="Branch" asp-action="Create" class="btn btn-primary mt-2">
@@ -100,15 +124,22 @@ else
 
                 <div class="branch-body">
                     <h2><a asp-controller="Branch" asp-action="Details" asp-route-id="@branch.Id">@branch.Name</a></h2>
+                    @if (RoleOf(branch) is BranchRole.Manager or BranchRole.Editor)
+                    {
+                        <span class="chip chip--accent branch-role"><i class="ph ph-user-circle" aria-hidden="true"></i>@(RoleOf(branch) == BranchRole.Manager ? "Manager" : "Editor")</span>
+                    }
                     <div class="branch-meta"><i class="ph ph-map-pin" aria-hidden="true"></i><span>@branch.Address</span></div>
                     <div class="branch-counts">
                         <span class="chip">@cats @(cats == 1 ? "category" : "categories")</span>
                         <span class="chip">@dishes @(dishes == 1 ? "dish" : "dishes")</span>
                         <span class="chip mono">@branch.Currency</span>
-                        @{ var views = week.TryGetValue(branch.Id, out var w) ? w.Current.Views : 0; }
-                        <a class="chip chip--link" asp-controller="Branch" asp-action="Insights" asp-route-id="@branch.Id" title="Menu views in the last 7 days">
-                            <i class="ph ph-chart-bar" aria-hidden="true"></i>@views.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("en-GB")) @(views == 1 ? "view" : "views") this week
-                        </a>
+                        @if (Can(branch, BranchPermission.ViewInsights))
+                        {
+                            var views = week.TryGetValue(branch.Id, out var w) ? w.Current.Views : 0;
+                            <a class="chip chip--link" asp-controller="Branch" asp-action="Insights" asp-route-id="@branch.Id" title="Menu views in the last 7 days">
+                                <i class="ph ph-chart-bar" aria-hidden="true"></i>@views.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("en-GB")) @(views == 1 ? "view" : "views") this week
+                            </a>
+                        }
                     </div>
                 </div>
 
@@ -122,36 +153,50 @@ else
                     <button type="button" class="icon-btn" data-copy="@menuUrl" data-copy-done="Menu link copied" aria-label="Copy the menu link for @branch.Name" title="Copy menu link">
                         <i class="ph ph-link" aria-hidden="true"></i>
                     </button>
-                    <div class="dropdown">
-                        <button type="button" class="icon-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More actions for @branch.Name">
-                            <i class="ph ph-dots-three-vertical" aria-hidden="true"></i>
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li>
-                                <a class="dropdown-item" asp-controller="Branch" asp-action="Insights" asp-route-id="@branch.Id">
-                                    <i class="ph ph-chart-bar" aria-hidden="true"></i>Insights
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item" asp-controller="Branch" asp-action="Print" asp-route-id="@branch.Id">
-                                    <i class="ph ph-qr-code" aria-hidden="true"></i>QR &amp; print
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item" asp-controller="Branch" asp-action="Edit" asp-route-id="@branch.Id">
-                                    <i class="ph ph-pencil-simple" aria-hidden="true"></i>Edit details
-                                </a>
-                            </li>
-                            <li>
-                                <form asp-controller="Branch" asp-action="Delete" asp-route-id="@branch.Id" method="post"
-                                      data-confirm="Delete @branch.Name? Its menu link will stop working.">
-                                    <button type="submit" class="dropdown-item text-danger">
-                                        <i class="ph ph-trash" aria-hidden="true"></i>Delete branch
-                                    </button>
-                                </form>
-                            </li>
-                        </ul>
-                    </div>
+                    @if (Can(branch, BranchPermission.EditBranch))
+                    {
+                        <div class="dropdown">
+                            <button type="button" class="icon-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More actions for @branch.Name">
+                                <i class="ph ph-dots-three-vertical" aria-hidden="true"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li>
+                                    <a class="dropdown-item" asp-controller="Branch" asp-action="Insights" asp-route-id="@branch.Id">
+                                        <i class="ph ph-chart-bar" aria-hidden="true"></i>Insights
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" asp-controller="Branch" asp-action="Print" asp-route-id="@branch.Id">
+                                        <i class="ph ph-qr-code" aria-hidden="true"></i>QR &amp; print
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" asp-controller="Branch" asp-action="Edit" asp-route-id="@branch.Id">
+                                        <i class="ph ph-pencil-simple" aria-hidden="true"></i>Edit details
+                                    </a>
+                                </li>
+                                @if (Can(branch, BranchPermission.ManageTeam))
+                                {
+                                    <li>
+                                        <a class="dropdown-item" href="@Url.Action("Details", "Branch", new { id = branch.Id })#team">
+                                            <i class="ph ph-users-three" aria-hidden="true"></i>Team
+                                        </a>
+                                    </li>
+                                }
+                                @if (Can(branch, BranchPermission.DeleteBranch))
+                                {
+                                    <li>
+                                        <form asp-controller="Branch" asp-action="Delete" asp-route-id="@branch.Id" method="post"
+                                              data-confirm="Delete @branch.Name? Its menu link will stop working.">
+                                            <button type="submit" class="dropdown-item text-danger">
+                                                <i class="ph ph-trash" aria-hidden="true"></i>Delete branch
+                                            </button>
+                                        </form>
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    }
                 </div>
             </article>
         }
@@ -161,7 +206,7 @@ else
             <a class="new-branch" asp-controller="Branch" asp-action="Create">
                 <i class="ph ph-plus-circle" aria-hidden="true"></i>
                 <strong>New branch</strong>
-                <span class="hint">@(maxBranches - branches.Count) of @maxBranches slots left</span>
+                <span class="hint">@(maxBranches - ownedCount) of @maxBranches slots left</span>
             </a>
         }
     </div>

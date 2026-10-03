@@ -1005,3 +1005,24 @@ a.chip--link:hover { background: var(--accent-soft); color: var(--accent); }
 .bp-add.is-on { background: var(--bp-brand); border-color: var(--bp-brand); color: var(--bp-on-brand); }
 .bp-fab { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: var(--bp-brand); color: var(--bp-on-brand); font-size: 11px; font-weight: 700; white-space: nowrap; box-shadow: 0 8px 20px -8px rgb(0 0 0 / .4); }
 .bp-fab span:first-child { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; background: color-mix(in srgb, currentColor 20%, transparent); }
+
+/* ---------- Team (Branch Details) and staff role chip ---------- */
+.role-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: var(--r-pill); background: rgb(255 255 255 / .16); font-weight: 600; }
+.team-intro { margin: 0 0 16px; font-size: 14px; color: var(--ink-2); max-width: 760px; }
+.team-link { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 16px; }
+.team-link > .ph { font-size: 20px; margin-top: 2px; }
+.team-link-row { display: flex; gap: 8px; margin-top: 8px; }
+.team-link-row input { min-width: 0; flex: 1; }
+.team-invite { display: grid; grid-template-columns: minmax(200px, 2fr) minmax(140px, 1.3fr) 130px auto; gap: 10px; align-items: end; margin-bottom: 18px; }
+.team-field { display: flex; flex-direction: column; margin: 0; }
+.team-field .form-label { margin-bottom: 4px; }
+@media (max-width: 767.98px) { .team-invite { grid-template-columns: 1fr 1fr; } .team-field--email { grid-column: 1 / -1; } }
+.team-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line-2); }
+.team-member { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 0; border-bottom: 1px solid var(--line-2); }
+.team-member form { margin: 0; }
+.team-member select { width: auto; }
+.team-avatar { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+.team-who { flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; }
+.team-who span { font-size: 13px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; }
+/* Read-only category rows (editors): no drag handle, so keep the usual inset. */
+.row-item:not(:has(.drag-handle)) { padding-left: 20px; }

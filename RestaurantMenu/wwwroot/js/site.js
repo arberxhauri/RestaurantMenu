@@ -655,6 +655,7 @@
 
     function initSortable(list) {
         var endpoint = list.getAttribute('data-sortable');
+        if (!endpoint) return; // read-only for this person (Razor renders a null data-* as "")
         var itemAttr = list.getAttribute('data-sortable-item');
         var key = list.getAttribute('data-sortable-key');
         var extra = {};

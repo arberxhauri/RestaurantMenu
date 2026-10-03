@@ -14,7 +14,7 @@ namespace RestaurantMenu.Controllers;
 /// "Fill translations" on the dish and category forms: returns suggestions for the
 /// owner to review in the form. Nothing is saved here.
 /// </summary>
-[Authorize(Roles = "OWNER")]
+[Authorize(Roles = "OWNER,STAFF")]
 [NoIndex]
 public class TranslateController : Controller
 {
@@ -30,12 +30,14 @@ public class TranslateController : Controller
     private readonly ApplicationDbContext _context;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly TranslationService _translator;
+    private readonly IBranchAccess _access;
 
-    public TranslateController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, TranslationService translator)
+    public TranslateController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, TranslationService translator, IBranchAccess access)
     {
         _context = context;
         _userManager = userManager;
         _translator = translator;
+        _access = access;
     }
 
     public class FillRequest
@@ -56,9 +58,10 @@ public class TranslateController : Controller
             return BadRequest(new { message = "Unknown form." });
         }
 
-        var user = await _userManager.GetUserAsync(User);
+        // Dishes: Editor and up; categories: Manager and up.
+        var allowedBranches = _access.BranchIds(request.Kind == "category" ? BranchPermission.EditCategories : BranchPermission.EditDishes);
         var supported = await _context.Branches.AsNoTracking()
-            .Where(b => b.Id == request.BranchId && b.UserId == user!.Id && !b.IsDeleted)
+            .Where(b => b.Id == request.BranchId && allowedBranches.Contains(b.Id) && !b.IsDeleted)
             .Select(b => b.SupportedLanguages)
             .FirstOrDefaultAsync(ct);
         if (supported == null)

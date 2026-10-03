@@ -1,4 +1,5 @@
 @using RestaurantMenu.Helpers
+@using RestaurantMenu.ViewModels
 @model Branch
 @{
     ViewData["Title"] = Model.Name;
@@ -9,6 +10,10 @@
     var undeclaredCount = categories.Sum(c => c.Products?.Count(p => p.Allergens == null) ?? 0);
     var menuUrl = Url.Action("Index", "Menu", new { branchName = SeoService.Slug(Model.Name) }, Context.Request.Scheme);
     var languages = Model.SupportedLanguages.Split(',', StringSplitOptions.RemoveEmptyEntries);
+    // Only what this person may do is shown; every action checks again on the server.
+    var role = ViewBag.Role is BranchRole r ? r : BranchRole.None;
+    bool Can(BranchPermission p) => BranchAccess.Allows(role, p);
+    var team = ViewBag.Team as List<TeamMemberRow>;
 }
 
 <ol class="crumbs">
@@ -35,24 +40,37 @@
             <span><i class="ph ph-map-pin" aria-hidden="true"></i>@Model.Address</span>
             <span><i class="ph ph-phone" aria-hidden="true"></i>@Model.PhoneNumber</span>
             <span><i class="ph ph-translate" aria-hidden="true"></i>@string.Join(", ", languages.Select(LanguageHelper.GetLanguageName))</span>
+            @if (role is BranchRole.Manager or BranchRole.Editor)
+            {
+                <span class="role-chip"><i class="ph ph-user-circle" aria-hidden="true"></i>You're @(role == BranchRole.Manager ? "a manager" : "an editor") here</span>
+            }
         </div>
     </div>
     <div class="page-actions">
         <a class="btn btn-outline-secondary btn-sm" href="@menuUrl" target="_blank" rel="noopener">
             <i class="ph ph-arrow-square-out" aria-hidden="true"></i>Live menu
         </a>
-        <a class="btn btn-outline-secondary btn-sm" asp-action="Insights" asp-route-id="@Model.Id">
-            <i class="ph ph-chart-bar" aria-hidden="true"></i>Insights
-        </a>
-        <a class="btn btn-outline-secondary btn-sm" asp-action="Print" asp-route-id="@Model.Id">
-            <i class="ph ph-qr-code" aria-hidden="true"></i>QR &amp; print
-        </a>
+        @if (Can(BranchPermission.ViewInsights))
+        {
+            <a class="btn btn-outline-secondary btn-sm" asp-action="Insights" asp-route-id="@Model.Id">
+                <i class="ph ph-chart-bar" aria-hidden="true"></i>Insights
+            </a>
+        }
+        @if (Can(BranchPermission.Print))
+        {
+            <a class="btn btn-outline-secondary btn-sm" asp-action="Print" asp-route-id="@Model.Id">
+                <i class="ph ph-qr-code" aria-hidden="true"></i>QR &amp; print
+            </a>
+        }
         <button type="button" class="btn btn-outline-secondary btn-sm" data-copy="@menuUrl" data-copy-done="Menu link copied">
             <i class="ph ph-link" aria-hidden="true"></i>Copy link
         </button>
-        <a class="btn btn-outline-secondary btn-sm" asp-action="Edit" asp-route-id="@Model.Id">
-            <i class="ph ph-pencil-simple" aria-hidden="true"></i>Edit
-        </a>
+        @if (Can(BranchPermission.EditBranch))
+        {
+            <a class="btn btn-outline-secondary btn-sm" asp-action="Edit" asp-route-id="@Model.Id">
+                <i class="ph ph-pencil-simple" aria-hidden="true"></i>Edit
+            </a>
+        }
     </div>
 </section>
 
@@ -63,9 +81,12 @@
         <section class="panel" aria-labelledby="cat-title">
             <header class="panel-head">
                 <h2 id="cat-title">Categories <span class="count">@categories.Count</span></h2>
-                <a asp-controller="Category" asp-action="Create" asp-route-branchId="@Model.Id" class="btn btn-outline-secondary btn-sm">
-                    <i class="ph ph-plus" aria-hidden="true"></i>Add
-                </a>
+                @if (Can(BranchPermission.EditCategories))
+                {
+                    <a asp-controller="Category" asp-action="Create" asp-route-branchId="@Model.Id" class="btn btn-outline-secondary btn-sm">
+                        <i class="ph ph-plus" aria-hidden="true"></i>Add
+                    </a>
+                }
             </header>
 
             @if (!categories.Any())
@@ -73,21 +94,26 @@
                 <div class="empty empty--compact">
                     <i class="ph ph-list-bullets" aria-hidden="true"></i>
                     <h3>No categories yet</h3>
-                    <p>Start with sections like Starters, Mains and Drinks.</p>
+                    <p>@(Can(BranchPermission.EditCategories) ? "Start with sections like Starters, Mains and Drinks." : "A manager or the owner adds the menu's sections.")</p>
                 </div>
             }
             else
             {
-                <ul class="row-list" data-sortable="@Url.Action("UpdatePriorities", "Category")" data-sortable-item="data-category-id"
+                @* Editors see the categories but can't change or reorder them. *@
+                var canCategories = Can(BranchPermission.EditCategories);
+                <ul class="row-list" data-sortable="@(canCategories ? Url.Action("UpdatePriorities", "Category") : null)" data-sortable-item="data-category-id"
                     data-sortable-key="categoryIds" data-sortable-state="[data-sort-state]">
                     @for (var i = 0; i < categories.Count; i++)
                     {
                         var category = categories[i];
                         var count = category.Products?.Count ?? 0;
                         <li class="row-item" data-category-id="@category.Id" data-sort-name="@category.Name">
-                            <button type="button" class="drag-handle" aria-label="Move @category.Name (drag, or use the arrow keys)" title="Drag to reorder">
-                                <i class="ph ph-dots-six-vertical" aria-hidden="true"></i>
-                            </button>
+                            @if (canCategories)
+                            {
+                                <button type="button" class="drag-handle" aria-label="Move @category.Name (drag, or use the arrow keys)" title="Drag to reorder">
+                                    <i class="ph ph-dots-six-vertical" aria-hidden="true"></i>
+                                </button>
+                            }
                             <div class="row-main">
                                 <div class="row-title">@category.Name</div>
                                 <div class="row-sub">Position <span data-position>@(i + 1)</span>, @count @(count == 1 ? "dish" : "dishes")</div>
@@ -96,23 +122,29 @@
                                     <div class="row-sub"><i class="ph ph-clock" aria-hidden="true"></i> @ServingTimes.Schedule(category, "en")@(category.HideWhenUnavailable ? ", hidden outside" : "")</div>
                                 }
                             </div>
-                            <div class="row-actions">
-                                <a asp-controller="Category" asp-action="Edit" asp-route-id="@category.Id" class="icon-btn" aria-label="Edit @category.Name" title="Edit">
-                                    <i class="ph ph-pencil-simple" aria-hidden="true"></i>
-                                </a>
-                                <form asp-controller="Category" asp-action="Delete" asp-route-id="@category.Id" method="post"
-                                      data-confirm="Delete @category.Name and its @count @(count == 1 ? "dish" : "dishes")?">
-                                    <button type="submit" class="icon-btn icon-btn--danger" aria-label="Delete @category.Name" title="Delete">
-                                        <i class="ph ph-trash" aria-hidden="true"></i>
-                                    </button>
-                                </form>
-                            </div>
+                            @if (canCategories)
+                            {
+                                <div class="row-actions">
+                                    <a asp-controller="Category" asp-action="Edit" asp-route-id="@category.Id" class="icon-btn" aria-label="Edit @category.Name" title="Edit">
+                                        <i class="ph ph-pencil-simple" aria-hidden="true"></i>
+                                    </a>
+                                    <form asp-controller="Category" asp-action="Delete" asp-route-id="@category.Id" method="post"
+                                          data-confirm="Delete @category.Name and its @count @(count == 1 ? "dish" : "dishes")?">
+                                        <button type="submit" class="icon-btn icon-btn--danger" aria-label="Delete @category.Name" title="Delete">
+                                            <i class="ph ph-trash" aria-hidden="true"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            }
                         </li>
                     }
                 </ul>
-                <div class="panel-body pt-2 pb-3">
-                    <p class="save-state m-0" data-sort-state aria-live="polite">Drag the handle to change the order guests see.</p>
-                </div>
+                @if (canCategories)
+                {
+                    <div class="panel-body pt-2 pb-3">
+                        <p class="save-state m-0" data-sort-state aria-live="polite">Drag the handle to change the order guests see.</p>
+                    </div>
+                }
             }
         </section>
     </div>
@@ -219,11 +251,14 @@
                                         <a asp-controller="Product" asp-action="Edit" asp-route-id="@product.Id" class="icon-btn" aria-label="Edit @product.Name" title="Edit">
                                             <i class="ph ph-pencil-simple" aria-hidden="true"></i>
                                         </a>
-                                        <form asp-controller="Product" asp-action="Delete" asp-route-id="@product.Id" method="post" data-confirm="Delete @product.Name from the menu?">
-                                            <button type="submit" class="icon-btn icon-btn--danger" aria-label="Delete @product.Name" title="Delete">
-                                                <i class="ph ph-trash" aria-hidden="true"></i>
-                                            </button>
-                                        </form>
+                                        @if (Can(BranchPermission.DeleteDishes))
+                                        {
+                                            <form asp-controller="Product" asp-action="Delete" asp-route-id="@product.Id" method="post" data-confirm="Delete @product.Name from the menu?">
+                                                <button type="submit" class="icon-btn icon-btn--danger" aria-label="Delete @product.Name" title="Delete">
+                                                    <i class="ph ph-trash" aria-hidden="true"></i>
+                                                </button>
+                                            </form>
+                                        }
                                     </div>
                                 </div>
                             }
@@ -234,6 +269,99 @@
         </section>
     </div>
 </div>
+
+@if (team != null)
+{
+    <section class="panel mt-4 team" id="team" aria-labelledby="team-title">
+        <header class="panel-head">
+            <h2 id="team-title">Team <span class="count">@team.Count</span></h2>
+        </header>
+        <div class="panel-body">
+            <p class="team-intro">
+                Let managers and waiters update the menu with their own login.
+                <strong>Editors</strong> add and change dishes and mark them sold out.
+                <strong>Managers</strong> can also change categories, branch details, hours and brand, and see Insights and QR codes.
+                Only you manage the team and can delete the branch.
+            </p>
+
+            @if (TempData["TeamInviteLink"] is string teamLink)
+            {
+                <div class="flash flash--warn team-link" role="status">
+                    <i class="ph ph-envelope-simple" aria-hidden="true"></i>
+                    <div>
+                        <strong>Send this invite link to @TempData["TeamInviteFor"]</strong>
+                        <p class="m-0">Email isn't set up, so send it yourself (WhatsApp, SMS…). It works once, for 3 days. Anyone with the link can join, so send it only to them.</p>
+                        <div class="team-link-row">
+                            <input class="form-control form-control-sm mono" value="@teamLink" readonly aria-label="Invite link" />
+                            <button type="button" class="btn btn-primary btn-sm" data-copy="@teamLink" data-copy-done="Invite link copied"><i class="ph ph-copy" aria-hidden="true"></i>Copy</button>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <form asp-controller="Team" asp-action="Invite" method="post" class="team-invite">
+                <input type="hidden" name="branchId" value="@Model.Id" />
+                <label class="team-field team-field--email">
+                    <span class="form-label">Email</span>
+                    <input class="form-control" type="email" name="email" required maxlength="256" autocomplete="off" placeholder="name@example.com" />
+                </label>
+                <label class="team-field">
+                    <span class="form-label">Name <span class="text-body-secondary fw-normal">(optional)</span></span>
+                    <input class="form-control" type="text" name="name" maxlength="100" autocomplete="off" />
+                </label>
+                <label class="team-field">
+                    <span class="form-label">Role</span>
+                    <select class="form-select" name="role">
+                        <option value="@BranchMemberRole.Editor">Editor</option>
+                        <option value="@BranchMemberRole.Manager">Manager</option>
+                    </select>
+                </label>
+                <button type="submit" class="btn btn-primary"><i class="ph ph-user-plus" aria-hidden="true"></i>Invite</button>
+            </form>
+
+            @if (!team.Any())
+            {
+                <p class="hint m-0">No one else has access yet.</p>
+            }
+            else
+            {
+                <ul class="team-list">
+                    @foreach (var member in team)
+                    {
+                        <li class="team-member">
+                            <span class="team-avatar" aria-hidden="true">@member.Name.Substring(0, 1).ToUpperInvariant()</span>
+                            <div class="team-who">
+                                <strong>@member.Name</strong>
+                                <span>@member.Email</span>
+                            </div>
+                            @if (member.Pending)
+                            {
+                                <span class="chip chip--warn">Invite pending</span>
+                                <form asp-controller="Team" asp-action="ResendInvite" method="post">
+                                    <input type="hidden" name="memberId" value="@member.Id" />
+                                    <button type="submit" class="btn btn-quiet btn-sm">New invite link</button>
+                                </form>
+                            }
+                            <form asp-controller="Team" asp-action="ChangeRole" method="post" data-autosubmit>
+                                <input type="hidden" name="memberId" value="@member.Id" />
+                                <label class="visually-hidden" for="role-@member.Id">Role of @member.Name</label>
+                                <select class="form-select form-select-sm" id="role-@member.Id" name="role">
+                                    <option value="@BranchMemberRole.Editor" selected="@(member.Role == BranchMemberRole.Editor)">Editor</option>
+                                    <option value="@BranchMemberRole.Manager" selected="@(member.Role == BranchMemberRole.Manager)">Manager</option>
+                                </select>
+                                <noscript><button type="submit" class="btn btn-quiet btn-sm">Save</button></noscript>
+                            </form>
+                            <form asp-controller="Team" asp-action="Remove" method="post" data-confirm="Remove @member.Name from this branch? They lose access right away.">
+                                <input type="hidden" name="memberId" value="@member.Id" />
+                                <button type="submit" class="icon-btn icon-btn--danger" aria-label="Remove @member.Name" title="Remove"><i class="ph ph-user-minus" aria-hidden="true"></i></button>
+                            </form>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    </section>
+}
 
 @section Scripts {
     <script src="@("https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js")"></script>

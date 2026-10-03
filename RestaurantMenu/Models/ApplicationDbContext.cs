@@ -17,6 +17,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<BranchHours> BranchHours { get; set; }
     public DbSet<ProductOptionGroup> ProductOptionGroups { get; set; }
     public DbSet<ProductOption> ProductOptions { get; set; }
+    public DbSet<BranchMember> BranchMembers { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -103,6 +104,17 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.Property(o => o.Name).HasMaxLength(60);
             e.Property(o => o.PriceDelta).HasPrecision(18, 2);
             e.HasQueryFilter(o => !o.Group!.Product!.IsDeleted);
+        });
+
+        // Branch staff: one membership per person per branch. Removed with the branch row
+        // (soft-deleted branches keep them for Undo; the filter hides them meanwhile).
+        builder.Entity<BranchMember>(e =>
+        {
+            e.HasIndex(m => new { m.BranchId, m.UserId }).IsUnique();
+            e.HasIndex(m => m.UserId);
+            e.HasOne(m => m.Branch).WithMany(b => b.Members).HasForeignKey(m => m.BranchId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(m => m.User).WithMany().HasForeignKey(m => m.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(m => !m.Branch!.IsDeleted && !m.User!.IsDeleted);
         });
 
         // Decimal precision for Price

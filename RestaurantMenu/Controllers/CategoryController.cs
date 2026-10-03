@@ -4,29 +4,35 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RestaurantMenu.Helpers;
 using RestaurantMenu.Models;
+using RestaurantMenu.Services;
 
 using RestaurantMenu.Filters;
 namespace RestaurantMenu.Controllers
 {
-    [Authorize]
+    // Owners and managers (categories are Manager and up; see IBranchAccess).
+    [Authorize(Roles = "OWNER,STAFF")]
     [NoIndex]
     public class CategoryController : Controller
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
 
-        public CategoryController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+        private readonly IBranchAccess _access;
+
+        public CategoryController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IBranchAccess access)
         {
             _context = context;
             _userManager = userManager;
+            _access = access;
         }
 
         [HttpGet]
         public async Task<IActionResult> Create(int branchId)
         {
             var user = await _userManager.GetUserAsync(User);
+            var allowed = _access.BranchIds(BranchPermission.EditCategories);
             var branch = await _context.Branches
-                .FirstOrDefaultAsync(b => b.Id == branchId && b.UserId == user.Id && !b.IsDeleted);
+                .FirstOrDefaultAsync(b => b.Id == branchId && allowed.Contains(b.Id) && !b.IsDeleted);
 
             if (branch == null)
             {
@@ -44,8 +50,9 @@ namespace RestaurantMenu.Controllers
         public async Task<IActionResult> Create(Category category, IFormCollection form)
         {
             var user = await _userManager.GetUserAsync(User);
+            var allowed = _access.BranchIds(BranchPermission.EditCategories);
             var branch = await _context.Branches
-                .FirstOrDefaultAsync(b => b.Id == category.BranchId && b.UserId == user.Id && !b.IsDeleted);
+                .FirstOrDefaultAsync(b => b.Id == category.BranchId && allowed.Contains(b.Id) && !b.IsDeleted);
 
             if (branch == null)
             {
@@ -100,10 +107,11 @@ namespace RestaurantMenu.Controllers
         public async Task<IActionResult> Edit(int id)
         {
             var user = await _userManager.GetUserAsync(User);
+            var allowed = _access.BranchIds(BranchPermission.EditCategories);
             var category = await _context.Categories
                 .Include(c => c.Branch)
                 .Include(c => c.Products)
-                .FirstOrDefaultAsync(c => c.Id == id && c.Branch.UserId == user.Id && !c.Branch.IsDeleted);
+                .FirstOrDefaultAsync(c => c.Id == id && allowed.Contains(c.BranchId) && !c.Branch.IsDeleted);
 
             if (category == null)
             {
@@ -134,9 +142,10 @@ namespace RestaurantMenu.Controllers
         public async Task<IActionResult> Edit(Category category, IFormCollection form)
         {
             var user = await _userManager.GetUserAsync(User);
+            var allowed = _access.BranchIds(BranchPermission.EditCategories);
             var existingCategory = await _context.Categories
                 .Include(c => c.Branch)
-                .FirstOrDefaultAsync(c => c.Id == category.Id && c.Branch.UserId == user.Id && !c.Branch.IsDeleted);
+                .FirstOrDefaultAsync(c => c.Id == category.Id && allowed.Contains(c.BranchId) && !c.Branch.IsDeleted);
 
             if (existingCategory == null)
             {
@@ -191,10 +200,11 @@ namespace RestaurantMenu.Controllers
         public async Task<IActionResult> Delete(int id)
         {
             var user = await _userManager.GetUserAsync(User);
+            var allowed = _access.BranchIds(BranchPermission.EditCategories);
             var category = await _context.Categories
                 .Include(c => c.Branch)
                 .Include(c => c.Products)
-                .FirstOrDefaultAsync(c => c.Id == id && c.Branch.UserId == user.Id && !c.Branch.IsDeleted);
+                .FirstOrDefaultAsync(c => c.Id == id && allowed.Contains(c.BranchId) && !c.Branch.IsDeleted);
 
             if (category == null)
             {
@@ -222,10 +232,11 @@ namespace RestaurantMenu.Controllers
             var category = await _context.Categories
                 .IgnoreQueryFilters()
                 .Include(c => c.Branch)
-                .FirstOrDefaultAsync(c => c.Id == id && c.IsDeleted
-                                          && c.Branch!.UserId == user.Id && !c.Branch.IsDeleted);
+                .FirstOrDefaultAsync(c => c.Id == id && c.IsDeleted && !c.Branch!.IsDeleted);
 
-            if (category == null || category.DeletedOnUtc == null)
+            // Checked separately: IgnoreQueryFilters above would also switch off the filters
+            // inside an access subquery (deleted branches, removed staff).
+            if (category == null || category.DeletedOnUtc == null || !await _access.CanAsync(category.BranchId, BranchPermission.EditCategories))
             {
                 return NotFound();
             }
@@ -257,25 +268,32 @@ namespace RestaurantMenu.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> UpdatePriorities([FromBody] UpdatePrioritiesRequest request)
+        public async Task<IActionResult> UpdatePriorities([FromBody] UpdatePrioritiesRequest? request)
         {
-            var user = await _userManager.GetUserAsync(User);
-            
-            for (int i = 0; i < request.CategoryIds.Count; i++)
+            var ids = request?.CategoryIds ?? new List<int>();
+            if (ids.Count == 0 || ids.Distinct().Count() != ids.Count)
             {
-                var categoryId = request.CategoryIds[i];
-                var category = await _context.Categories
-                    .Include(c => c.Branch)
-                    .FirstOrDefaultAsync(c => c.Id == categoryId && c.Branch.UserId == user.Id);
-                
-                if (category != null)
-                {
-                    category.Priority = i;
-                }
+                return BadRequest();
             }
-            
+
+            // One query; all or nothing. Any id this person may not reorder (another branch,
+            // a deleted one, or an editor's request) refuses the whole request.
+            var allowed = _access.BranchIds(BranchPermission.EditCategories);
+            var categories = await _context.Categories
+                .Where(c => ids.Contains(c.Id) && allowed.Contains(c.BranchId) && !c.Branch!.IsDeleted)
+                .ToListAsync();
+            if (categories.Count != ids.Count || categories.Select(c => c.BranchId).Distinct().Count() != 1)
+            {
+                return NotFound();
+            }
+
+            var byId = categories.ToDictionary(c => c.Id);
+            for (var i = 0; i < ids.Count; i++)
+            {
+                byId[ids[i]].Priority = i;
+            }
             await _context.SaveChangesAsync();
-            
+
             return Json(new { success = true });
         }
     }

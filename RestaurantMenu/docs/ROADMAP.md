@@ -146,9 +146,22 @@ Sizes, half and full portions, extras. A prerequisite for ordering (item 14).
 - **Branch form:** "Brand" section: three colour pickers with hex fields, "Use logo colours", header style and light/dark cards. A live phone preview in the side column (shared `wwwroot/css/device.css`, extracted from the landing page) sticks while editing and has Light/Dark tabs. It uses the same contrast maths in JS, so it shows exactly what guests get.
 - **Menu:** forced light or dark (`theme-light` / `theme-dark`, also sets `color-scheme`). Header text and chips follow the header's background (white on photos, chosen black or white on colour, ink when minimal). Photo without a banner falls back to colour, and the banner is only preloaded for photo headers. The printed QR cards use the main colour.
 
-## 12. Staff accounts per branch (3 days)
+## 12. Staff accounts per branch: done
 
-`BranchMember { BranchId, UserId, Role (Manager, Editor) }`. Editors can change dishes and availability but not delete branches. Replace `b.UserId == user.Id` checks with a single `IBranchAccess.CanEdit(user, branchId)` service so the rule lives in one place.
+Managers and waiters update the menu with their own login.
+
+- **Model:** `BranchMember { BranchId, UserId, Role (Editor, Manager), CreatedUtc }`, unique per branch and person, with a query filter matching the branch's soft delete. The owner stays `Branch.UserId`. New `STAFF` role (seeded) for people who only help run branches. Migration `AddBranchMembers`.
+- **One access rule:** `Services/BranchAccess` (`IBranchAccess`) decides every back-office action with a single permission table:
+  - Editor: view the branch, add/edit dishes, sold out, recommend, reorder dishes, photos, translate dishes.
+  - Manager: also delete/restore dishes, categories, branch details/hours/brand, Insights, QR & print.
+  - Owner: also the team and deleting the branch.
+  Controllers compose `BranchIds(permission)` into their queries (one SQL query each), or call `CanAsync` where a query ignores filters (restores). Every `b.UserId == user.Id` access check is replaced. What remains is intentional: the owner's branch quota on Create, and the owner-only restore of a deleted branch, which the access service can't see. Refused requests answer 404, so nothing reveals that a branch exists.
+- **Security fixes found on the way:**
+  1. Product Create/Edit didn't check that the posted category belonged to the branch, so a dish could be written into another restaurant's menu. They now refuse with "Choose one of this branch's categories".
+  2. Category reorder didn't exclude deleted branches and answered 200 even when it changed nothing. It's now all-or-nothing in one query, 404 for any id the person may not reorder, and never mixes branches.
+- **Team section** on Branch Details (owner only): invite by email (optional name, role), change role (saves on selection), remove (takes effect on the next click, since access is checked against the database on every request), "New invite link" for pending invites. New people get an account with no password and set their own through the invite link (`Services/InviteMailer`, now shared with the admin's owner invites: emailed when SMTP is configured, otherwise a one-time link to copy). Existing accounts, including other owners, are added directly. Refused: the owner's own account, administrators, removed accounts, people already on the team. Removing someone keeps their account (its email stays theirs).
+- **Dashboard and pages follow the role:** staff see the branches they're on with a Manager/Editor chip and only the actions their role allows. "New branch" and the quota are for owners. The branch page hides what the role can't do, and the server checks again.
+- **Later:** managers inviting editors themselves; an activity log (who changed what).
 
 ## 13. Invites, email, password reset (2 to 3 days)
 

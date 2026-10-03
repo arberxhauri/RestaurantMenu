@@ -53,7 +53,7 @@
                 </div>
 
                 <nav class="sidebar-nav">
-                    @if (User.IsInRole("OWNER"))
+                    @if (User.IsInRole("OWNER") || User.IsInRole("STAFF"))
                     {
                         <a asp-controller="Dashboard" asp-action="Index" aria-current="@Current("Dashboard", "Branch", "Category", "Product")">
                             <i class="ph ph-storefront" aria-hidden="true"></i>My branches
