@@ -1,0 +1,24 @@
+@using System.Globalization
+@using RestaurantMenu.Services
+@model RestaurantMenu.ViewModels.KpiModel
+@{
+    var change = MenuInsights.Change(Model.Value, Model.Previous);
+    var number = Model.Value.ToString("N0", CultureInfo.GetCultureInfo("en-GB"));
+}
+@* Direction is carried by an icon and words as well as colour. *@
+<div class="kpi">
+    <span class="kpi-label">@Model.Label</span>
+    <span class="kpi-value">@number</span>
+    @if (change is { } c)
+    {
+        var kind = c.Direction > 0 ? "up" : c.Direction < 0 ? "down" : "flat";
+        var icon = c.Direction > 0 ? "ph-arrow-up-right" : c.Direction < 0 ? "ph-arrow-down-right" : "ph-equals";
+        <span class="kpi-delta kpi-delta--@kind">
+            <i class="ph @icon" aria-hidden="true"></i><strong>@c.Text</strong> <span>vs @Model.Period</span>
+        </span>
+    }
+    else
+    {
+        <span class="kpi-delta kpi-delta--flat"><span>Nothing to compare with yet</span></span>
+    }
+</div>

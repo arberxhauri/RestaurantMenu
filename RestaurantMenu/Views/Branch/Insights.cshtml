@@ -1,0 +1,205 @@
+@using System.Globalization
+@using RestaurantMenu.Helpers
+@using RestaurantMenu.Services
+@using RestaurantMenu.ViewModels
+@model InsightsViewModel
+@{
+    var branch = Model.Branch;
+    var r = Model.Report;
+    ViewData["Title"] = "Insights - " + branch.Name;
+    var en = CultureInfo.GetCultureInfo("en-GB");
+    string N(int n) => n.ToString("N0", en);
+    var period = $"previous {r.Days} days";
+    var hasAny = r.Current.Views + r.Current.DishOpens + r.Current.Adds + r.Previous.Views > 0;
+
+    // Column chart scale and labels. Label every day for a week, otherwise every 7th / 14th
+    // day counted back from today, so today is always labelled.
+    var (axisMax, axisStep) = ChartScale.Nice(r.Daily.Count == 0 ? 0 : r.Daily.Max(d => d.Views));
+    var labelEvery = r.Days <= 7 ? 1 : r.Days <= 30 ? 7 : 14;
+    var languages = branch.SupportedLanguages.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    var maxDishOpens = r.TopDishes.Count == 0 ? 0 : r.TopDishes.Max(d => d.Opens);
+    var langTotal = r.Languages.Sum(l => l.Views);
+}
+
+<ol class="crumbs">
+    <li><a asp-controller="Dashboard" asp-action="Index">My branches</a></li>
+    <li><a asp-action="Details" asp-route-id="@branch.Id">@branch.Name</a></li>
+    <li aria-current="page">Insights</li>
+</ol>
+
+<header class="page-head">
+    <div>
+        <h1>Insights</h1>
+        <p>How guests use the menu of @branch.Name. @r.From.ToString("d MMM", en) to @r.To.ToString("d MMM yyyy", en).</p>
+    </div>
+</header>
+
+@* One filter row above everything it scopes. *@
+<nav class="range-tabs" aria-label="Time range">
+    @foreach (var d in MenuInsights.Ranges)
+    {
+        <a asp-action="Insights" asp-route-id="@branch.Id" asp-route-days="@d" aria-current="@(d == r.Days ? "page" : null)">Last @d days</a>
+    }
+</nav>
+
+@if (!hasAny)
+{
+    <div class="panel">
+        <div class="empty">
+            <i class="ph ph-chart-bar" aria-hidden="true"></i>
+            <h2>No guest visits in this period yet</h2>
+            <p>Numbers appear here as soon as guests open the menu. Put QR codes on the tables to get started.</p>
+            <a class="btn btn-primary mt-2" asp-action="Print" asp-route-id="@branch.Id"><i class="ph ph-qr-code" aria-hidden="true"></i>QR codes &amp; print</a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="kpi-row">
+        <partial name="_Kpi" model="@(new KpiModel("Menu views", r.Current.Views, r.Previous.Views, period))" />
+        <partial name="_Kpi" model="@(new KpiModel("Dishes opened", r.Current.DishOpens, r.Previous.DishOpens, period))" />
+        <partial name="_Kpi" model="@(new KpiModel("Added to lists", r.Current.Adds, r.Previous.Adds, period))" />
+    </div>
+
+    <section class="panel mb-4" aria-labelledby="views-title">
+        <header class="panel-head">
+            <h2 id="views-title">Menu views per day</h2>
+        </header>
+        <div class="panel-body">
+            <figure class="colchart @(r.Days > 30 ? "colchart--dense" : "")">
+                <div class="colchart-plot">
+                    @* Gridlines + y ticks, from the top down. *@
+                    <div class="colchart-grid" aria-hidden="true">
+                        @for (var v = axisMax; v >= 0; v -= axisStep)
+                        {
+                            <span><em>@N(v)</em></span>
+                        }
+                    </div>
+                    <div class="colchart-cols" role="list" aria-label="Menu views per day" style="--n: @r.Daily.Count">
+                        @for (var i = 0; i < r.Daily.Count; i++)
+                        {
+                            var day = r.Daily[i];
+                            var pct = axisMax == 0 ? 0 : day.Views * 100.0 / axisMax;
+                            var edge = i < 3 ? "start" : i >= r.Daily.Count - 3 ? "end" : "mid";
+                            var label = day.Date.ToString("ddd d MMM", en);
+                            @* The whole column is the hover/focus target, not just the painted bar. *@
+                            <div class="colchart-col colchart-col--@edge" role="listitem" tabindex="0"
+                                 aria-label="@label: @N(day.Views) @(day.Views == 1 ? "view" : "views")">
+                                <span class="colchart-bar" style="height: @pct.ToString("0.##", CultureInfo.InvariantCulture)%"></span>
+                                <span class="colchart-tip" aria-hidden="true">
+                                    <strong>@N(day.Views) @(day.Views == 1 ? "view" : "views")</strong>
+                                    <span>@label</span>
+                                    <span>@N(day.DishOpens) opened · @N(day.Adds) added</span>
+                                </span>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="colchart-x" aria-hidden="true" style="--n: @r.Daily.Count">
+                    @for (var i = 0; i < r.Daily.Count; i++)
+                    {
+                        var show = (r.Daily.Count - 1 - i) % labelEvery == 0;
+                        <span>@(show ? r.Daily[i].Date.ToString(r.Days <= 7 ? "ddd d" : "d MMM", en) : "")</span>
+                    }
+                </div>
+            </figure>
+
+            <details class="chart-table">
+                <summary>Show as table</summary>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead><tr><th scope="col">Day</th><th scope="col" class="text-end">Menu views</th><th scope="col" class="text-end">Dishes opened</th><th scope="col" class="text-end">Added to lists</th></tr></thead>
+                        <tbody>
+                            @foreach (var day in r.Daily.AsEnumerable().Reverse())
+                            {
+                                <tr><td>@day.Date.ToString("ddd d MMM", en)</td><td class="text-end tabular">@N(day.Views)</td><td class="text-end tabular">@N(day.DishOpens)</td><td class="text-end tabular">@N(day.Adds)</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </details>
+        </div>
+    </section>
+
+    <div class="row g-4">
+        <div class="@(languages.Length > 1 ? "col-lg-7" : "col-12")">
+            <section class="panel h-100" aria-labelledby="dishes-title">
+                <header class="panel-head">
+                    <h2 id="dishes-title">Most opened dishes</h2>
+                </header>
+                @if (!r.TopDishes.Any())
+                {
+                    <p class="panel-body text-body-secondary m-0">No dish has been opened in this period yet.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table rank-table m-0">
+                            <thead>
+                                <tr><th scope="col">Dish</th><th scope="col" class="w-50">Opened</th><th scope="col" class="text-end">Added</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var dish in r.TopDishes)
+                                {
+                                    var w = maxDishOpens == 0 ? 0 : dish.Opens * 100.0 / maxDishOpens;
+                                    <tr>
+                                        <td>
+                                            @dish.Name
+                                            @if (dish.Removed)
+                                            {
+                                                <span class="chip ms-1">removed</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <span class="hbar"><span class="hbar-fill" style="--w: @((w / 100).ToString("0.####", CultureInfo.InvariantCulture))"></span><span class="hbar-value">@N(dish.Opens)</span></span>
+                                        </td>
+                                        <td class="text-end tabular">@N(dish.Adds)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
+        </div>
+
+        @if (languages.Length > 1)
+        {
+            <div class="col-lg-5">
+                <section class="panel h-100" aria-labelledby="lang-title">
+                    <header class="panel-head">
+                        <h2 id="lang-title">Menu languages</h2>
+                    </header>
+                    <div class="panel-body">
+                        @if (langTotal == 0)
+                        {
+                            <p class="text-body-secondary m-0">No views in this period yet.</p>
+                        }
+                        else
+                        {
+                            <ul class="lang-bars">
+                                @foreach (var code in languages.OrderByDescending(c => r.Languages.FirstOrDefault(l => l.Code == c)?.Views ?? 0))
+                                {
+                                    var views = r.Languages.FirstOrDefault(l => l.Code == code)?.Views ?? 0;
+                                    var share = views * 100.0 / langTotal;
+                                    <li>
+                                        <span class="lang-bars-name">@LanguageHelper.GetLanguageName(code)</span>
+                                        <span class="hbar"><span class="hbar-fill" style="--w: @((share / 100).ToString("0.####", CultureInfo.InvariantCulture))"></span><span class="hbar-value">@Math.Round(share)%</span></span>
+                                        <span class="lang-bars-count tabular">@N(views)</span>
+                                    </li>
+                                }
+                            </ul>
+                            <p class="hint mb-0">Share of menu views in each language. Guests switched language @N(r.LanguageSwitches) @(r.LanguageSwitches == 1 ? "time" : "times").</p>
+                        }
+                    </div>
+                </section>
+            </div>
+        }
+    </div>
+}
+
+<p class="insights-note">
+    <i class="ph ph-shield-check" aria-hidden="true"></i>
+    Counted: each time a guest opens the menu, opens a dish or adds one to their list. Not counted: search engines and link previews, and your own visits while you're signed in.
+    No cookies and nothing about the guest is stored. Days follow the restaurant's time zone.
+</p>

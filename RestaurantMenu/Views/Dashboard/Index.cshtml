@@ -1,3 +1,5 @@
+@using RestaurantMenu.Services
+@using RestaurantMenu.ViewModels
 @model IEnumerable<Branch>
 @{
     ViewData["Title"] = "My branches";
@@ -6,6 +8,11 @@
     int maxBranches = ViewBag.MaxBranches;
     var categoryCount = branches.Sum(b => b.Categories?.Count ?? 0);
     var productCount = branches.Sum(b => b.Categories?.Sum(c => c.Products?.Count ?? 0) ?? 0);
+    var week = ViewBag.Week as Dictionary<int, (MenuInsights.Totals Current, MenuInsights.Totals Previous)> ?? new();
+    MenuInsights.Totals Sum(Func<(MenuInsights.Totals Current, MenuInsights.Totals Previous), MenuInsights.Totals> pick) =>
+        new(week.Values.Sum(w => pick(w).Views), week.Values.Sum(w => pick(w).DishOpens), week.Values.Sum(w => pick(w).Adds));
+    var weekNow = Sum(w => w.Current);
+    var weekBefore = Sum(w => w.Previous);
 }
 
 <header class="page-head">
@@ -32,6 +39,18 @@
     <div class="stat"><span class="stat-value">@categoryCount</span><span class="stat-label">Categories</span></div>
     <div class="stat"><span class="stat-value">@productCount</span><span class="stat-label">Dishes on menus</span></div>
 </div>
+
+@if (branches.Any())
+{
+    <section class="mb-4" aria-labelledby="week-title">
+        <h2 id="week-title" class="section-head">Last 7 days <span>@(branches.Count > 1 ? "across all branches" : "")</span></h2>
+        <div class="kpi-row">
+            <partial name="_Kpi" model="@(new KpiModel("Menu views", weekNow.Views, weekBefore.Views, "previous 7 days"))" />
+            <partial name="_Kpi" model="@(new KpiModel("Dishes opened", weekNow.DishOpens, weekBefore.DishOpens, "previous 7 days"))" />
+            <partial name="_Kpi" model="@(new KpiModel("Added to lists", weekNow.Adds, weekBefore.Adds, "previous 7 days"))" />
+        </div>
+    </section>
+}
 
 @if (!branches.Any())
 {
@@ -86,6 +105,10 @@ else
                         <span class="chip">@cats @(cats == 1 ? "category" : "categories")</span>
                         <span class="chip">@dishes @(dishes == 1 ? "dish" : "dishes")</span>
                         <span class="chip mono">@branch.Currency</span>
+                        @{ var views = week.TryGetValue(branch.Id, out var w) ? w.Current.Views : 0; }
+                        <a class="chip chip--link" asp-controller="Branch" asp-action="Insights" asp-route-id="@branch.Id" title="Menu views in the last 7 days">
+                            <i class="ph ph-chart-bar" aria-hidden="true"></i>@views.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("en-GB")) @(views == 1 ? "view" : "views") this week
+                        </a>
                     </div>
                 </div>
 
@@ -104,6 +127,11 @@ else
                             <i class="ph ph-dots-three-vertical" aria-hidden="true"></i>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <a class="dropdown-item" asp-controller="Branch" asp-action="Insights" asp-route-id="@branch.Id">
+                                    <i class="ph ph-chart-bar" aria-hidden="true"></i>Insights
+                                </a>
+                            </li>
                             <li>
                                 <a class="dropdown-item" asp-controller="Branch" asp-action="Print" asp-route-id="@branch.Id">
                                     <i class="ph ph-qr-code" aria-hidden="true"></i>QR &amp; print

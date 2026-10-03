@@ -41,6 +41,9 @@
         <a class="btn btn-outline-secondary btn-sm" href="@menuUrl" target="_blank" rel="noopener">
             <i class="ph ph-arrow-square-out" aria-hidden="true"></i>Live menu
         </a>
+        <a class="btn btn-outline-secondary btn-sm" asp-action="Insights" asp-route-id="@Model.Id">
+            <i class="ph ph-chart-bar" aria-hidden="true"></i>Insights
+        </a>
         <a class="btn btn-outline-secondary btn-sm" asp-action="Print" asp-route-id="@Model.Id">
             <i class="ph ph-qr-code" aria-hidden="true"></i>QR &amp; print
         </a>

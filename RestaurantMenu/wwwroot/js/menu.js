@@ -18,6 +18,20 @@
     (body.dataset.soldoutIds || '').split(',').forEach(function (id) { if (id) SOLD_OUT[id] = true; });
     function isSoldOut(id) { return SOLD_OUT[String(id)] === true; }
 
+    /* ---------- Anonymous usage counts for the restaurant ----------
+       Which dishes get opened or saved, and language switches. Only the menu, the
+       event, the dish and the language are sent: no cookie, no id, nothing about
+       the guest. sendBeacon also delivers while the page is navigating away. */
+    var EVENT_URL = body.dataset.eventUrl;
+    var BRANCH_ID = body.dataset.branchId;
+    function track(type, dishId, lang) {
+        if (!EVENT_URL || !BRANCH_ID || !navigator.sendBeacon) return;
+        var data = new URLSearchParams({ b: BRANCH_ID, t: type });
+        if (dishId) data.set('p', dishId);
+        if (lang) data.set('l', lang);
+        try { navigator.sendBeacon(EVENT_URL, data); } catch (e) { /* never break the menu */ }
+    }
+
     var money = new Intl.NumberFormat(document.documentElement.lang || undefined, {
         minimumFractionDigits: 2, maximumFractionDigits: 2
     });
@@ -58,7 +72,7 @@
     function toggle(data) {
         var existing = find(data.id);
         if (existing) list = list.filter(function (i) { return i.id !== data.id; });
-        else list.push({ id: data.id, name: data.name, price: data.price, qty: 1 });
+        else { list.push({ id: data.id, name: data.name, price: data.price, qty: 1 }); track('add', data.id); }
         persist();
         render();
     }
@@ -185,6 +199,7 @@
     }
     function openDish(li) {
         current = itemData(li);
+        track('dish', current.id);
         dish.querySelector('[data-dish-name]').textContent = current.name;
         var desc = dish.querySelector('[data-dish-desc]');
         desc.textContent = current.desc || '';
@@ -222,6 +237,11 @@
     /* ---------- Language menu: close on outside click / Escape ---------- */
     var lang = document.querySelector('.m-lang');
     if (lang) {
+        lang.querySelectorAll('a[lang]').forEach(function (a) {
+            a.addEventListener('click', function () {
+                if (a.getAttribute('aria-current') !== 'true') track('lang', null, a.getAttribute('lang'));
+            });
+        });
         document.addEventListener('click', function (e) { if (!lang.contains(e.target)) lang.open = false; });
         document.addEventListener('keydown', function (e) { if (e.key === 'Escape') lang.open = false; });
     }

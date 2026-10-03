@@ -10,6 +10,8 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using RestaurantMenu.Filters;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -100,6 +102,23 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<SeoService>();
 builder.Services.AddScoped<QrCodeService>();
 
+// Menu analytics: anonymous events (no cookies, no IP or device stored), owner reports,
+// and a daily cleanup of old events.
+builder.Services.AddSingleton<MenuAnalytics>();
+builder.Services.AddScoped<MenuInsights>();
+builder.Services.AddHostedService<AnalyticsRetentionService>();
+
+// The public event endpoint takes anonymous posts, so cap them per client address
+// (held in memory for the window only, never stored) to keep anyone from inflating
+// a restaurant's numbers. A guest browsing normally sends a few per minute.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("menu-events", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+});
+
 // 6. Cookie settings
 builder.Services.ConfigureApplicationCookie(options =>
 {
@@ -148,6 +167,7 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
+app.UseRateLimiter();
 
 // 🔥 CRITICAL: Authentication BEFORE Authorization
 app.UseAuthentication();

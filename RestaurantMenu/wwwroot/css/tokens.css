@@ -43,6 +43,10 @@
     --warn: #8A5A00;
     --warn-soft: #F6EBCF;
 
+    /* Charts: single-series marks. Validated with the dataviz palette checks
+       (lightness band, chroma, contrast vs --surface) in both modes. */
+    --chart-1: #B84D0B;
+
     /* Shape: one radius scale. Controls 10px, cards 18px, sheets 26px, pills full. */
     --r-sm: 10px;
     --r-md: 18px;
@@ -90,6 +94,8 @@
         --danger-soft: #2E1514;
         --warn: #E6B657;
         --warn-soft: #2A2110;
+
+        --chart-1: #D87236; /* #F08A4B (dark --accent) is too light for the dark band */
 
         --shadow-sm: 0 1px 2px rgb(0 0 0 / .4);
         --shadow-md: 0 16px 40px -16px rgb(0 0 0 / .6), 0 2px 6px rgb(0 0 0 / .3);

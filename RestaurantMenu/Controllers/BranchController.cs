@@ -261,6 +261,35 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
         }
 
         /// <summary>
+        /// How guests use this branch's menu: views per day, most opened dishes and the
+        /// languages read, over the last 7, 30 or 90 days, compared with the period before.
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> Insights(int id, [FromServices] MenuInsights insights, int days = 30)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            var branch = await _context.Branches
+                .AsNoTracking()
+                .FirstOrDefaultAsync(b => b.Id == id && b.UserId == user.Id && !b.IsDeleted);
+
+            if (branch == null)
+            {
+                return NotFound();
+            }
+
+            if (!MenuInsights.Ranges.Contains(days))
+            {
+                days = 30;
+            }
+
+            return View(new InsightsViewModel
+            {
+                Branch = branch,
+                Report = await insights.ForBranchAsync(branch.Id, days)
+            });
+        }
+
+        /// <summary>
         /// The QR code for a branch's menu, optionally for one table (?t=). SVG for the web
         /// and design tools, PNG for print shops; download=true saves it as a file.
         /// </summary>

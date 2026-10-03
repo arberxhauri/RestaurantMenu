@@ -76,13 +76,16 @@ Keep migrations **additive** (new columns with defaults, new tables). During a z
 - **UI:** a drag handle on every dish row in Branch Details; each category's dishes reorder on their own (no dragging between categories; change the category in the dish form). The Sortable block in `site.js` is now generic (`data-sortable`, `-item`, `-key`, `-extra`, `-state`) and drives categories too. New for both: **keyboard reordering** (focus a handle, Arrow Up / Down; moves are announced and batched into one save), **revert to the last saved order** if a save fails, and only the newest save's result counts.
 - **Ordering fixes:** dishes are ordered by `DisplayOrder` then `Id` everywhere (back office, guest menu, JSON-LD); most existing dishes share `DisplayOrder = 0`, so the order was undefined and could differ between pages. The "Order in category" number field is gone; new dishes go to the end of their category, editing keeps the position, and moving a dish to another category puts it at the end of that category.
 
-## 5. Menu analytics (2 to 3 days)
+## 5. Menu analytics: done
 
 **Why:** owners renew when they can see that guests use the menu.
 
-- **Model:** `MenuEvent { Id, BranchId, ProductId?, Type (View, DishOpen, AddToList, LanguageSwitch), Lang, CreatedUtc }`, plus a nightly roll-up `MenuDaily { BranchId, Date, Views, DishOpens… }` once volume grows.
-- **Capture:** `MenuController.Index` writes a `View` (skip bots by user-agent). `menu.js` sends `navigator.sendBeacon('/menu/event', …)` on dish open and add-to-list. No cookies or personal data, so the privacy page stays true.
-- **Dashboard:** "Last 7 days" stats strip on the dashboard and a Branch → Insights tab: views per day, top opened dishes, languages used. Charting: Chart.js from cdnjs.
+- **Model:** `MenuEvent { BranchId, ProductId?, Type (View, DishOpen, AddToList, LanguageSwitch), Lang, CreatedUtc }`, migration `AddMenuEvents`. No IP, user agent, cookie or visitor id is stored, so nothing in it is personal data. No foreign keys, so events outlive deleted dishes and an insert never fails because of the menu's state.
+- **Capture** (`Services/MenuAnalytics`): `MenuController.Index` records a View when the page is actually served to a guest (not for the canonical 301). `POST /menu/event` takes `navigator.sendBeacon` posts from `menu.js` for dish opens, adds to the list (not removals) and language switches. It only stores events that make sense for that menu: a known type, a live dish of that branch, a language the branch offers. Not counted: bots, crawlers, link previews (WhatsApp, Facebook…), headless browsers and scripts, prefetches, and anyone signed in (owners checking their menu). The endpoint is rate-limited to 60 posts per minute per client address, which is held in memory only. Recording failures are logged and never break the menu.
+- **Reports** (`Services/MenuInsights`): days are counted in `Analytics:TimeZone` (default `Europe/Tirane`), grouped in Postgres. **Branch → Insights** (`/branch/insights/{id}?days=7|30|90`): stat tiles with change vs the previous period, a server-rendered "menu views per day" column chart (hover and keyboard tooltips, table view, no JS or chart library needed), most opened dishes (including removed ones) and the share of each menu language. **Dashboard:** "Last 7 days" tiles across all branches and a "N views this week" chip on each branch card. Chart colour `--chart-1` was validated with the dataviz palette checks in light and dark mode.
+- **Retention:** `AnalyticsRetentionService` deletes events older than `Analytics:RetentionDays` (default 400) daily.
+- **Privacy page** updated to say exactly what is counted and what isn't.
+- **Later:** a nightly `MenuDaily` roll-up when volume grows (the reports would read it for whole past days); a "busiest hours" chart; QR-table scans (`?t=`) as a dimension.
 
 ## 6. Translate-assist (1 to 2 days)
 

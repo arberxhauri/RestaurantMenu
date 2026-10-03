@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using RestaurantMenu.Helpers;
 using RestaurantMenu.Models;
@@ -10,11 +11,13 @@ public class MenuController : Controller
 {
     private readonly ApplicationDbContext _context;
     private readonly SeoService _seo;
+    private readonly MenuAnalytics _analytics;
 
-    public MenuController(ApplicationDbContext context, SeoService seo)
+    public MenuController(ApplicationDbContext context, SeoService seo, MenuAnalytics analytics)
     {
         _context = context;
         _seo = seo;
+        _analytics = analytics;
     }
 
     [Route("menu/{branchName}")]
@@ -83,7 +86,71 @@ public class MenuController : Controller
 
         ViewData["Seo"] = BuildSeo(branch, lang, supportedLanguages);
 
+        // Counted only once the page is really served to a guest (not for the redirect above).
+        if (MenuAnalytics.ShouldCount(HttpContext))
+        {
+            await _analytics.RecordAsync(branch.Id, MenuEventType.View, language: lang);
+        }
+
         return View(branch);
+    }
+
+    /// <summary>
+    /// Anonymous beacons from menu.js (navigator.sendBeacon, form-encoded):
+    /// b = branch id, t = dish | add | lang, p = dish id, l = language. Only events that
+    /// make sense for that menu are stored; nothing about the guest is.
+    /// </summary>
+    [HttpPost("menu/event")]
+    [EnableRateLimiting("menu-events")]
+    public async Task<IActionResult> Event([FromForm] int b, [FromForm] string? t, [FromForm] int? p, [FromForm] string? l)
+    {
+        MenuEventType? type = t switch
+        {
+            "dish" => MenuEventType.DishOpen,
+            "add" => MenuEventType.AddToList,
+            "lang" => MenuEventType.LanguageSwitch,
+            _ => null
+        };
+        if (type == null)
+        {
+            return BadRequest();
+        }
+
+        if (!MenuAnalytics.ShouldCount(HttpContext))
+        {
+            return NoContent();
+        }
+
+        // The query filter already excludes deleted branches and dishes.
+        var languages = await _context.Branches.AsNoTracking()
+            .Where(x => x.Id == b)
+            .Select(x => x.SupportedLanguages)
+            .FirstOrDefaultAsync();
+        if (languages == null)
+        {
+            return BadRequest();
+        }
+
+        if (type is MenuEventType.DishOpen or MenuEventType.AddToList)
+        {
+            if (p == null || !await _context.Products.AnyAsync(x => x.Id == p && x.BranchId == b))
+            {
+                return BadRequest();
+            }
+        }
+        else
+        {
+            p = null;
+        }
+
+        var language = l != null && languages.Split(',', StringSplitOptions.TrimEntries).Contains(l) ? l : null;
+        if (type == MenuEventType.LanguageSwitch && language == null)
+        {
+            return BadRequest();
+        }
+
+        await _analytics.RecordAsync(b, type.Value, p, language);
+        return NoContent();
     }
 
     private SeoMetadata BuildSeo(Branch branch, string language, string[] supportedLanguages)
