@@ -271,8 +271,49 @@ A website per branch, built from the dashboard so it's never out of date, at `/s
 - **Costs:** the site and subdomains are free. Render offers own domains on paid workspace plans only (Hobby includes 2, Pro 15, more are $0.25/month each), so restaurant domains are a paid add-on in practice.
 - **Later:** more templates, a photo gallery, events, and per-site analytics.
 
-### 17. Management system (ongoing)
-Stock per ingredient, staff shifts, end-of-day sales. Build only after ordering exists, since it feeds on order data.
+### 17. Management system: first version done
+Stock, staff shifts and end-of-day sales per branch, plus an overview across branches.
+
+- **Data** (migration `AddManagement`, additive):
+  - `Ingredient { Name, Unit, Quantity, LowLevel, CostPerUnit, IsArchived }`.
+  - `StockMovement { Kind (Delivery, Usage, Waste, Count, Sale, SaleReturn), Change, QuantityAfter, Note, OrderId, UserName }`.
+  - `DishIngredient { ProductId, IngredientId, Quantity per portion }` (the recipes).
+  - `Shift { UserId or PersonName, Station, StartsLocal, EndsLocal, Note }`.
+  - `DailySales { Date, Orders, Items, Revenue, CancelledOrders, TopDishes, CashTotal, CardTotal, CloseNote, ClosedByName }`.
+- **Stock** (`/branch/{id}/stock`, `Services/StockService`):
+  - Levels change only through movements, so each change has a reason, an author and the level after.
+  - Each change locks its ingredient rows (tested: 10 deliveries at once, none lost).
+  - Editors record deliveries, usage, waste and counts. Managers add, edit and archive ingredients and write **recipes** (`/stock/recipes`, per portion).
+  - **Table orders use stock through the recipes:**
+    - placing an order takes the ingredients out;
+    - cancelling puts them back, and restoring takes them out again;
+    - an order is synced to its state, so it never counts twice;
+    - stock never stops an order.
+  - Selling past zero shows "Count needed".
+  - Shows low stock (banner, chip), stock value, per-ingredient history, and which dishes use an ingredient.
+  - Amounts accept "1.5" or "1,5". Movement kinds and units are parsed strictly; an unknown value no longer silently became a delivery.
+- **Shifts** (`/branch/{id}/shifts`): a week rota, team members or anyone by name.
+  - Hours per person and per day; shifts can end after midnight; at most 16 h.
+  - One person can't be on two shifts at once.
+  - Copy last week (clashes skipped).
+  - Editors see the rota; managers plan it.
+- **Sales** (`/branch/{id}/sales`, `Services/SalesService`), Manager and up:
+  - Table orders per business day (the branch's time zone), cancelled ones counted separately.
+  - Last 7/30/90 days against the period before: revenue, orders, average order, dishes sold.
+  - Revenue per day as a chart with hover detail, and top dishes.
+  - **End-of-day close:** cash and card counted, a note and who closed, compared with the table orders.
+  - CSV export for the accountant.
+  - **Nightly roll-up** (`SalesRollupService`, every 30 minutes, `Sales__RollupIntervalSeconds`): stores each finished day with orders, backfills 35 days, refreshes a day for 6 hours after it ends, and keeps the closing count.
+- **Overview** (`/manage`, sidebar "Overview"): every branch the person manages, with today, yesterday, 7 and 30 days, low stock, who's on shift now, and days not closed.
+  - Totals per currency; branches with different currencies are never added together.
+  - Last 30 days by branch as bars.
+- **Also fixed:** back-office messages and dates no longer follow the server's culture (en-GB everywhere). Phone layouts no longer stretch to the widest table (`minmax(0, 1fr)`, also applied to bookings and websites).
+- **Later:**
+  - Purchase orders to suppliers and stock-value history.
+  - Clock in/out and wages.
+  - Sales from the till (POS) as well as table orders.
+  - Automatic "sold out" when an ingredient runs out.
+  - Insights on margins (recipe cost vs price).
 
 ### 18. Guest feedback (1 week)
 After the meal (or from the menu footer) a 1-to-5 rating with an optional comment. High ratings get a nudge to leave a Google review; low ratings go privately to the owner.

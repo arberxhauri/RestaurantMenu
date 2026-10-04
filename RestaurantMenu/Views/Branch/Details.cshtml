@@ -76,6 +76,21 @@
         }
         @if (Can(BranchPermission.ViewInsights))
         {
+            <a class="btn btn-outline-secondary btn-sm" asp-controller="Sales" asp-action="Index" asp-route-id="@Model.Id">
+                <i class="ph ph-receipt" aria-hidden="true"></i>Sales
+            </a>
+        }
+        @if (Can(BranchPermission.Stock))
+        {
+            <a class="btn btn-outline-secondary btn-sm" asp-controller="Stock" asp-action="Index" asp-route-id="@Model.Id">
+                <i class="ph ph-package" aria-hidden="true"></i>Stock
+            </a>
+            <a class="btn btn-outline-secondary btn-sm" asp-controller="Shifts" asp-action="Index" asp-route-id="@Model.Id">
+                <i class="ph ph-calendar-blank" aria-hidden="true"></i>Shifts
+            </a>
+        }
+        @if (Can(BranchPermission.ViewInsights))
+        {
             <a class="btn btn-outline-secondary btn-sm" asp-action="Insights" asp-route-id="@Model.Id">
                 <i class="ph ph-chart-bar" aria-hidden="true"></i>Insights
             </a>

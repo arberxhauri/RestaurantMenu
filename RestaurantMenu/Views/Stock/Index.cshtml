@@ -1,0 +1,200 @@
+@using RestaurantMenu.Controllers
+@using RestaurantMenu.Helpers
+@using RestaurantMenu.Models
+@model StockPage
+@{
+    var b = Model.Branch;
+    ViewData["Title"] = "Stock - " + b.Name;
+    var canSetup = ViewBag.CanSetup == true;
+    var low = Model.Ingredients.Where(StockRules.IsLow).ToList();
+    var symbol = CurrencyHelper.GetCurrencySymbol(b.Currency);
+    var value = Model.Ingredients.Where(i => i.CostPerUnit != null && i.Quantity > 0).Sum(i => i.Quantity * i.CostPerUnit!.Value);
+    var zone = OpeningHours.Zone(b.TimeZone);
+    string When(DateTime utc) => TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), zone).ToString("ddd d MMM, HH:mm", System.Globalization.CultureInfo.GetCultureInfo("en-GB"));
+}
+
+<ol class="crumbs">
+    <li><a asp-controller="Dashboard" asp-action="Index">My branches</a></li>
+    <li><a asp-controller="Branch" asp-action="Details" asp-route-id="@b.Id">@b.Name</a></li>
+    <li aria-current="page">Stock</li>
+</ol>
+
+<header class="page-head">
+    <div>
+        <h1>Stock@(Model.Archived ? " · archived" : "")</h1>
+        <p>Levels change with deliveries, waste and counts, and by themselves with table orders for dishes that have a recipe.</p>
+    </div>
+    <div class="page-actions">
+        @if (canSetup)
+        {
+            <a class="btn btn-outline-secondary btn-sm" asp-action="Recipes" asp-route-id="@b.Id"><i class="ph ph-cooking-pot" aria-hidden="true"></i>Recipes</a>
+        }
+        @if (Model.Archived)
+        {
+            <a class="btn btn-outline-secondary btn-sm" asp-action="Index" asp-route-id="@b.Id"><i class="ph ph-arrow-left" aria-hidden="true"></i>Current stock</a>
+        }
+        else if (Model.ArchivedCount > 0)
+        {
+            <a class="btn btn-outline-secondary btn-sm" asp-action="Index" asp-route-id="@b.Id" asp-route-archived="true"><i class="ph ph-archive" aria-hidden="true"></i>Archived (@Model.ArchivedCount)</a>
+        }
+    </div>
+</header>
+
+@if (!Model.Archived && low.Count > 0)
+{
+    <div class="flash flash--warn mb-4" role="status">
+        <i class="ph ph-warning" aria-hidden="true"></i>
+        <p><strong>Running low:</strong> @string.Join(", ", low.Select(i => $"{i.Name} ({StockRules.Format(i.Quantity, i.Unit)})")).</p>
+    </div>
+}
+
+@if (!Model.Archived)
+{
+    <div class="stats">
+        <div class="stat"><span class="stat-value">@Model.Ingredients.Count</span><span class="stat-label">Ingredients</span></div>
+        <div class="stat"><span class="stat-value">@low.Count</span><span class="stat-label">Running low</span></div>
+        @if (value > 0)
+        {
+            <div class="stat"><span class="stat-value">@symbol@value.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("en-GB"))</span><span class="stat-label">Stock value</span></div>
+        }
+    </div>
+}
+
+<div class="st-layout">
+    <section class="panel" aria-label="Ingredients">
+        @if (Model.Ingredients.Count == 0)
+        {
+            <div class="empty">
+                <i class="ph ph-package" aria-hidden="true"></i>
+                <h2>@(Model.Archived ? "Nothing archived" : "No ingredients yet")</h2>
+                <p>@(canSetup ? "Add what you keep in stock, then give dishes a recipe so table orders use it." : "A manager or the owner adds the ingredients.")</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="data-table st-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Ingredient</th>
+                            <th scope="col" class="text-end">In stock</th>
+                            <th scope="col" class="text-end">Low at</th>
+                            <th scope="col">@(Model.Archived ? "" : "Record")</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var i in Model.Ingredients)
+                        {
+                            var isLow = StockRules.IsLow(i);
+                            <tr id="i@(i.Id)" class="@(isLow ? "is-low" : "")">
+                                <th scope="row">
+                                    <a asp-action="History" asp-route-id="@b.Id" asp-route-ingredientId="@i.Id">@i.Name</a>
+                                    @if (Model.UsedBy.TryGetValue(i.Id, out var n)) { <small>In @n dish@(n == 1 ? "" : "es")</small> }
+                                </th>
+                                <td class="text-end">
+                                    <span class="st-level tabular">@StockRules.Format(i.Quantity, i.Unit)</span>
+                                    @if (i.Quantity < 0) { <span class="chip chip--danger"><i class="ph ph-warning" aria-hidden="true"></i>Count needed</span> }
+                                    else if (isLow) { <span class="chip chip--warn"><i class="ph ph-warning" aria-hidden="true"></i>Low</span> }
+                                </td>
+                                <td class="text-end tabular">@(i.LowLevel > 0 ? StockRules.Format(i.LowLevel, i.Unit) : "—")</td>
+                                <td>
+                                    @if (Model.Archived)
+                                    {
+                                        @if (canSetup)
+                                        {
+                                            <form method="post" asp-action="Archive" asp-route-id="@b.Id" asp-route-ingredientId="@i.Id">
+                                                <input type="hidden" name="archived" value="false" />
+                                                <button type="submit" class="btn btn-sm btn-outline-secondary">Restore</button>
+                                            </form>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <form method="post" asp-action="Move" asp-route-id="@b.Id" asp-route-ingredientId="@i.Id" class="st-move">
+                                            <label class="visually-hidden" for="k@(i.Id)">What happened to @i.Name</label>
+                                            <select id="k@(i.Id)" name="kind" class="form-select form-select-sm">
+                                                <option value="Delivery">Delivery +</option>
+                                                <option value="Usage">Used −</option>
+                                                <option value="Waste">Waste −</option>
+                                                <option value="Count">Counted =</option>
+                                            </select>
+                                            <label class="visually-hidden" for="a@(i.Id)">Amount of @i.Name in @StockRules.Short(i.Unit)</label>
+                                            <div class="input-group input-group-sm">
+                                                <input id="a@(i.Id)" name="amount" class="form-control" inputmode="decimal" placeholder="0" autocomplete="off" required />
+                                                <span class="input-group-text">@StockRules.Short(i.Unit)</span>
+                                            </div>
+                                            <button type="submit" class="btn btn-sm btn-primary" aria-label="Save for @i.Name">Save</button>
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    <aside class="st-side">
+        @if (canSetup && !Model.Archived)
+        {
+            <section class="panel" id="add" aria-labelledby="addTitle">
+                <div class="panel-body">
+                    <h2 id="addTitle" class="h5 mb-3">Add an ingredient</h2>
+                    <form method="post" asp-action="Create" asp-route-id="@b.Id">
+                        <div class="mb-2">
+                            <label class="form-label" for="name">Name</label>
+                            <input id="name" name="name" class="form-control" maxlength="80" required placeholder="e.g. Mozzarella" />
+                        </div>
+                        <div class="st-add-row mb-2">
+                            <div>
+                                <label class="form-label" for="unit">Unit</label>
+                                <select id="unit" name="unit" class="form-select">
+                                    @foreach (var u in Enum.GetValues<StockUnit>()) { <option value="@u">@StockRules.Long(u)</option> }
+                                </select>
+                            </div>
+                            <div>
+                                <label class="form-label" for="quantity">In stock now</label>
+                                <input id="quantity" name="quantity" class="form-control" inputmode="decimal" value="0" />
+                            </div>
+                        </div>
+                        <div class="st-add-row mb-3">
+                            <div>
+                                <label class="form-label" for="lowLevel">Warn at <span class="optional">optional</span></label>
+                                <input id="lowLevel" name="lowLevel" class="form-control" inputmode="decimal" placeholder="e.g. 5" />
+                            </div>
+                            <div>
+                                <label class="form-label" for="cost">Cost per unit <span class="optional">optional</span></label>
+                                <div class="input-group"><span class="input-group-text">@symbol</span><input id="cost" name="cost" class="form-control" inputmode="decimal" /></div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100"><i class="ph ph-plus" aria-hidden="true"></i>Add</button>
+                    </form>
+                </div>
+            </section>
+        }
+
+        <section class="panel" aria-labelledby="recentTitle">
+            <div class="panel-body">
+                <h2 id="recentTitle" class="h5 mb-2">Latest changes</h2>
+                @if (Model.Recent.Count == 0)
+                {
+                    <p class="hint m-0">Nothing recorded yet.</p>
+                }
+                else
+                {
+                    <ul class="st-feed">
+                        @foreach (var m in Model.Recent)
+                        {
+                            <li>
+                                <span class="st-change tabular @(m.Change < 0 ? "is-out" : "is-in")">@(m.Kind == StockMovementKind.Count ? "=" : m.Change > 0 ? "+" : "−")@StockRules.Format(m.Kind == StockMovementKind.Count ? m.QuantityAfter : Math.Abs(m.Change), m.Ingredient?.Unit)</span>
+                                <span class="st-feed-main"><strong>@m.Ingredient?.Name</strong> · @StockRules.KindText(m.Kind)@(m.Note != null ? $" · {m.Note}" : "")</span>
+                                <small>@When(m.CreatedUtc)@(m.UserName != null ? $" · {m.UserName}" : "")</small>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </section>
+    </aside>
+</div>

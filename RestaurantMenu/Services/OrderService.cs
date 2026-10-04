@@ -38,12 +38,14 @@ public class OrderService
     private readonly ApplicationDbContext _db;
     private readonly IHubContext<KitchenHub> _hub;
     private readonly ILogger<OrderService> _logger;
+    private readonly StockService _stock;
 
-    public OrderService(ApplicationDbContext db, IHubContext<KitchenHub> hub, ILogger<OrderService> logger)
+    public OrderService(ApplicationDbContext db, IHubContext<KitchenHub> hub, ILogger<OrderService> logger, StockService stock)
     {
         _db = db;
         _hub = hub;
         _logger = logger;
+        _stock = stock;
     }
 
     private static PlaceResult Fail(OrderProblem p, string? lang, IReadOnlyList<int>? ids = null, string? message = null) =>
@@ -133,6 +135,8 @@ public class OrderService
         }
 
         await NotifyAsync(order);
+        // Recipes use their ingredients (Stock); best effort, never stops the order.
+        await _stock.SyncOrderAsync(order.Id, utcNow);
         return new PlaceResult(order, null, null, Array.Empty<int>());
     }
 
@@ -197,6 +201,8 @@ public class OrderService
         var order = await _db.Orders.AsNoTracking().Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == orderId && o.BranchId == branchId);
         if (order == null) return (null, false);
         if (changed) await NotifyAsync(order);
+        // Cancelling gives the ingredients back; restoring uses them again.
+        if (changed && (from == OrderStatus.Cancelled || to == OrderStatus.Cancelled)) await _stock.SyncOrderAsync(orderId, utcNow);
         return (KitchenOrder.From(order), !changed);
     }
 

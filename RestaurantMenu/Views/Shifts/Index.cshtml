@@ -1,0 +1,166 @@
+@using System.Globalization
+@using RestaurantMenu.Controllers
+@model ShiftsWeek
+@{
+    var b = Model.Branch;
+    ViewData["Title"] = "Shifts - " + b.Name;
+    var en = CultureInfo.GetCultureInfo("en-GB");
+    var canPlan = ViewBag.CanPlan == true;
+    var team = (List<(string Id, string Name)>)ViewBag.Team;
+    var prevCount = (int)ViewBag.PrevWeekCount;
+    var days = Enumerable.Range(0, 7).Select(i => Model.Monday.AddDays(i)).ToList();
+    string Iso(DateOnly d) => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    string Hours(double h) => h == Math.Floor(h) ? $"{h:0} h" : $"{h:0.#} h";
+
+    // One row per person: team first (in team order), then names used this week.
+    string Key(string? userId, string name) => userId ?? "name:" + name.ToLowerInvariant();
+    var people = team.Select(t => (Key: t.Id, Name: t.Name)).ToList();
+    foreach (var s in Model.Shifts)
+    {
+        var k = Key(s.UserId, s.PersonName);
+        if (!people.Any(p => p.Key == k)) people.Add((k, s.PersonName));
+    }
+    var byPerson = Model.Shifts.GroupBy(s => Key(s.UserId, s.PersonName)).ToDictionary(g => g.Key, g => g.ToList());
+    var total = Model.Shifts.Sum(s => (s.EndsLocal - s.StartsLocal).TotalHours);
+}
+
+<ol class="crumbs">
+    <li><a asp-controller="Dashboard" asp-action="Index">My branches</a></li>
+    <li><a asp-controller="Branch" asp-action="Details" asp-route-id="@b.Id">@b.Name</a></li>
+    <li aria-current="page">Shifts</li>
+</ol>
+
+<header class="page-head">
+    <div>
+        <h1>Shifts</h1>
+        <p>Week of @Model.Monday.ToString("d MMMM yyyy", en) · @Model.Shifts.Count shift@(Model.Shifts.Count == 1 ? "" : "s"), @Hours(total)</p>
+    </div>
+</header>
+
+<div class="bk-nav">
+    <a class="icon-btn icon-btn--line" asp-action="Index" asp-route-id="@b.Id" asp-route-week="@Iso(Model.Monday.AddDays(-7))" aria-label="Previous week" title="Previous week"><i class="ph ph-caret-left" aria-hidden="true"></i></a>
+    <a class="icon-btn icon-btn--line" asp-action="Index" asp-route-id="@b.Id" asp-route-week="@Iso(Model.Monday.AddDays(7))" aria-label="Next week" title="Next week"><i class="ph ph-caret-right" aria-hidden="true"></i></a>
+    @if (ShiftsController.Monday(Model.Today) != Model.Monday)
+    {
+        <a class="btn btn-outline-secondary btn-sm" asp-action="Index" asp-route-id="@b.Id">This week</a>
+    }
+    @if (canPlan && prevCount > 0)
+    {
+        <form method="post" asp-action="CopyLastWeek" asp-route-id="@b.Id" class="bk-close-form" data-confirm="Copy last week's @prevCount shifts into this week? Shifts that would clash are skipped.">
+            <input type="hidden" name="week" value="@Iso(Model.Monday)" />
+            <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="ph ph-copy" aria-hidden="true"></i>Copy last week</button>
+        </form>
+    }
+</div>
+
+<div class="sh-layout">
+    <section class="panel" aria-label="Rota">
+        <div class="table-responsive">
+            <table class="data-table sh-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Person</th>
+                        @foreach (var d in days)
+                        {
+                            <th scope="col" class="@(d == Model.Today ? "is-today" : "")">@d.ToString("ddd", en) <span>@d.Day</span></th>
+                        }
+                        <th scope="col" class="text-end">Hours</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (people.Count == 0)
+                    {
+                        <tr><td colspan="9" class="text-center hint">No one yet. Add a shift.</td></tr>
+                    }
+                    @foreach (var p in people)
+                    {
+                        var mine = byPerson.TryGetValue(p.Key, out var l) ? l : new List<RestaurantMenu.Models.Shift>();
+                        <tr>
+                            <th scope="row">@p.Name</th>
+                            @foreach (var d in days)
+                            {
+                                <td class="@(d == Model.Today ? "is-today" : "")">
+                                    @foreach (var s in mine.Where(x => DateOnly.FromDateTime(x.StartsLocal) == d))
+                                    {
+                                        <div class="sh-shift">
+                                            <span class="sh-time tabular">@s.StartsLocal.ToString("HH:mm", CultureInfo.InvariantCulture)–@s.EndsLocal.ToString("HH:mm", CultureInfo.InvariantCulture)@(s.EndsLocal.Date > s.StartsLocal.Date ? "⁺¹" : "")</span>
+                                            @if (s.Station != null) { <span class="sh-station">@s.Station</span> }
+                                            @if (s.Note != null) { <span class="sh-note" title="@s.Note"><i class="ph ph-note" aria-hidden="true"></i><span class="visually-hidden">@s.Note</span></span> }
+                                            @if (canPlan)
+                                            {
+                                                <form method="post" asp-action="Delete" asp-route-id="@b.Id" asp-route-shiftId="@s.Id" data-confirm="Remove @s.PersonName's shift on @s.StartsLocal.ToString("ddd d MMM", en)?">
+                                                    <button type="submit" class="sh-x" aria-label="Remove @s.PersonName's shift on @s.StartsLocal.ToString("dddd", en)"><i class="ph ph-x" aria-hidden="true"></i></button>
+                                                </form>
+                                            }
+                                        </div>
+                                    }
+                                </td>
+                            }
+                            <td class="text-end tabular">@(mine.Count == 0 ? "—" : Hours(mine.Sum(s => (s.EndsLocal - s.StartsLocal).TotalHours)))</td>
+                        </tr>
+                    }
+                </tbody>
+                @if (Model.Shifts.Count > 0)
+                {
+                    <tfoot>
+                        <tr>
+                            <th scope="row">People on</th>
+                            @foreach (var d in days)
+                            {
+                                <td class="tabular">@Model.Shifts.Where(s => DateOnly.FromDateTime(s.StartsLocal) == d).Select(s => Key(s.UserId, s.PersonName)).Distinct().Count()</td>
+                            }
+                            <td class="text-end tabular">@Hours(total)</td>
+                        </tr>
+                    </tfoot>
+                }
+            </table>
+        </div>
+    </section>
+
+    @if (canPlan)
+    {
+        <aside class="panel" id="add" aria-labelledby="addShift">
+            <div class="panel-body">
+                <h2 id="addShift" class="h5 mb-3">Add a shift</h2>
+                <form method="post" asp-action="Save" asp-route-id="@b.Id" data-shift-form>
+                    <label class="form-label" for="person">Who</label>
+                    <select id="person" name="person" class="form-select mb-2" data-person>
+                        @foreach (var t in team) { <option value="@t.Id">@t.Name</option> }
+                        <option value="other">Someone else…</option>
+                    </select>
+                    <div class="mb-2" data-other-name hidden>
+                        <label class="form-label" for="pname">Name</label>
+                        <input id="pname" name="name" class="form-control" maxlength="80" placeholder="e.g. Arta (waiter)" />
+                    </div>
+                    <label class="form-label" for="sday">Day</label>
+                    <select id="sday" name="date" class="form-select mb-2">
+                        @foreach (var d in days) { <option value="@Iso(d)" selected="@(d == Model.Today)">@d.ToString("dddd d MMM", en)</option> }
+                    </select>
+                    <div class="st-add-row mb-2">
+                        <div><label class="form-label" for="sstart">From</label><input id="sstart" name="start" type="time" class="form-control" value="09:00" required /></div>
+                        <div><label class="form-label" for="send">Until</label><input id="send" name="end" type="time" class="form-control" value="17:00" required /></div>
+                    </div>
+                    <label class="form-label" for="station">Station <span class="optional">optional</span></label>
+                    <input id="station" name="station" class="form-control mb-2" maxlength="40" list="stations" placeholder="Kitchen, Bar, Floor…" />
+                    <datalist id="stations"><option value="Kitchen"></option><option value="Bar"></option><option value="Floor"></option><option value="Cashier"></option><option value="Delivery"></option></datalist>
+                    <label class="form-label" for="snote">Note <span class="optional">optional</span></label>
+                    <input id="snote" name="note" class="form-control mb-3" maxlength="200" />
+                    <button type="submit" class="btn btn-primary w-100"><i class="ph ph-plus" aria-hidden="true"></i>Add shift</button>
+                    <p class="hint mt-2 mb-0">An "until" earlier than "from" ends the next day. Someone can't be on two shifts at once.</p>
+                </form>
+            </div>
+        </aside>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var sel = document.querySelector('[data-person]');
+            if (!sel) return;
+            var other = document.querySelector('[data-other-name]');
+            function sync() { other.hidden = sel.value !== 'other'; other.querySelector('input').required = sel.value === 'other'; }
+            sel.addEventListener('change', sync); sync();
+        })();
+    </script>
+}

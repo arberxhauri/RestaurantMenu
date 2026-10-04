@@ -1112,7 +1112,7 @@ a.chip--link:hover { background: var(--accent-soft); color: var(--accent); }
 .bk-qr { width: 180px; max-width: 100%; margin: 8px 0 12px; padding: 8px; background: #fff; border-radius: var(--r-sm); border: 1px solid var(--line); }
 .bk-qr svg { width: 100%; height: auto; display: block; }
 @media (max-width: 991.98px) {
-    .bk-layout, .bk-settings { grid-template-columns: 1fr; }
+    .bk-layout, .bk-settings { grid-template-columns: minmax(0, 1fr); }
     .bk-side { position: static; }
     .bk-side .panel-body { padding: 16px; }
     .bk-close-form { margin-left: 0; }
@@ -1142,6 +1142,69 @@ a.chip--link:hover { background: var(--accent-soft); color: var(--accent); }
 .ws-domain-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .ws-domain-actions form { margin: 0; }
 @media (max-width: 991.98px) {
-    .ws-layout { grid-template-columns: 1fr; }
+    .ws-layout { grid-template-columns: minmax(0, 1fr); }
     .ws-side { position: static; }
+}
+
+/* ---------- Management: stock, recipes, shifts, sales ---------- */
+.st-layout, .sa-layout, .sh-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start; }
+.st-side, .sa-side { display: flex; flex-direction: column; gap: 16px; }
+.st-side .panel, .sa-side .panel, .sh-layout .panel { margin: 0; }
+.st-table th[scope="row"] a { font-weight: 700; color: inherit; }
+.st-table th[scope="row"] small { display: block; font-weight: 400; color: var(--ink-3); font-size: 12.5px; }
+.st-table tr.is-low .st-level { color: var(--warn); font-weight: 700; }
+.st-level { font: 600 15px/1.2 var(--font-mono); }
+.st-table .chip { margin-left: 6px; }
+.st-move { display: flex; gap: 6px; align-items: center; margin: 0; min-width: 300px; }
+.st-move .form-select { width: auto; }
+.st-move .input-group { width: 130px; flex: none; }
+.st-move--stack { flex-direction: column; align-items: stretch; min-width: 0; gap: 4px; }
+.st-move--stack .input-group { width: 100%; }
+.st-move--stack .btn { margin-top: 10px; }
+.st-add-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.st-feed { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.st-feed li { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.st-feed li:last-child { border-bottom: 0; }
+.st-feed small { grid-column: 2; color: var(--ink-3); font-size: 12.5px; }
+.st-change { font: 600 13px/1.4 var(--font-mono); min-width: 70px; }
+.st-change.is-in, .st-in { color: var(--ok); }
+.st-change.is-out, .st-out { color: var(--ink-2); }
+.st-uses { list-style: none; margin: 0; padding: 0; }
+.st-uses li { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.st-uses li span:last-child { color: var(--ink-3); }
+.rc-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+.rc-dish { margin: 0; }
+.rc-dish > summary { cursor: pointer; padding: 14px 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; list-style: none; }
+.rc-dish > summary::-webkit-details-marker { display: none; }
+.rc-dish > summary::after { content: "Edit"; margin-left: auto; font-size: 13px; font-weight: 600; color: var(--accent); }
+.rc-dish[open] > summary::after { content: "Close"; }
+.rc-summary { color: var(--ink-3); font-size: 14px; }
+.rc-form { padding: 0 18px 16px; }
+.rc-rows { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.rc-row { display: grid; grid-template-columns: minmax(0, 1fr) 140px; gap: 8px; }
+.rc-actions { display: flex; gap: 8px; margin-bottom: 8px; }
+.sh-table { table-layout: fixed; min-width: 760px; }
+.sh-table th, .sh-table td { vertical-align: top; padding-left: 6px; padding-right: 6px; }
+.sh-table th:first-child { width: 120px; } .sh-table th:last-child { width: 64px; }
+.sh-table thead th span { display: block; font: 700 17px/1.2 var(--font-display); }
+.sh-table .is-today { background: color-mix(in oklab, var(--accent-soft) 55%, transparent); }
+.sh-shift { position: relative; display: flex; flex-direction: column; gap: 1px; padding: 6px 20px 6px 7px; overflow-wrap: anywhere; margin-bottom: 4px; border-radius: var(--r-sm); background: var(--accent-soft); font-size: 13px; }
+.sh-time { font: 600 12.5px/1.3 var(--font-mono); }
+.sh-station { color: var(--ink-2); font-size: 12px; }
+.sh-note { position: absolute; right: 22px; top: 6px; color: var(--ink-3); }
+.sh-shift form { position: absolute; right: 2px; top: 2px; margin: 0; }
+.sh-x { width: 20px; height: 20px; display: grid; place-items: center; border: 0; background: none; color: var(--ink-3); border-radius: 50%; padding: 0; }
+.sh-x:hover { background: var(--danger-soft); color: var(--danger); }
+.sa-days tr.is-selected { background: var(--accent-soft); }
+.sa-days th[scope="row"] .chip { margin-left: 6px; }
+.ov-table th[scope="row"] a { font-weight: 700; color: inherit; }
+.ov-table th[scope="row"] .chip { margin-left: 6px; }
+@media (max-width: 1099.98px) {
+    .st-layout, .sa-layout, .sh-layout { grid-template-columns: minmax(0, 1fr); } /* 1fr alone grows to the widest table */
+}
+/* Stock and the rota need the full width below wide desktops: side panels go underneath, side by side. */
+@media (max-width: 1399.98px) {
+    .st-layout, .sh-layout { grid-template-columns: minmax(0, 1fr); }
+    .st-side { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); align-items: start; }
+    .sh-layout > aside { max-width: 560px; }
 }

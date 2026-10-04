@@ -25,6 +25,11 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Reservation> Reservations { get; set; }
     public DbSet<BranchSite> BranchSites { get; set; }
     public DbSet<Domain> Domains { get; set; }
+    public DbSet<Ingredient> Ingredients { get; set; }
+    public DbSet<StockMovement> StockMovements { get; set; }
+    public DbSet<DishIngredient> DishIngredients { get; set; }
+    public DbSet<Shift> Shifts { get; set; }
+    public DbSet<DailySales> DailySales { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -210,6 +215,64 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.Property(d => d.Token).HasMaxLength(64);
             e.Property(d => d.LastError).HasMaxLength(300);
             e.Property(d => d.RenderId).HasMaxLength(64);
+            e.HasQueryFilter(d => !d.Branch!.IsDeleted);
+        });
+
+        // Management: stock, recipes, shifts, daily sales. All follow the branch's soft delete.
+        builder.Entity<Ingredient>(e =>
+        {
+            e.HasIndex(i => new { i.BranchId, i.Name });
+            e.HasOne(i => i.Branch).WithMany().HasForeignKey(i => i.BranchId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(i => i.Name).HasMaxLength(80);
+            e.Property(i => i.Quantity).HasPrecision(18, 3);
+            e.Property(i => i.LowLevel).HasPrecision(18, 3);
+            e.Property(i => i.CostPerUnit).HasPrecision(18, 2);
+            e.HasQueryFilter(i => !i.Branch!.IsDeleted);
+        });
+        builder.Entity<StockMovement>(e =>
+        {
+            e.HasIndex(m => new { m.IngredientId, m.CreatedUtc });
+            e.HasIndex(m => new { m.BranchId, m.CreatedUtc });
+            e.HasIndex(m => m.OrderId);
+            e.HasOne(m => m.Ingredient).WithMany().HasForeignKey(m => m.IngredientId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(m => m.Change).HasPrecision(18, 3);
+            e.Property(m => m.QuantityAfter).HasPrecision(18, 3);
+            e.Property(m => m.Note).HasMaxLength(200);
+            e.Property(m => m.UserName).HasMaxLength(100);
+            e.HasQueryFilter(m => !m.Ingredient!.Branch!.IsDeleted);
+        });
+        builder.Entity<DishIngredient>(e =>
+        {
+            e.HasIndex(d => new { d.ProductId, d.IngredientId }).IsUnique();
+            e.HasIndex(d => d.IngredientId);
+            e.HasOne(d => d.Product).WithMany().HasForeignKey(d => d.ProductId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(d => d.Ingredient).WithMany().HasForeignKey(d => d.IngredientId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(d => d.Quantity).HasPrecision(18, 3);
+            e.HasQueryFilter(d => !d.Product!.IsDeleted && !d.Ingredient!.Branch!.IsDeleted);
+        });
+        builder.Entity<Shift>(e =>
+        {
+            e.HasIndex(s => new { s.BranchId, s.StartsLocal });
+            e.HasIndex(s => s.UserId);
+            e.HasOne(s => s.Branch).WithMany().HasForeignKey(s => s.BranchId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(s => s.PersonName).HasMaxLength(80);
+            e.Property(s => s.Station).HasMaxLength(40);
+            e.Property(s => s.Note).HasMaxLength(200);
+            e.Property(s => s.UserId).HasMaxLength(450);
+            e.Property(s => s.StartsLocal).HasColumnType("timestamp without time zone");
+            e.Property(s => s.EndsLocal).HasColumnType("timestamp without time zone");
+            e.HasQueryFilter(s => !s.Branch!.IsDeleted);
+        });
+        builder.Entity<DailySales>(e =>
+        {
+            e.HasIndex(d => new { d.BranchId, d.Date }).IsUnique();
+            e.HasOne(d => d.Branch).WithMany().HasForeignKey(d => d.BranchId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(d => d.Revenue).HasPrecision(18, 2);
+            e.Property(d => d.CashTotal).HasPrecision(18, 2);
+            e.Property(d => d.CardTotal).HasPrecision(18, 2);
+            e.Property(d => d.CloseNote).HasMaxLength(300);
+            e.Property(d => d.ClosedByName).HasMaxLength(100);
+            e.Property(d => d.TopDishes).HasMaxLength(4000);
             e.HasQueryFilter(d => !d.Branch!.IsDeleted);
         });
 

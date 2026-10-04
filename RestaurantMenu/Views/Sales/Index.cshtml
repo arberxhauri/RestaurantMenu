@@ -1,0 +1,219 @@
+@using System.Globalization
+@using RestaurantMenu.Controllers
+@using RestaurantMenu.Helpers
+@using RestaurantMenu.Services
+@model SalesPage
+@{
+    var b = Model.Branch;
+    ViewData["Title"] = "Sales - " + b.Name;
+    var en = CultureInfo.GetCultureInfo("en-GB");
+    var cur = Model.Currency;
+    string Money(decimal v) => cur + v.ToString("N2", en);
+    string Whole(decimal v) => cur + v.ToString("N0", en);
+    string Iso(DateOnly d) => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    var c = Model.Current;
+    var p = Model.Previous;
+    decimal rev = c.Sum(d => d.Revenue), prevRev = p.Sum(d => d.Revenue);
+    int orders = c.Sum(d => d.Orders), prevOrders = p.Sum(d => d.Orders);
+    int items = c.Sum(d => d.Items), prevItems = p.Sum(d => d.Items);
+    decimal avg = orders == 0 ? 0 : rev / orders, prevAvg = prevOrders == 0 ? 0 : prevRev / prevOrders;
+    (string Text, int Dir)? Change(decimal now, decimal before)
+    {
+        if (before == 0) return now == 0 ? null : ("New", 1);
+        var pct = (int)Math.Round((now - before) * 100 / before);
+        return pct == 0 ? ("No change", 0) : (pct > 0 ? $"+{pct}%" : $"−{-pct}%", Math.Sign(pct));
+    }
+    var period = $"previous {Model.Days} days";
+    var kpis = new[]
+    {
+        ("Revenue", Whole(rev), Change(rev, prevRev)),
+        ("Orders", orders.ToString("N0", en), Change(orders, prevOrders)),
+        ("Average order", Money(avg), Change(avg, prevAvg)),
+        ("Dishes sold", items.ToString("N0", en), Change(items, prevItems))
+    };
+    var maxRev = c.Count == 0 ? 0 : c.Max(d => d.Revenue);
+    var (axisMax, axisStep) = ChartScale.Nice((int)Math.Ceiling(maxRev));
+    var labelEvery = Model.Days <= 7 ? 1 : Model.Days <= 30 ? 7 : 14;
+    var maxTop = Model.Top.Count == 0 ? 0 : Model.Top.Max(t => t.Revenue);
+    var closing = Model.Closing;
+}
+
+<ol class="crumbs">
+    <li><a asp-controller="Dashboard" asp-action="Index">My branches</a></li>
+    <li><a asp-controller="Branch" asp-action="Details" asp-route-id="@b.Id">@b.Name</a></li>
+    <li aria-current="page">Sales</li>
+</ol>
+
+<header class="page-head">
+    <div>
+        <h1>Sales</h1>
+        <p>Table orders of @b.Name, @c[0].Date.ToString("d MMM", en) to @Model.Today.ToString("d MMM yyyy", en). Cancelled orders don't count.</p>
+    </div>
+    <div class="page-actions">
+        <a class="btn btn-outline-secondary btn-sm" asp-action="Export" asp-route-id="@b.Id" asp-route-days="@Model.Days"><i class="ph ph-download-simple" aria-hidden="true"></i>CSV</a>
+    </div>
+</header>
+
+<nav class="range-tabs" aria-label="Time range">
+    @foreach (var d in SalesController.Ranges)
+    {
+        <a asp-action="Index" asp-route-id="@b.Id" asp-route-days="@d" aria-current="@(d == Model.Days ? "page" : null)">Last @d days</a>
+    }
+</nav>
+
+<div class="kpi-row">
+    @foreach (var (label, value, change) in kpis)
+    {
+        <div class="kpi">
+            <span class="kpi-label">@label</span>
+            <span class="kpi-value">@value</span>
+            @if (change is { } ch)
+            {
+                var kind = ch.Dir > 0 ? "up" : ch.Dir < 0 ? "down" : "flat";
+                var icon = ch.Dir > 0 ? "ph-arrow-up-right" : ch.Dir < 0 ? "ph-arrow-down-right" : "ph-equals";
+                <span class="kpi-delta kpi-delta--@kind"><i class="ph @icon" aria-hidden="true"></i><strong>@ch.Text</strong> <span>vs @period</span></span>
+            }
+            else
+            {
+                <span class="kpi-delta kpi-delta--flat"><span>Nothing to compare with yet</span></span>
+            }
+        </div>
+    }
+</div>
+
+<section class="panel mb-4" aria-labelledby="revTitle">
+    <header class="panel-head"><h2 id="revTitle">Revenue per day</h2></header>
+    <div class="panel-body">
+        @if (rev == 0)
+        {
+            <div class="empty">
+                <i class="ph ph-receipt" aria-hidden="true"></i>
+                <h2>No sales yet</h2>
+                <p>Sales come from table orders. Switch on ordering on the Tables &amp; ordering page.</p>
+            </div>
+        }
+        else
+        {
+            <figure class="colchart @(Model.Days > 30 ? "colchart--dense" : "")">
+                <div class="colchart-plot">
+                    <div class="colchart-grid" aria-hidden="true">
+                        @for (var v = axisMax; v >= 0; v -= axisStep) { <span><em>@v.ToString("N0", en)</em></span> }
+                    </div>
+                    <div class="colchart-cols" role="list" aria-label="Revenue per day" style="--n: @c.Count">
+                        @for (var i = 0; i < c.Count; i++)
+                        {
+                            var day = c[i];
+                            var pct = axisMax == 0 ? 0 : (double)day.Revenue * 100.0 / axisMax;
+                            var edge = i < 3 ? "start" : i >= c.Count - 3 ? "end" : "mid";
+                            var label = day.Date.ToString("ddd d MMM", en);
+                            <div class="colchart-col colchart-col--@edge" role="listitem" tabindex="0" aria-label="@label: @Money(day.Revenue), @day.Orders orders">
+                                <span class="colchart-bar" style="height: @pct.ToString("0.##", CultureInfo.InvariantCulture)%"></span>
+                                <span class="colchart-tip" aria-hidden="true">
+                                    <strong>@Money(day.Revenue)</strong>
+                                    <span>@label@(day.Live && day.Date == Model.Today ? " (so far)" : "")</span>
+                                    <span>@day.Orders order@(day.Orders == 1 ? "" : "s") · @day.Items dishes</span>
+                                </span>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="colchart-x" aria-hidden="true" style="--n: @c.Count">
+                    @for (var i = 0; i < c.Count; i++)
+                    {
+                        var show = (c.Count - 1 - i) % labelEvery == 0;
+                        <span>@(show ? c[i].Date.ToString(Model.Days <= 7 ? "ddd d" : "d MMM", en) : "")</span>
+                    }
+                </div>
+            </figure>
+        }
+    </div>
+</section>
+
+<div class="sa-layout">
+    <section class="panel" aria-labelledby="daysTitle">
+        <header class="panel-head"><h2 id="daysTitle">Days</h2></header>
+        <div class="table-responsive">
+            <table class="data-table sa-days">
+                <thead>
+                    <tr>
+                        <th scope="col">Day</th>
+                        <th scope="col" class="text-end">Orders</th>
+                        <th scope="col" class="text-end">Table orders</th>
+                        <th scope="col" class="text-end">Counted (cash + card)</th>
+                        <th scope="col"><span class="visually-hidden">Close</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in c.AsEnumerable().Reverse())
+                    {
+                        <tr class="@(d.Date == closing.Date ? "is-selected" : "")">
+                            <th scope="row">@d.Date.ToString("ddd d MMM", en)@if (d.Date == Model.Today) { <span class="chip chip--accent">Today</span> }</th>
+                            <td class="text-end tabular">@(d.Orders == 0 ? "—" : d.Orders.ToString("N0", en))@if (d.Cancelled > 0) { <small class="d-block text-muted">@d.Cancelled cancelled</small> }</td>
+                            <td class="text-end tabular">@(d.Revenue == 0 ? "—" : Money(d.Revenue))</td>
+                            <td class="text-end tabular">
+                                @if (d.Counted is { } counted)
+                                {
+                                    @Money(counted)<small class="d-block text-muted" title="@d.CloseNote">by @d.ClosedBy</small>
+                                }
+                                else { <span class="text-muted">—</span> }
+                            </td>
+                            <td class="text-end"><a class="btn btn-sm btn-outline-secondary" asp-action="Index" asp-route-id="@b.Id" asp-route-days="@Model.Days" asp-route-close="@Iso(d.Date)" asp-fragment="close">@(d.ClosedUtc == null ? "Close" : "Edit")</a></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <aside class="sa-side">
+        <section class="panel" id="close" aria-labelledby="closeTitle">
+            <div class="panel-body">
+                <h2 id="closeTitle" class="h5 mb-1">End of day · @closing.Date.ToString("ddd d MMM", en)</h2>
+                <p class="hint mt-0">Count the till and enter what was taken. Table orders that day: <strong>@Money(closing.Revenue)</strong> (@closing.Orders order@(closing.Orders == 1 ? "" : "s")@(closing.Date == Model.Today ? " so far" : "")).</p>
+                <form method="post" asp-action="Close" asp-route-id="@b.Id">
+                    <input type="hidden" name="date" value="@Iso(closing.Date)" />
+                    <input type="hidden" name="days" value="@Model.Days" />
+                    <div class="st-add-row mb-2">
+                        <div>
+                            <label class="form-label" for="cash">Cash</label>
+                            <div class="input-group"><span class="input-group-text">@cur</span><input id="cash" name="cash" class="form-control" inputmode="decimal" value="@closing.Cash?.ToString("0.##", CultureInfo.InvariantCulture)" /></div>
+                        </div>
+                        <div>
+                            <label class="form-label" for="card">Card</label>
+                            <div class="input-group"><span class="input-group-text">@cur</span><input id="card" name="card" class="form-control" inputmode="decimal" value="@closing.Card?.ToString("0.##", CultureInfo.InvariantCulture)" /></div>
+                        </div>
+                    </div>
+                    <label class="form-label" for="cnote">Note <span class="optional">optional</span></label>
+                    <input id="cnote" name="note" class="form-control mb-3" maxlength="300" value="@closing.CloseNote" placeholder="e.g. 2 tables paid by bank transfer" />
+                    <button type="submit" class="btn btn-primary w-100"><i class="ph ph-lock" aria-hidden="true"></i>@(closing.ClosedUtc == null ? "Close the day" : "Update")</button>
+                </form>
+                @if (closing.Counted is { } countedTotal && closing.Revenue > 0)
+                {
+                    var diff = countedTotal - closing.Revenue;
+                    <p class="hint mt-3 mb-0">Counted @Money(countedTotal) is @Money(Math.Abs(diff)) @(diff >= 0 ? "more" : "less") than the table orders. Orders taken by hand and drinks at the bar aren't in the table orders.</p>
+                }
+            </div>
+        </section>
+
+        <section class="panel" aria-labelledby="topTitle">
+            <div class="panel-body">
+                <h2 id="topTitle" class="h5 mb-3">Top dishes</h2>
+                @if (Model.Top.Count == 0) { <p class="hint m-0">None in this period.</p> }
+                else
+                {
+                    <ul class="lang-bars">
+                        @foreach (var t in Model.Top)
+                        {
+                            var w = maxTop == 0 ? 0 : (double)(t.Revenue * 100 / maxTop);
+                            <li>
+                                <span class="lang-bars-name">@t.Name <small class="text-muted">×@t.Qty</small></span>
+                                <span class="hbar" aria-hidden="true"><span class="hbar-fill" style="--w: @((w / 100).ToString("0.####", CultureInfo.InvariantCulture))"></span></span>
+                                <span class="lang-bars-count tabular">@Whole(t.Revenue)</span>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </section>
+    </aside>
+</div>

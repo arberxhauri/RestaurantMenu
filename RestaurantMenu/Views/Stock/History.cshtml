@@ -1,0 +1,132 @@
+@using RestaurantMenu.Controllers
+@using RestaurantMenu.Helpers
+@using RestaurantMenu.Models
+@model Ingredient
+@{
+    var b = (Branch)ViewBag.Branch;
+    var i = Model;
+    ViewData["Title"] = i.Name + " - Stock - " + b.Name;
+    var movements = (List<StockMovement>)ViewBag.Movements;
+    var dishes = (List<RecipeUse>)ViewBag.Dishes;
+    var canSetup = ViewBag.CanSetup == true;
+    var symbol = CurrencyHelper.GetCurrencySymbol(b.Currency);
+    var zone = OpeningHours.Zone(b.TimeZone);
+    string When(DateTime utc) => TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), zone).ToString("ddd d MMM yyyy, HH:mm", System.Globalization.CultureInfo.GetCultureInfo("en-GB"));
+}
+
+<ol class="crumbs">
+    <li><a asp-controller="Dashboard" asp-action="Index">My branches</a></li>
+    <li><a asp-controller="Branch" asp-action="Details" asp-route-id="@b.Id">@b.Name</a></li>
+    <li><a asp-action="Index" asp-route-id="@b.Id">Stock</a></li>
+    <li aria-current="page">@i.Name</li>
+</ol>
+
+<header class="page-head">
+    <div>
+        <h1>@i.Name</h1>
+        <p>
+            <span class="st-level tabular">@StockRules.Format(i.Quantity, i.Unit)</span> in stock
+            @if (StockRules.IsLow(i)) { <span class="chip chip--warn"><i class="ph ph-warning" aria-hidden="true"></i>Low</span> }
+            @if (i.IsArchived) { <span class="chip">Archived</span> }
+        </p>
+    </div>
+</header>
+
+<div class="st-layout">
+    <section class="panel" aria-labelledby="histTitle">
+        <div class="panel-head"><h2 id="histTitle">History <span class="count">@movements.Count</span></h2></div>
+        @if (movements.Count == 0)
+        {
+            <div class="panel-body"><p class="hint m-0">No changes yet.</p></div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead><tr><th scope="col">When</th><th scope="col">What</th><th scope="col" class="text-end">Change</th><th scope="col" class="text-end">After</th><th scope="col">By</th></tr></thead>
+                    <tbody>
+                        @foreach (var m in movements)
+                        {
+                            <tr>
+                                <td class="text-nowrap">@When(m.CreatedUtc)</td>
+                                <td>@StockRules.KindText(m.Kind)@if (m.Note != null) { <small class="d-block text-muted">@m.Note</small> }</td>
+                                <td class="text-end tabular @(m.Change < 0 ? "st-out" : "st-in")">@(m.Change > 0 ? "+" : m.Change < 0 ? "−" : "")@StockRules.Format(Math.Abs(m.Change))</td>
+                                <td class="text-end tabular">@StockRules.Format(m.QuantityAfter, i.Unit)</td>
+                                <td>@(m.UserName ?? (m.OrderId != null ? "Table order" : ""))</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    <aside class="st-side">
+        @if (!i.IsArchived)
+        {
+            <section class="panel" aria-labelledby="recTitle">
+                <div class="panel-body">
+                    <h2 id="recTitle" class="h5 mb-2">Record</h2>
+                    <form method="post" asp-action="Move" asp-route-id="@b.Id" asp-route-ingredientId="@i.Id" class="st-move st-move--stack">
+                        <input type="hidden" name="back" value="history" />
+                        <label class="form-label" for="kind">What happened</label>
+                        <select id="kind" name="kind" class="form-select">
+                            <option value="Delivery">Delivery (add)</option>
+                            <option value="Usage">Used (take out)</option>
+                            <option value="Waste">Waste (take out)</option>
+                            <option value="Count">Counted (set the level)</option>
+                        </select>
+                        <label class="form-label" for="amount">Amount</label>
+                        <div class="input-group"><input id="amount" name="amount" class="form-control" inputmode="decimal" required /><span class="input-group-text">@StockRules.Short(i.Unit)</span></div>
+                        <label class="form-label" for="note">Note <span class="optional">optional</span></label>
+                        <input id="note" name="note" class="form-control" maxlength="200" placeholder="e.g. supplier, reason" />
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </form>
+                </div>
+            </section>
+        }
+
+        <section class="panel" aria-labelledby="dishTitle">
+            <div class="panel-body">
+                <h2 id="dishTitle" class="h5 mb-2">Used in</h2>
+                @if (dishes.Count == 0) { <p class="hint m-0">No recipe uses it yet.</p> }
+                else
+                {
+                    <ul class="st-uses">@foreach (var d in dishes) { <li><span>@d.Dish</span><span class="tabular">@StockRules.Format(d.Quantity, i.Unit) per portion</span></li> }</ul>
+                }
+            </div>
+        </section>
+
+        @if (canSetup)
+        {
+            <section class="panel" aria-labelledby="editTitle">
+                <div class="panel-body">
+                    <h2 id="editTitle" class="h5 mb-3">Details</h2>
+                    <form method="post" asp-action="Edit" asp-route-id="@b.Id" asp-route-ingredientId="@i.Id">
+                        <label class="form-label" for="ename">Name</label>
+                        <input id="ename" name="name" class="form-control mb-2" maxlength="80" value="@i.Name" required />
+                        <label class="form-label" for="eunit">Unit</label>
+                        <select id="eunit" name="unitName" class="form-select mb-2">
+                            @foreach (var u in Enum.GetValues<StockUnit>()) { <option value="@u" selected="@(u == i.Unit)">@StockRules.Long(u)</option> }
+                        </select>
+                        <div class="st-add-row mb-3">
+                            <div>
+                                <label class="form-label" for="elow">Warn at</label>
+                                <input id="elow" name="lowLevel" class="form-control" inputmode="decimal" value="@(i.LowLevel > 0 ? StockRules.Format(i.LowLevel) : "")" />
+                            </div>
+                            <div>
+                                <label class="form-label" for="ecost">Cost per unit</label>
+                                <div class="input-group"><span class="input-group-text">@symbol</span><input id="ecost" name="cost" class="form-control" inputmode="decimal" value="@(i.CostPerUnit?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))" /></div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-outline-secondary w-100">Save details</button>
+                    </form>
+                    <form method="post" asp-action="Archive" asp-route-id="@b.Id" asp-route-ingredientId="@i.Id" class="mt-2" data-confirm="@(i.IsArchived ? $"Bring {i.Name} back?" : $"Archive {i.Name}? It leaves the list and every recipe; its history stays.")">
+                        <input type="hidden" name="archived" value="@(i.IsArchived ? "false" : "true")" />
+                        <button type="submit" class="btn btn-sm btn-outline-danger w-100"><i class="ph ph-archive" aria-hidden="true"></i>@(i.IsArchived ? "Restore" : "Archive")</button>
+                    </form>
+                </div>
+            </section>
+        }
+    </aside>
+</div>

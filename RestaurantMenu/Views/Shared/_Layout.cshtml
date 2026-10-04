@@ -55,8 +55,11 @@
                 <nav class="sidebar-nav">
                     @if (User.IsInRole("OWNER") || User.IsInRole("STAFF"))
                     {
-                        <a asp-controller="Dashboard" asp-action="Index" aria-current="@Current("Dashboard", "Branch", "Category", "Product", "Tables")">
+                        <a asp-controller="Dashboard" asp-action="Index" aria-current="@Current("Dashboard", "Branch", "Category", "Product", "Tables", "Stock", "Shifts", "Sales", "Bookings", "Website")">
                             <i class="ph ph-storefront" aria-hidden="true"></i>My branches
+                        </a>
+                        <a asp-controller="Manage" asp-action="Index" aria-current="@Current("Manage")">
+                            <i class="ph ph-chart-line-up" aria-hidden="true"></i>Overview
                         </a>
                     }
                     @if (User.IsInRole("ADMIN"))

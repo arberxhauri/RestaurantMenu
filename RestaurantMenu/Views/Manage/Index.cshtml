@@ -1,0 +1,105 @@
+@using System.Globalization
+@using RestaurantMenu.Controllers
+@model List<BranchOverview>
+@{
+    ViewData["Title"] = "Overview";
+    var en = CultureInfo.GetCultureInfo("en-GB");
+    string Money(string cur, decimal v) => cur + v.ToString("N0", en);
+    // Never add different currencies together: one total per currency.
+    var byCurrency = Model.GroupBy(r => r.CurrencyCode).ToList();
+}
+
+<header class="page-head">
+    <div>
+        <h1>Overview</h1>
+        <p>Sales, stock and who's working, across @(Model.Count == 1 ? "your branch" : $"your {Model.Count} branches"). Sales are table orders; cancelled ones don't count.</p>
+    </div>
+</header>
+
+@if (Model.Count == 0)
+{
+    <section class="panel"><div class="empty">
+        <i class="ph ph-chart-line-up" aria-hidden="true"></i>
+        <h2>Nothing to show yet</h2>
+        <p>The overview covers branches you own or manage.</p>
+    </div></section>
+}
+else
+{
+    @foreach (var g in byCurrency)
+    {
+        var cur = g.First().Currency;
+        <div class="kpi-row">
+            <div class="kpi"><span class="kpi-label">Today so far@(byCurrency.Count > 1 ? $" ({g.Key})" : "")</span><span class="kpi-value">@Money(cur, g.Sum(r => r.Today.Revenue))</span><span class="kpi-delta kpi-delta--flat"><span>@g.Sum(r => r.Today.Orders) orders</span></span></div>
+            <div class="kpi"><span class="kpi-label">Yesterday</span><span class="kpi-value">@Money(cur, g.Sum(r => r.Yesterday.Revenue))</span><span class="kpi-delta kpi-delta--flat"><span>@g.Sum(r => r.Yesterday.Orders) orders</span></span></div>
+            <div class="kpi"><span class="kpi-label">Last 7 days</span><span class="kpi-value">@Money(cur, g.Sum(r => r.Last7))</span></div>
+            <div class="kpi"><span class="kpi-label">Last 30 days</span><span class="kpi-value">@Money(cur, g.Sum(r => r.Last30))</span><span class="kpi-delta kpi-delta--flat"><span>@g.Sum(r => r.Orders30).ToString("N0", en) orders</span></span></div>
+        </div>
+    }
+
+    <section class="panel mb-4" aria-labelledby="branchesTitle">
+        <header class="panel-head"><h2 id="branchesTitle">Branches</h2></header>
+        <div class="table-responsive">
+            <table class="data-table ov-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Branch</th>
+                        <th scope="col" class="text-end">Today</th>
+                        <th scope="col" class="text-end">Yesterday</th>
+                        <th scope="col" class="text-end">7 days</th>
+                        <th scope="col" class="text-end">30 days</th>
+                        <th scope="col">Stock</th>
+                        <th scope="col">On shift now</th>
+                        <th scope="col"><span class="visually-hidden">Open</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in Model)
+                    {
+                        <tr>
+                            <th scope="row">
+                                <a asp-controller="Branch" asp-action="Details" asp-route-id="@r.Branch.Id">@r.Branch.Name</a>
+                                @if (r.Unclosed > 0) { <span class="chip chip--warn" title="Days with orders but no closing count, last 7 days"><i class="ph ph-lock-open" aria-hidden="true"></i>@r.Unclosed not closed</span> }
+                            </th>
+                            <td class="text-end tabular">@Money(r.Currency, r.Today.Revenue)</td>
+                            <td class="text-end tabular">@Money(r.Currency, r.Yesterday.Revenue)</td>
+                            <td class="text-end tabular">@Money(r.Currency, r.Last7)</td>
+                            <td class="text-end tabular">@Money(r.Currency, r.Last30)</td>
+                            <td>
+                                @if (r.LowStock.Count == 0) { <span class="text-muted">OK</span> }
+                                else { <a class="chip chip--warn chip--link" asp-controller="Stock" asp-action="Index" asp-route-id="@r.Branch.Id" title="@string.Join(", ", r.LowStock)"><i class="ph ph-warning" aria-hidden="true"></i>@r.LowStock.Count low</a> }
+                            </td>
+                            <td>@(r.OnShift.Count == 0 ? "—" : string.Join(", ", r.OnShift))</td>
+                            <td class="text-end text-nowrap">
+                                <a class="icon-btn" asp-controller="Sales" asp-action="Index" asp-route-id="@r.Branch.Id" aria-label="Sales of @r.Branch.Name" title="Sales"><i class="ph ph-receipt" aria-hidden="true"></i></a>
+                                <a class="icon-btn" asp-controller="Stock" asp-action="Index" asp-route-id="@r.Branch.Id" aria-label="Stock of @r.Branch.Name" title="Stock"><i class="ph ph-package" aria-hidden="true"></i></a>
+                                <a class="icon-btn" asp-controller="Shifts" asp-action="Index" asp-route-id="@r.Branch.Id" aria-label="Shifts of @r.Branch.Name" title="Shifts"><i class="ph ph-calendar-blank" aria-hidden="true"></i></a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    @foreach (var g in byCurrency.Where(g => g.Count() > 1))
+    {
+        var max = g.Max(r => r.Last30);
+        <section class="panel" aria-labelledby="share@(g.Key)">
+            <header class="panel-head"><h2 id="share@(g.Key)">Last 30 days by branch@(byCurrency.Count > 1 ? $" ({g.Key})" : "")</h2></header>
+            <div class="panel-body">
+                <ul class="lang-bars">
+                    @foreach (var r in g.OrderByDescending(r => r.Last30))
+                    {
+                        var w = max == 0 ? 0 : (double)(r.Last30 / max);
+                        <li>
+                            <span class="lang-bars-name">@r.Branch.Name</span>
+                            <span class="hbar" aria-hidden="true"><span class="hbar-fill" style="--w: @w.ToString("0.####", CultureInfo.InvariantCulture)"></span></span>
+                            <span class="lang-bars-count tabular">@Money(r.Currency, r.Last30)</span>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </section>
+    }
+}

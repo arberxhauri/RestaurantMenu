@@ -1,0 +1,92 @@
+@using RestaurantMenu.Controllers
+@using RestaurantMenu.Helpers
+@model RecipesPage
+@{
+    var b = Model.Branch;
+    ViewData["Title"] = "Recipes - " + b.Name;
+    var groups = Model.Dishes.GroupBy(d => d.Category).ToList();
+}
+
+<ol class="crumbs">
+    <li><a asp-controller="Dashboard" asp-action="Index">My branches</a></li>
+    <li><a asp-controller="Branch" asp-action="Details" asp-route-id="@b.Id">@b.Name</a></li>
+    <li><a asp-action="Index" asp-route-id="@b.Id">Stock</a></li>
+    <li aria-current="page">Recipes</li>
+</ol>
+
+<header class="page-head">
+    <div>
+        <h1>Recipes</h1>
+        <p>What one portion of each dish uses. Every table order then takes these amounts out of stock, and puts them back if the order is cancelled.</p>
+    </div>
+</header>
+
+@if (Model.Ingredients.Count == 0)
+{
+    <div class="flash flash--warn" role="status"><i class="ph ph-info" aria-hidden="true"></i><p>Add ingredients on the <a asp-action="Index" asp-route-id="@b.Id">Stock</a> page first.</p></div>
+}
+else
+{
+    @foreach (var g in groups)
+    {
+        <h2 class="section-head">@g.Key</h2>
+        <div class="rc-list">
+            @foreach (var d in g)
+            {
+                <details class="rc-dish panel" id="d@(d.Id)">
+                    <summary>
+                        <strong>@d.Name</strong>
+                        @if (d.Lines.Count == 0) { <span class="chip">No recipe</span> }
+                        else { <span class="rc-summary">@string.Join(", ", d.Lines.Select(l => { var ing = Model.Ingredients.FirstOrDefault(x => x.Id == l.IngredientId); return ing == null ? "" : $"{StockRules.Format(l.Quantity, ing.Unit)} {ing.Name}"; }))</span> }
+                    </summary>
+                    <form method="post" asp-action="SaveRecipe" asp-route-id="@b.Id" asp-route-productId="@d.Id" class="rc-form" data-recipe>
+                        <div class="rc-rows" data-rows>
+                            @for (var r = 0; r < Math.Max(d.Lines.Count + 1, 2); r++)
+                            {
+                                var line = r < d.Lines.Count ? d.Lines[r] : null;
+                                <div class="rc-row">
+                                    <label class="visually-hidden" for="ing@(d.Id)_@r">Ingredient</label>
+                                    <select id="ing@(d.Id)_@r" name="ingredient" class="form-select form-select-sm">
+                                        <option value="0">Choose an ingredient…</option>
+                                        @foreach (var ing in Model.Ingredients)
+                                        {
+                                            <option value="@ing.Id" selected="@(line?.IngredientId == ing.Id)" data-unit="@StockRules.Short(ing.Unit)">@ing.Name (@StockRules.Short(ing.Unit))</option>
+                                        }
+                                    </select>
+                                    <label class="visually-hidden" for="qty@(d.Id)_@r">Amount per portion</label>
+                                    <input id="qty@(d.Id)_@r" name="qty" class="form-control form-control-sm" inputmode="decimal" placeholder="per portion" value="@(line == null ? "" : StockRules.Format(line.Quantity).Replace(",", ""))" />
+                                </div>
+                            }
+                        </div>
+                        <div class="rc-actions">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-add-row><i class="ph ph-plus" aria-hidden="true"></i>Line</button>
+                            <button type="submit" class="btn btn-sm btn-primary">Save recipe</button>
+                        </div>
+                        <p class="hint mb-0">In the ingredient's unit: 0.15 kg of mozzarella, 1 piece of bread. Empty lines are ignored.</p>
+                    </form>
+                </details>
+            }
+        </div>
+    }
+}
+
+@section Scripts {
+    <script>
+        // Another line: a copy of the last one, emptied.
+        document.querySelectorAll('[data-recipe]').forEach(function (form) {
+            form.querySelector('[data-add-row]').addEventListener('click', function () {
+                var rows = form.querySelector('[data-rows]');
+                var last = rows.lastElementChild;
+                var copy = last.cloneNode(true);
+                var n = rows.children.length;
+                copy.querySelectorAll('select, input').forEach(function (el) {
+                    el.id = el.id.replace(/_\d+$/, '_' + n);
+                    if (el.tagName === 'SELECT') el.value = '0'; else el.value = '';
+                });
+                copy.querySelectorAll('label').forEach(function (l) { l.htmlFor = l.htmlFor.replace(/_\d+$/, '_' + n); });
+                rows.appendChild(copy);
+                copy.querySelector('select').focus();
+            });
+        });
+    </script>
+}

@@ -128,6 +128,12 @@ builder.Services.AddTransient<InviteMailer>();
 // with fallbacks). One app instance: with several, add a backplane (e.g. Redis).
 builder.Services.AddScoped<OrderService>();
 
+// Management: stock (orders use it through recipes), shifts, and end-of-day sales rolled up
+// from orders every night (SalesRollupService).
+builder.Services.AddScoped<StockService>();
+builder.Services.AddScoped<SalesService>();
+builder.Services.AddHostedService<SalesRollupService>();
+
 // Bookings: availability, the guest's booking page, the owner's day view, reminders.
 // SMS is optional (Sms__TwilioAccountSid/AuthToken/From, or Sms__WebhookUrl for a local
 // gateway); without it guests get their confirmation on screen and by email.
