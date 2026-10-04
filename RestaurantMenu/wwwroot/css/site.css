@@ -1208,3 +1208,29 @@ a.chip--link:hover { background: var(--accent-soft); color: var(--accent); }
     .st-side { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); align-items: start; }
     .sh-layout > aside { max-width: 560px; }
 }
+
+/* ---------- Guest feedback ---------- */
+.fb-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start; }
+.fb-side { display: flex; flex-direction: column; gap: 16px; }
+.fb-side .panel { margin: 0; }
+.fb-list { display: flex; flex-direction: column; gap: 10px; }
+.fb-list--compact .fb-item { padding: 12px 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: none; }
+.fb-list--compact .fb-item:last-child { border-bottom: 0; }
+.fb-item { padding: 14px 16px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+.fb-item.is-low { border-left: 4px solid var(--warn); }
+.fb-item.is-new { box-shadow: inset 0 0 0 1px var(--accent-soft); }
+.fb-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.fb-head small { color: var(--ink-3); margin-left: auto; }
+.fb-stars { color: #C08000; font-size: 17px; letter-spacing: 1px; }
+.fb-comment { margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
+.fb-comment--none { color: var(--ink-3); font-style: italic; }
+.fb-contact { margin: 0; display: flex; gap: 6px; align-items: center; font-size: 14px; color: var(--ink-2); }
+.fb-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.fb-actions form { margin: 0; }
+.fb-actions form:last-child { margin-left: auto; }
+.fb-summary { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ink-2); }
+.fb-kpi-star { font-size: .55em; color: #C08000; margin-left: 4px; }
+.fb-pages { display: flex; gap: 6px; margin-top: 16px; flex-wrap: wrap; }
+.fb-pages a { min-width: 36px; height: 36px; display: grid; place-items: center; border-radius: var(--r-sm); border: 1px solid var(--line); text-decoration: none; color: inherit; }
+.fb-pages a[aria-current="page"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+@media (max-width: 1099.98px) { .fb-layout { grid-template-columns: minmax(0, 1fr); } }

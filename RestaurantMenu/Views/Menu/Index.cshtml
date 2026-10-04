@@ -439,6 +439,59 @@
         }
     </main>
 
+    @if (Model.FeedbackEnabled)
+    {
+        var fw = FeedbackRules.For(currentLang);
+        @* Rating prompt: tapping a star opens the sheet below. Hidden for 12 hours after sending (menu.js). *@
+        <section class="m-rate" data-rate aria-labelledby="rateTitle">
+            <h2 id="rateTitle">@fw.Prompt</h2>
+            <div class="m-rate-stars" role="group" aria-labelledby="rateTitle">
+                @for (var n = 1; n <= 5; n++)
+                {
+                    <button type="button" class="m-star" data-star="@n" aria-label="@(n == 1 ? fw.Star : string.Format(fw.StarsN, n))"><i class="ph-fill ph-star" aria-hidden="true"></i></button>
+                }
+            </div>
+            <p class="m-rate-done" data-rate-done hidden><i class="ph-fill ph-heart" aria-hidden="true"></i>@fw.AlreadySent</p>
+        </section>
+
+        <dialog class="m-sheet" id="rateSheet" aria-labelledby="rateSheetTitle" data-rate-sheet>
+            <div class="m-sheet-grip" aria-hidden="true"></div>
+            <button class="m-sheet-close" type="button" data-close aria-label="@ui.Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+            <div class="m-sheet-body">
+                <form data-rate-form novalidate>
+                    <div class="m-rate-stars m-rate-stars--sheet" role="radiogroup" aria-labelledby="rateSheetTitle">
+                        @for (var n = 1; n <= 5; n++)
+                        {
+                            <button type="button" class="m-star" data-pick="@n" role="radio" aria-checked="false" aria-label="@(n == 1 ? fw.Star : string.Format(fw.StarsN, n))"><i class="ph-fill ph-star" aria-hidden="true"></i></button>
+                        }
+                    </div>
+                    <h2 id="rateSheetTitle" data-rate-title>@fw.Prompt</h2>
+                    <p class="m-list-hint" data-rate-private hidden><i class="ph ph-lock-simple" aria-hidden="true"></i> @fw.LowHint</p>
+                    <label class="m-order-note">
+                        <span class="visually-hidden">@fw.CommentPlaceholder</span>
+                        <textarea name="comment" rows="3" maxlength="@FeedbackRules.MaxComment" placeholder="@fw.CommentPlaceholder"></textarea>
+                    </label>
+                    <label class="m-order-note" data-rate-contact hidden>
+                        <span>@fw.ContactLabel</span>
+                        <input name="contact" maxlength="@FeedbackRules.MaxContact" autocomplete="tel" />
+                        <small>@fw.ContactHint</small>
+                    </label>
+                    @* For bots only: people never see or fill it. *@
+                    <div class="m-hp" aria-hidden="true"><label>Website <input name="website" tabindex="-1" autocomplete="off" /></label></div>
+                    <p class="m-order-error" data-rate-error role="alert" hidden>@fw.Error</p>
+                    <button type="submit" class="m-btn m-btn--brand m-btn--block" data-rate-send><span data-rate-send-label>@fw.Send</span></button>
+                </form>
+                <div class="m-order-done" data-rate-thanks hidden>
+                    <i class="ph-fill ph-heart" aria-hidden="true"></i>
+                    <h3 data-rate-thanks-title></h3>
+                    <p data-rate-google-ask hidden>@fw.GoogleAsk</p>
+                    <a class="m-btn m-btn--brand" data-rate-google href="#" target="_blank" rel="noopener noreferrer" hidden><i class="ph ph-google-logo" aria-hidden="true"></i>@fw.GoogleButton</a>
+                    <button class="m-btn m-btn--ghost" type="button" data-close>@fw.Done</button>
+                </div>
+            </div>
+        </dialog>
+    }
+
     <footer class="m-footer">
         <a class="m-powered" asp-controller="Home" asp-action="Index">
             <partial name="_BrandMark" model="18" />
@@ -589,6 +642,15 @@
 
     @* JSON for menu.js; the serializer escapes <, > and & so nothing here can close the tag. *@
     <script type="application/json" id="orderConfig">@Html.Raw(orderConfig)</script>
+    @if (Model.FeedbackEnabled)
+    {
+        var fwc = FeedbackRules.For(currentLang);
+        <script type="application/json" id="feedbackConfig">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(new
+        {
+            url = Url.Action("Feedback", "Menu"), branch = Model.Id, table, lang = currentLang, low = FeedbackRules.LowRating,
+            words = new { fwc.LowTitle, fwc.HighTitle, fwc.ThanksLow, fwc.ThanksHigh, fwc.Send, fwc.Sending, fwc.Prompt }
+        }))</script>
+    }
     <script src="~/js/menu.js" asp-append-version="true" defer></script>
 </body>
 </html>

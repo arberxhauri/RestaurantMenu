@@ -131,6 +131,8 @@ builder.Services.AddScoped<OrderService>();
 // Management: stock (orders use it through recipes), shifts, and end-of-day sales rolled up
 // from orders every night (SalesRollupService).
 builder.Services.AddScoped<StockService>();
+// Guest feedback from the menu footer (low ratings privately to the owner, high ones to Google).
+builder.Services.AddScoped<FeedbackService>();
 builder.Services.AddScoped<SalesService>();
 builder.Services.AddHostedService<SalesRollupService>();
 
@@ -200,6 +202,11 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("bookings", context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = Math.Max(3, builder.Configuration.GetValue("Bookings:RateLimitPerIp", 10)), Window = TimeSpan.FromMinutes(10), QueueLimit = 0 }));
+
+    // Guest feedback, per client address: a table of friends each rating, not a flood.
+    options.AddPolicy("feedback", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = Math.Max(3, builder.Configuration.GetValue("Feedback:RateLimitPerIp", 10)), Window = TimeSpan.FromMinutes(10), QueueLimit = 0 }));
 
     // People get a page that explains, not a bare 429.
     options.OnRejected = (context, _) =>

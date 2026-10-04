@@ -43,5 +43,13 @@ public class Branch : ISoftDeletable
     // at the same moment never share a number (OrderService.NextNumberAsync).
     public int OrderCounter { get; set; }
     public DateOnly? OrderCounterDay { get; set; }
+
+    // Guest feedback (menu footer). Low ratings stay private to the restaurant; the Google
+    // review link is offered after 4-5 stars, or after every rating (FeedbackGoogleForAll),
+    // which is what Google's review policy asks for.
+    public bool FeedbackEnabled { get; set; } = true;
+    public string? GoogleReviewUrl { get; set; }
+    public bool FeedbackGoogleForAll { get; set; }
+    public bool FeedbackEmailOwner { get; set; } = true;
     public ICollection<DiningTable>? Tables { get; set; }
 }

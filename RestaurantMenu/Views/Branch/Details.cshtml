@@ -309,6 +309,35 @@
     </div>
 </div>
 
+@if (ViewBag.FeedbackSummary is RestaurantMenu.Services.FeedbackService.Summary fbs)
+{
+    var latest = (List<Feedback>)ViewBag.FeedbackLatest;
+    <section class="panel mt-4" id="feedback" aria-labelledby="fb-title">
+        <header class="panel-head">
+            <h2 id="fb-title">Guest feedback</h2>
+            <div class="panel-actions">
+                <span class="fb-summary">
+                    @if (fbs.Count > 0) { <strong>@fbs.Average.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) ★</strong> <span>from @fbs.Count in 30 days</span> }
+                    else { <span>No ratings in 30 days</span> }
+                    @if (fbs.Unread > 0) { <span class="chip chip--accent">@fbs.Unread new</span> }
+                </span>
+                <a class="btn btn-outline-secondary btn-sm" asp-controller="Feedback" asp-action="Index" asp-route-id="@Model.Id">All feedback</a>
+            </div>
+        </header>
+        <div class="panel-body fb-list fb-list--compact">
+            @if (latest.Count == 0)
+            {
+                <p class="hint m-0">@(Model.FeedbackEnabled ? "Guests rate their visit at the bottom of the menu. Their ratings show here." : "The rating prompt is off. Switch it on in All feedback → Settings.")</p>
+            }
+            @foreach (var f in latest)
+            {
+                var fbItem = (f, Model, false, "all");
+                <partial name="~/Views/Feedback/_FeedbackItem.cshtml" model="fbItem" />
+            }
+        </div>
+    </section>
+}
+
 @if (team != null)
 {
     <section class="panel mt-4 team" id="team" aria-labelledby="team-title">

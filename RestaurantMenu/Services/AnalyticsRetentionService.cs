@@ -16,6 +16,7 @@ public class AnalyticsRetentionService : BackgroundService
     private readonly ILogger<AnalyticsRetentionService> _logger;
     private readonly int _retentionDays;
     private readonly int _orderRetentionDays;
+    private readonly int _contactRetentionDays;
 
     public AnalyticsRetentionService(IServiceScopeFactory scopes, ILogger<AnalyticsRetentionService> logger, IConfiguration config)
     {
@@ -23,6 +24,7 @@ public class AnalyticsRetentionService : BackgroundService
         _logger = logger;
         _retentionDays = Math.Max(30, config.GetValue("Analytics:RetentionDays", 400));
         _orderRetentionDays = Math.Max(30, config.GetValue("Orders:RetentionDays", 400));
+        _contactRetentionDays = Math.Max(30, config.GetValue("Feedback:ContactRetentionDays", 365));
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -49,6 +51,16 @@ public class AnalyticsRetentionService : BackgroundService
                     if (orders > 0)
                     {
                         _logger.LogInformation("Order retention: deleted {Count} orders older than {Days} days", orders, _orderRetentionDays);
+                    }
+
+                    // Guests' contact details on feedback are personal data: kept a year, then
+                    // removed (Feedback:ContactRetentionDays). The rating and comment stay.
+                    var contactCutoff = DateTime.UtcNow.AddDays(-_contactRetentionDays);
+                    var cleared = await db.Feedback.IgnoreQueryFilters().Where(f => f.Contact != null && f.CreatedUtc < contactCutoff)
+                        .ExecuteUpdateAsync(x => x.SetProperty(f => f.Contact, (string?)null), stoppingToken);
+                    if (cleared > 0)
+                    {
+                        _logger.LogInformation("Feedback retention: removed contact details from {Count} entries", cleared);
                     }
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)

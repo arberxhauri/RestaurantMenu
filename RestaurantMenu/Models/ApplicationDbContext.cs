@@ -30,6 +30,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<DishIngredient> DishIngredients { get; set; }
     public DbSet<Shift> Shifts { get; set; }
     public DbSet<DailySales> DailySales { get; set; }
+    public DbSet<Feedback> Feedback { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -275,6 +276,20 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.Property(d => d.TopDishes).HasMaxLength(4000);
             e.HasQueryFilter(d => !d.Branch!.IsDeleted);
         });
+
+        // Guest feedback, read per branch newest first.
+        builder.Entity<Feedback>(e =>
+        {
+            e.HasIndex(f => new { f.BranchId, f.CreatedUtc });
+            e.HasOne(f => f.Branch).WithMany().HasForeignKey(f => f.BranchId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(f => f.Comment).HasMaxLength(1000);
+            e.Property(f => f.Contact).HasMaxLength(120);
+            e.Property(f => f.Language).HasMaxLength(8);
+            e.HasQueryFilter(f => !f.Branch!.IsDeleted);
+        });
+        builder.Entity<Branch>().Property(b => b.FeedbackEnabled).HasDefaultValue(true);
+        builder.Entity<Branch>().Property(b => b.FeedbackEmailOwner).HasDefaultValue(true);
+        builder.Entity<Branch>().Property(b => b.GoogleReviewUrl).HasMaxLength(300);
 
         // Decimal precision for Price
         builder.Entity<Product>()

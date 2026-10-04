@@ -24,6 +24,7 @@ namespace RestaurantMenu.Controllers;
         private readonly IConfiguration _config;
         private readonly QrCodeService _qr;
         private readonly IBranchAccess _access;
+        private readonly FeedbackService _feedback;
         
         public BranchController(
             ApplicationDbContext context,
@@ -32,8 +33,10 @@ namespace RestaurantMenu.Controllers;
             ColorExtractionService colorService,
             IConfiguration config,
             QrCodeService qr,
-            IBranchAccess access)
+            IBranchAccess access,
+            FeedbackService feedback)
         {
+            _feedback = feedback;
             _context = context;
             _userManager = userManager;
             _webHostEnvironment = webHostEnvironment;
@@ -336,6 +339,13 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
                     .OrderBy(m => m.User!.FullName)
                     .Select(m => new TeamMemberRow(m.Id, m.User!.FullName, m.User.Email!, m.Role, m.User.PasswordHash == null))
                     .ToListAsync();
+            }
+            if (BranchAccess.Allows(role, BranchPermission.ViewInsights))
+            {
+                // Guest feedback: the last 30 days in numbers, and the latest few.
+                ViewBag.FeedbackSummary = await _feedback.SummaryAsync(id, DateTime.UtcNow.AddDays(-30));
+                ViewBag.FeedbackLatest = await _context.Feedback.AsNoTracking().Where(f => f.BranchId == id)
+                    .OrderByDescending(f => f.CreatedUtc).Take(5).ToListAsync();
             }
 
             return View(branch);

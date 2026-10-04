@@ -315,8 +315,32 @@ Stock, staff shifts and end-of-day sales per branch, plus an overview across bra
   - Automatic "sold out" when an ingredient runs out.
   - Insights on margins (recipe cost vs price).
 
-### 18. Guest feedback (1 week)
-After the meal (or from the menu footer) a 1-to-5 rating with an optional comment. High ratings get a nudge to leave a Google review; low ratings go privately to the owner.
+### 18. Guest feedback: done
+Guests rate their visit from the menu. Low ratings reach the owner privately; high ones are offered the Google review link.
+
+- **Data** (migration `AddFeedback`, additive):
+  - `Feedback { BranchId, Rating 1-5, Comment, Contact, TableNumber, Language, Status (New, Read, Resolved), CreatedUtc }`.
+  - On `Branch`: `FeedbackEnabled` (on by default), `GoogleReviewUrl`, `FeedbackGoogleForAll`, `FeedbackEmailOwner` (on by default).
+- **Guest menu:**
+  - A "How was your visit?" card with 5 stars above the footer. Tapping a star opens a sheet; the stars can still be changed there.
+  - **1-3 stars:** "What went wrong?" with "Only the restaurant reads this", plus an optional way to reach the guest.
+  - **4-5 stars:** an optional comment, then "Would you share it on Google?" with a button to the restaurant's Google review page (new tab, no referrer).
+  - One rating per visit: the card shows "Thanks for your feedback today!" for 12 hours.
+  - The table number is recorded when the menu was opened from a table QR code.
+  - All in the menu's 7 languages; hidden when printing.
+- **POST /menu/feedback** (`Services/FeedbackService`):
+  - Rating 1-5 required. Comments are cleaned and capped at 1,000 characters. A contact is kept only with low ratings.
+  - Limited to 10 per 10 minutes per network (`Feedback__RateLimitPerIp`).
+  - Bots (a hidden field filled in, or sent within 1.5 s) get the same thank-you, but nothing is stored.
+  - The owner gets an email about every 1-3 star rating, with the comment and contact.
+- **Google review link:** the owner pastes it from Google Business Profile → Ask for reviews, or a Place ID (ChIJ…). Only https Google addresses are accepted, so the menu can't send guests elsewhere.
+- **Google's policy:** it forbids "review gating", meaning asking only happy guests for reviews. The default follows this item's spec (Google link after 4-5 stars only). The setting **"Offer the Google link after every rating"** stays within the policy, and low ratings still reach the owner privately first.
+- **Back office** (Manager and up):
+  - Branch Details has a **Guest feedback** panel: 30-day average, number of new ratings, the latest five.
+  - `/branch/{id}/feedback`: averages (30 days, all time), stars per level, filters (all, new, 1-3, 4-5), paging, mark read/resolved/reopen, mark all read, delete spam.
+  - Settings (Manager and up): prompt on/off, Google link, after every rating, emails.
+- **Privacy:** guests' contact details are removed after a year (`Feedback__ContactRetentionDays`); the rating and comment stay.
+- **Later:** replying to the guest from the back office, feedback per dish, and ratings on the Overview and Insights.
 
 ### 19. Offline-ready menu (PWA, 2 days)
 A service worker caching `/menu/{slug}`, its CSS/JS and dish images, so the menu still opens on weak restaurant Wi-Fi.

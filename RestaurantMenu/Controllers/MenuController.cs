@@ -14,13 +14,15 @@ public class MenuController : Controller
     private readonly SeoService _seo;
     private readonly MenuAnalytics _analytics;
     private readonly OrderService _orders;
+    private readonly FeedbackService _feedback;
 
-    public MenuController(ApplicationDbContext context, SeoService seo, MenuAnalytics analytics, OrderService orders)
+    public MenuController(ApplicationDbContext context, SeoService seo, MenuAnalytics analytics, OrderService orders, FeedbackService feedback)
     {
         _context = context;
         _seo = seo;
         _analytics = analytics;
         _orders = orders;
+        _feedback = feedback;
     }
 
     [Route("menu/{branchName}")]
@@ -233,6 +235,32 @@ public class MenuController : Controller
             .Where(g => g != Guid.Empty).Distinct().Take(10).ToList();
         Response.Headers.CacheControl = "no-store";
         return Ok(await _orders.GuestStatusAsync(list, lang));
+    }
+
+    /// <summary>
+    /// A guest's rating from the menu footer (form post from menu.js): b = branch, rating 1-5,
+    /// comment, contact (low ratings only), t = table, lang. "website" is a field people never
+    /// see (bots fill it) and ms is how long the form was open: either way a bot gets the same
+    /// thank-you, and nothing is stored. Answers { ok, google } (the review link to offer, or null).
+    /// </summary>
+    [HttpPost("menu/feedback")]
+    [EnableRateLimiting("feedback")]
+    [MaxBodySize(8 * 1024)]
+    public async Task<IActionResult> Feedback([FromForm] int b, [FromForm] int rating, [FromForm] string? comment, [FromForm] string? contact,
+        [FromForm] int? t, [FromForm] string? lang, [FromForm] string? website, [FromForm] int ms = 0)
+    {
+        var branch = await _context.Branches.AsNoTracking().FirstOrDefaultAsync(x => x.Id == b);
+        if (branch == null || !branch.FeedbackEnabled) return NotFound();
+        if (rating is < 1 or > 5) return BadRequest();
+        var languages = branch.SupportedLanguages.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        var language = lang != null && languages.Contains(lang) ? lang : languages.FirstOrDefault() ?? "en";
+
+        if (!string.IsNullOrEmpty(website) || ms < 1500)
+        {
+            return Ok(new { ok = true, google = (string?)null });
+        }
+        var result = await _feedback.SubmitAsync(branch, rating, comment, contact, t, language, DateTime.UtcNow);
+        return Ok(new { ok = true, google = result.GoogleUrl });
     }
 
     private SeoMetadata BuildSeo(Branch branch, string language, string[] supportedLanguages)

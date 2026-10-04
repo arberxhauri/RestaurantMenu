@@ -1,0 +1,51 @@
+@using RestaurantMenu.Helpers
+@using RestaurantMenu.Models
+@model (Feedback Item, Branch Branch, bool Actions, string Show)
+@{
+    var f = Model.Item;
+    var zone = OpeningHours.Zone(Model.Branch.TimeZone);
+    var when = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(f.CreatedUtc, DateTimeKind.Utc), zone)
+        .ToString("ddd d MMM, HH:mm", System.Globalization.CultureInfo.GetCultureInfo("en-GB"));
+    var low = f.Rating <= FeedbackRules.LowRating;
+}
+<article class="fb-item @(low ? "is-low" : "") @(f.Status == FeedbackStatus.New ? "is-new" : "")" id="f@(f.Id)">
+    <div class="fb-head">
+        <span class="fb-stars" aria-label="@f.Rating out of 5"><span aria-hidden="true">@FeedbackRules.Stars(f.Rating)</span></span>
+        @if (f.Status == FeedbackStatus.New) { <span class="chip chip--accent">New</span> }
+        @if (f.Status == FeedbackStatus.Resolved) { <span class="chip chip--ok"><i class="ph ph-check" aria-hidden="true"></i>Resolved</span> }
+        <small>@when@(f.TableNumber != null ? $" · table {f.TableNumber}" : "")@(f.Language != "en" ? $" · {LanguageHelper.GetLanguageName(f.Language)}" : "")</small>
+    </div>
+    @if (f.Comment != null) { <p class="fb-comment">@f.Comment</p> }
+    else { <p class="fb-comment fb-comment--none">No comment.</p> }
+    @if (f.Contact != null) { <p class="fb-contact"><i class="ph ph-phone" aria-hidden="true"></i>Wants to hear back: <strong>@f.Contact</strong></p> }
+    @if (Model.Actions)
+    {
+        <div class="fb-actions">
+            @if (f.Status != FeedbackStatus.Read && f.Status != FeedbackStatus.Resolved)
+            {
+                <form method="post" asp-controller="Feedback" asp-action="Status" asp-route-id="@Model.Branch.Id" asp-route-feedbackId="@f.Id">
+                    <input type="hidden" name="status" value="Read" /><input type="hidden" name="show" value="@Model.Show" />
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">Mark read</button>
+                </form>
+            }
+            @if (f.Status != FeedbackStatus.Resolved)
+            {
+                <form method="post" asp-controller="Feedback" asp-action="Status" asp-route-id="@Model.Branch.Id" asp-route-feedbackId="@f.Id">
+                    <input type="hidden" name="status" value="Resolved" /><input type="hidden" name="show" value="@Model.Show" />
+                    <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="ph ph-check" aria-hidden="true"></i>Resolved</button>
+                </form>
+            }
+            else
+            {
+                <form method="post" asp-controller="Feedback" asp-action="Status" asp-route-id="@Model.Branch.Id" asp-route-feedbackId="@f.Id">
+                    <input type="hidden" name="status" value="Read" /><input type="hidden" name="show" value="@Model.Show" />
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">Reopen</button>
+                </form>
+            }
+            <form method="post" asp-controller="Feedback" asp-action="Delete" asp-route-id="@Model.Branch.Id" asp-route-feedbackId="@f.Id" data-confirm="Delete this feedback? Use it for spam; it can't be undone.">
+                <input type="hidden" name="show" value="@Model.Show" />
+                <button type="submit" class="icon-btn icon-btn--danger" aria-label="Delete feedback" title="Delete"><i class="ph ph-trash" aria-hidden="true"></i></button>
+            </form>
+        </div>
+    }
+</article>

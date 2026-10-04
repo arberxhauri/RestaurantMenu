@@ -1,0 +1,127 @@
+@using System.Globalization
+@using RestaurantMenu.Controllers
+@using RestaurantMenu.Helpers
+@model FeedbackPage
+@{
+    var b = Model.Branch;
+    ViewData["Title"] = "Feedback - " + b.Name;
+    var canSettings = ViewBag.CanSettings == true;
+    var s30 = Model.Last30;
+    var all = Model.AllTime;
+    var maxBar = Enumerable.Range(1, 5).Max(n => s30.ByStars[n]);
+    var pages = Math.Max(1, (Model.Total + FeedbackController.PageSize - 1) / FeedbackController.PageSize);
+    var tabs = new[] { ("all", "All"), ("new", $"New ({all.Unread})"), ("low", "1–3 stars"), ("high", "4–5 stars") };
+}
+
+<ol class="crumbs">
+    <li><a asp-controller="Dashboard" asp-action="Index">My branches</a></li>
+    <li><a asp-controller="Branch" asp-action="Details" asp-route-id="@b.Id">@b.Name</a></li>
+    <li aria-current="page">Feedback</li>
+</ol>
+
+<header class="page-head">
+    <div>
+        <h1>Guest feedback</h1>
+        <p>Ratings guests leave at the bottom of the menu. Only you and your managers see them.</p>
+    </div>
+    @if (all.Unread > 0)
+    {
+        <div class="page-actions">
+            <form method="post" asp-action="ReadAll" asp-route-id="@b.Id"><button type="submit" class="btn btn-outline-secondary btn-sm"><i class="ph ph-checks" aria-hidden="true"></i>Mark all read</button></form>
+        </div>
+    }
+</header>
+
+@if (!b.FeedbackEnabled)
+{
+    <div class="flash flash--warn mb-4" role="status"><i class="ph ph-info" aria-hidden="true"></i><p>The rating prompt is off, so guests can't leave feedback. Switch it on below.</p></div>
+}
+
+<div class="fb-layout">
+    <div>
+        <div class="kpi-row">
+            <div class="kpi"><span class="kpi-label">Average, last 30 days</span><span class="kpi-value">@(s30.Count == 0 ? "—" : s30.Average.ToString("0.0", CultureInfo.InvariantCulture))<small class="fb-kpi-star" aria-hidden="true">★</small></span><span class="kpi-delta kpi-delta--flat"><span>@s30.Count rating@(s30.Count == 1 ? "" : "s")</span></span></div>
+            <div class="kpi"><span class="kpi-label">All time</span><span class="kpi-value">@(all.Count == 0 ? "—" : all.Average.ToString("0.0", CultureInfo.InvariantCulture))<small class="fb-kpi-star" aria-hidden="true">★</small></span><span class="kpi-delta kpi-delta--flat"><span>@all.Count rating@(all.Count == 1 ? "" : "s")</span></span></div>
+            <div class="kpi"><span class="kpi-label">To read</span><span class="kpi-value">@all.Unread</span></div>
+        </div>
+
+        <nav class="range-tabs" aria-label="Show">
+            @foreach (var (key, label) in tabs)
+            {
+                <a asp-action="Index" asp-route-id="@b.Id" asp-route-show="@key" aria-current="@(Model.Show == key ? "page" : null)">@label</a>
+            }
+        </nav>
+
+        <section class="fb-list" aria-label="Feedback">
+            @if (Model.Items.Count == 0)
+            {
+                <div class="panel"><div class="empty">
+                    <i class="ph ph-chat-centered-text" aria-hidden="true"></i>
+                    <h2>@(Model.Show == "all" ? "No feedback yet" : "Nothing here")</h2>
+                    <p>Guests rate their visit at the bottom of the menu, after looking at it.</p>
+                </div></div>
+            }
+            @foreach (var f in Model.Items)
+            {
+                <partial name="_FeedbackItem" model="(f, b, true, Model.Show)" />
+            }
+        </section>
+        @if (pages > 1)
+        {
+            <nav class="fb-pages" aria-label="Pages">
+                @for (var p = 1; p <= pages; p++)
+                {
+                    <a asp-action="Index" asp-route-id="@b.Id" asp-route-show="@Model.Show" asp-route-page="@p" aria-current="@(p == Model.Page ? "page" : null)">@p</a>
+                }
+            </nav>
+        }
+    </div>
+
+    <aside class="fb-side">
+        <section class="panel" aria-labelledby="distTitle">
+            <div class="panel-body">
+                <h2 id="distTitle" class="h5 mb-3">Last 30 days</h2>
+                <ul class="lang-bars">
+                    @for (var n = 5; n >= 1; n--)
+                    {
+                        var w = maxBar == 0 ? 0 : s30.ByStars[n] / (double)maxBar;
+                        <li>
+                            <span class="lang-bars-name">@n ★</span>
+                            <span class="hbar" aria-hidden="true">@if (w > 0) { <span class="hbar-fill" style="--w: @w.ToString("0.####", CultureInfo.InvariantCulture)"></span> }</span>
+                            <span class="lang-bars-count tabular">@s30.ByStars[n]</span>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </section>
+
+        @if (canSettings)
+        {
+            <section class="panel" aria-labelledby="fbSetTitle">
+                <form method="post" asp-action="Settings" asp-route-id="@b.Id" class="panel-body">
+                    <h2 id="fbSetTitle" class="h5 mb-3">Settings</h2>
+                    <div class="form-check form-switch mb-2">
+                        <input type="checkbox" class="form-check-input" role="switch" id="enabled" name="enabled" value="true" @(b.FeedbackEnabled ? "checked" : "") />
+                        <label class="form-check-label" for="enabled">Ask guests to rate their visit</label>
+                        <input type="hidden" name="enabled" value="false" />
+                    </div>
+                    <label class="form-label mt-2" for="googleReviewUrl">Google review link</label>
+                    <input id="googleReviewUrl" name="googleReviewUrl" class="form-control" maxlength="300" value="@b.GoogleReviewUrl" placeholder="https://g.page/r/…/review" spellcheck="false" />
+                    <span class="hint">Google Business Profile → <em>Ask for reviews</em> → copy the link. A Place ID (ChIJ…) works too.</span>
+                    <div class="form-check form-switch mt-3 mb-1">
+                        <input type="checkbox" class="form-check-input" role="switch" id="googleForAll" name="googleForAll" value="true" @(b.FeedbackGoogleForAll ? "checked" : "") />
+                        <label class="form-check-label" for="googleForAll">Offer the Google link after every rating</label>
+                        <input type="hidden" name="googleForAll" value="false" />
+                    </div>
+                    <span class="hint">Off: only after 4–5 stars; lower ratings stay private. Google's review policy doesn't allow asking only happy guests ("review gating"), and can remove reviews collected that way. Switch this on to stay on the safe side; low ratings still reach you privately first.</span>
+                    <div class="form-check form-switch mt-3 mb-3">
+                        <input type="checkbox" class="form-check-input" role="switch" id="emailOwner" name="emailOwner" value="true" @(b.FeedbackEmailOwner ? "checked" : "") />
+                        <label class="form-check-label" for="emailOwner">Email me about 1–3 star ratings</label>
+                        <input type="hidden" name="emailOwner" value="false" />
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Save settings</button>
+                </form>
+            </section>
+        }
+    </aside>
+</div>

@@ -714,6 +714,87 @@
         });
     }
 
+    /* ---------- Guest feedback: stars in the footer, details in a sheet ---------- */
+    (function () {
+        var cfgEl = document.getElementById('feedbackConfig');
+        var box = document.querySelector('[data-rate]');
+        var sheet = document.querySelector('[data-rate-sheet]');
+        if (!cfgEl || !box || !sheet) return;
+        var C = JSON.parse(cfgEl.textContent), W = C.words;
+        var KEY = 'menu_feedback_' + C.branch, HOLD = 12 * 3600 * 1000; // one rating per visit
+        var form = sheet.querySelector('[data-rate-form]');
+        var thanks = sheet.querySelector('[data-rate-thanks]');
+        var sendBtn = sheet.querySelector('[data-rate-send]');
+        var rating = 0, openedAt = 0, busy = false;
+
+        function sentRecently() {
+            try { return Date.now() - Number(localStorage.getItem(KEY) || 0) < HOLD; } catch (e) { return false; }
+        }
+        function showDone() {
+            box.querySelector('.m-rate-stars').hidden = true;
+            box.querySelector('h2').hidden = true;
+            box.querySelector('[data-rate-done]').hidden = false;
+        }
+        if (sentRecently()) showDone();
+
+        function setRating(n) {
+            rating = n;
+            sheet.querySelectorAll('[data-pick]').forEach(function (b) {
+                var on = Number(b.getAttribute('data-pick')) <= n;
+                b.classList.toggle('is-on', on);
+                b.setAttribute('aria-checked', Number(b.getAttribute('data-pick')) === n ? 'true' : 'false');
+            });
+            var low = n <= C.low;
+            sheet.querySelector('[data-rate-title]').textContent = low ? W.LowTitle : W.HighTitle;
+            sheet.querySelector('[data-rate-private]').hidden = !low;
+            sheet.querySelector('[data-rate-contact]').hidden = !low;
+        }
+        box.querySelectorAll('[data-star]').forEach(function (b) {
+            b.addEventListener('mouseenter', function () {
+                var n = Number(b.getAttribute('data-star'));
+                box.querySelectorAll('[data-star]').forEach(function (x) { x.classList.toggle('is-on', Number(x.getAttribute('data-star')) <= n); });
+            });
+            b.addEventListener('mouseleave', function () { box.querySelectorAll('[data-star]').forEach(function (x) { x.classList.remove('is-on'); }); });
+            b.addEventListener('click', function () {
+                form.hidden = false; thanks.hidden = true;
+                sheet.querySelector('[data-rate-error]').hidden = true;
+                setRating(Number(b.getAttribute('data-star')));
+                openedAt = Date.now();
+                if (typeof sheet.showModal === 'function') sheet.showModal(); else sheet.setAttribute('open', '');
+                sheet.querySelector('textarea').focus();
+            });
+        });
+        sheet.querySelectorAll('[data-pick]').forEach(function (b) {
+            b.addEventListener('click', function () { setRating(Number(b.getAttribute('data-pick'))); });
+        });
+
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            if (busy || !rating) return;
+            busy = true; sendBtn.disabled = true;
+            sendBtn.querySelector('[data-rate-send-label]').textContent = W.Sending;
+            var data = new FormData(form);
+            data.set('b', C.branch); data.set('rating', rating); data.set('lang', C.lang || '');
+            data.set('ms', String(Date.now() - openedAt));
+            if (C.table) data.set('t', C.table);
+            if (rating > C.low) data.delete('contact');
+            fetch(C.url, { method: 'POST', body: new URLSearchParams(data), headers: { 'Accept': 'application/json' } })
+                .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+                .then(function (res) {
+                    try { localStorage.setItem(KEY, String(Date.now())); } catch (e2) { /* not fatal */ }
+                    form.hidden = true; thanks.hidden = false;
+                    thanks.querySelector('[data-rate-thanks-title]').textContent = rating <= C.low ? W.ThanksLow : W.ThanksHigh;
+                    var g = thanks.querySelector('[data-rate-google]');
+                    g.hidden = !res.google; thanks.querySelector('[data-rate-google-ask]').hidden = !res.google;
+                    if (res.google) g.href = res.google;
+                    showDone();
+                    form.reset();
+                })
+                .catch(function () { sheet.querySelector('[data-rate-error]').hidden = false; })
+                .then(function () { busy = false; sendBtn.disabled = false; sendBtn.querySelector('[data-rate-send-label]').textContent = W.Send; });
+        });
+    })();
+
     load();
     render();
     apply();
