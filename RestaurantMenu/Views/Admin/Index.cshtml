@@ -155,3 +155,30 @@
         </div>
     </section>
 </div>
+
+@{ var domains = (List<RestaurantMenu.Models.Domain>)ViewBag.Domains; }
+@if (domains.Count > 0)
+{
+    <section class="panel mt-4" aria-labelledby="domainsTitle">
+        <div class="panel-head"><h2 id="domainsTitle">Restaurant domains <span class="count">@domains.Count</span></h2></div>
+        <div class="panel-body">
+            <p class="hint mt-0">Each domain must also be added to the web service in Render (Settings → Custom Domains) for its https certificate, unless Sites__RenderApiKey and Sites__RenderServiceId are set.</p>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead><tr><th scope="col">Domain</th><th scope="col">Restaurant</th><th scope="col">Status</th><th scope="col">Added</th></tr></thead>
+                    <tbody>
+                        @foreach (var d in domains)
+                        {
+                            <tr>
+                                <td><span class="mono">@RestaurantMenu.Helpers.SiteRules.DisplayHost(d.Host)</span></td>
+                                <td>@d.Branch?.Name</td>
+                                <td>@if (d.Verified) { <span class="chip chip--ok">Connected</span> } else { <span class="chip chip--warn" title="@d.LastError">Waiting for DNS</span> }</td>
+                                <td>@d.CreatedUtc.ToString("d MMM yyyy")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+}

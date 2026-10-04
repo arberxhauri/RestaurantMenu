@@ -192,18 +192,9 @@ public static class StructuredData
 
         // Opening hours for Google (search, Maps). One entry per period; a period that
         // closes "earlier" than it opens runs past midnight, which Google reads correctly.
-        if (branch.HoursEnabled && branch.OpeningHours is { Count: > 0 } hours)
+        if (HoursSpec(branch) is { } spec)
         {
-            restaurant["openingHoursSpecification"] = hours
-                .OrderBy(h => ((int)h.DayOfWeek + 6) % 7).ThenBy(h => h.Opens)
-                .Select(h => new Dictionary<string, object?>
-                {
-                    ["@type"] = "OpeningHoursSpecification",
-                    ["dayOfWeek"] = $"https://schema.org/{h.DayOfWeek}",
-                    ["opens"] = OpeningHours.Time(h.Opens),
-                    ["closes"] = h.Opens == h.Closes ? "23:59" : OpeningHours.Time(h.Closes)
-                })
-                .ToList();
+            restaurant["openingHoursSpecification"] = spec;
         }
 
         if (sections.Count > 0)
@@ -245,5 +236,48 @@ public static class StructuredData
             ["@context"] = "https://schema.org",
             ["@graph"] = new object[] { restaurant, breadcrumbs }
         });
+    }
+
+    private static List<Dictionary<string, object?>>? HoursSpec(Branch branch) =>
+        branch.HoursEnabled && branch.OpeningHours is { Count: > 0 } hours
+            ? hours.OrderBy(h => ((int)h.DayOfWeek + 6) % 7).ThenBy(h => h.Opens)
+                .Select(h => new Dictionary<string, object?>
+                {
+                    ["@type"] = "OpeningHoursSpecification",
+                    ["dayOfWeek"] = $"https://schema.org/{h.DayOfWeek}",
+                    ["opens"] = OpeningHours.Time(h.Opens),
+                    ["closes"] = h.Opens == h.Closes ? "23:59" : OpeningHours.Time(h.Closes)
+                })
+                .ToList()
+            : null;
+
+    /// <summary>The website's Restaurant: where it is, when it's open, its menu, whether it takes bookings, its profiles.</summary>
+    public static string ForBranchSite(Branch branch, BranchSite site, string url, string menuUrl, bool bookable, SeoService seo)
+    {
+        var restaurant = new Dictionary<string, object?>
+        {
+            ["@context"] = "https://schema.org",
+            ["@type"] = "Restaurant",
+            ["@id"] = $"{url}#restaurant",
+            ["name"] = branch.Name,
+            ["url"] = url,
+            ["hasMenu"] = menuUrl,
+            ["acceptsReservations"] = bookable ? "True" : "False",
+            ["currenciesAccepted"] = branch.Currency
+        };
+        if (!string.IsNullOrWhiteSpace(site.Tagline)) restaurant["slogan"] = site.Tagline;
+        if (!string.IsNullOrWhiteSpace(site.About)) restaurant["description"] = site.About;
+        if (!string.IsNullOrWhiteSpace(branch.Logo)) restaurant["logo"] = seo.Absolute(branch.Logo);
+        var image = !string.IsNullOrWhiteSpace(branch.Banner) ? branch.Banner : branch.Logo;
+        if (!string.IsNullOrWhiteSpace(image)) restaurant["image"] = seo.Absolute(image);
+        if (!string.IsNullOrWhiteSpace(branch.PhoneNumber)) restaurant["telephone"] = branch.PhoneNumber;
+        if (!string.IsNullOrWhiteSpace(branch.Address))
+            restaurant["address"] = new Dictionary<string, object?> { ["@type"] = "PostalAddress", ["streetAddress"] = branch.Address };
+        if (HoursSpec(branch) is { } spec) restaurant["openingHoursSpecification"] = spec;
+        var sameAs = new List<string>();
+        if (site.Instagram != null) sameAs.Add($"https://www.instagram.com/{site.Instagram}/");
+        if (site.Facebook != null) sameAs.Add(site.Facebook);
+        if (sameAs.Count > 0) restaurant["sameAs"] = sameAs;
+        return Serialize(restaurant);
     }
 }

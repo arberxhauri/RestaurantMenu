@@ -64,6 +64,12 @@
         }
         @if (Can(BranchPermission.EditBranch))
         {
+            <a class="btn btn-outline-secondary btn-sm" asp-controller="Website" asp-action="Index" asp-route-id="@Model.Id">
+                <i class="ph ph-globe-simple" aria-hidden="true"></i>Website
+            </a>
+        }
+        @if (Can(BranchPermission.EditBranch))
+        {
             <a class="btn btn-outline-secondary btn-sm" asp-controller="Tables" asp-action="Index" asp-route-id="@Model.Id">
                 <i class="ph ph-armchair" aria-hidden="true"></i>Tables &amp; ordering
             </a>

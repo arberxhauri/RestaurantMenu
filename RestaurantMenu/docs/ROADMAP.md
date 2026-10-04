@@ -239,8 +239,37 @@ Guests book a table online; the restaurant runs the day from one page.
 - **Settings** `/branch/{id}/bookings/settings` (Manager and up): all of the above, the message status (SMS provider, email), the booking link with Copy, QR code and PNG download. Turning bookings on without opening hours explains what's missing.
 - **Later:** table assignment and floor plan, deposits for large groups (with online payment), waitlist when a day is full, booking stats on Insights.
 
-### 16. Restaurant websites (2 to 3 weeks)
-A `/site/{slug}` template rendering branch data (hero, about, hours, menu highlights, booking button, map). Custom domains: a `Domain` table plus host-based routing middleware that maps `Host` to the branch, and Render custom domains with automatic TLS.
+### 16. Restaurant websites: done
+A website per branch, built from the dashboard so it's never out of date, at `/site/{slug}`, a free subdomain, or the restaurant's own domain.
+
+- **Data** (migration `AddWebsites`, additive):
+  - `BranchSite { Enabled, Tagline (+translations), About (+translations), Instagram, Facebook, ShowHighlights, ShowMap }`: only what the site needs.
+  - `Domain { BranchId, Host (unique), Verified, Token, VerifiedUtc, LastCheckUtc, LastError, RenderId }`.
+- **The site** (`SiteController`, `Views/Site/Index.cshtml`, `website.css`):
+  - Sticky bar, full-width photo hero (or the brand gradient) with open/closed status.
+  - See the menu, Book a table (while bookings are on) and Call buttons.
+  - About us, featured dishes (else dishes with photos; sold-out and hidden ones left out), the week's hours with today marked, address, directions and a map.
+  - The map loads from Google only when tapped, so there's no Google request or cookie until then.
+  - Socials, the menu's 7 languages, the restaurant's colours, light/dark.
+  - On phones, a floating Book button.
+  - Unpublished sites are a preview for the team only (noindex).
+- **SEO:** a Restaurant JSON-LD (address, phone, opening hours, menu, `acceptsReservations`, `sameAs`), hreflang, and a canonical on the site's public address (own domain, else subdomain, else `/site`). The main sitemap lists sites by that address. An own domain gets its own robots.txt and sitemap. robots.txt now also hides `/kitchen/`.
+- **Host routing** (`Services/SiteHostMiddleware`, before static files and routing):
+  - On a connected host, `/` is the site, `/menu` the menu, `/book` the booking page. Styles, images and the menu's endpoints pass through.
+  - The back office, sign-in and other restaurants' pages redirect to the app's own address, so sign-in cookies only live there.
+  - `www.` and the bare domain redirect to whichever is connected.
+  - Unknown, unconnected or unpublished hosts get a short explanation page (404).
+  - Lookups come from a 1-minute in-memory snapshot (`Services/SiteHosts`), refreshed on every change.
+- **Free subdomains:** with `Sites__WildcardDomain=yourdomain.al`, every published site is also at `{restaurant}.yourdomain.al`. That needs just two domains on Render (`*.yourdomain.al` and `yourdomain.al`), however many restaurants there are.
+- **Own domains** (`Services/DomainService`, Website page):
+  - Add up to 2 per site. Names are cleaned (scheme, path, port, case; internationalised names stored as punycode); IP addresses, localhost and the app's own hosts are refused; a domain can belong to only one restaurant.
+  - Exact DNS instructions: a CNAME to the app's `onrender.com` address for www/subdomains, `A 216.24.57.1` for root domains.
+  - **Verified** only when the app reaches itself through the domain (`/.well-known/mqm-domain` must answer that domain's secret token), so DNS really points here. The check never connects to private addresses.
+  - "Check now", plus automatic checks every 10 minutes for 7 days.
+  - With `Sites__RenderApiKey` + `Sites__RenderServiceId`, domains are added to, verified at and removed from Render automatically, and Render issues the https certificate. Without them, the admin page lists the domains to add in Render by hand.
+- **Website page** `/branch/{id}/website` (Manager and up): Published switch, tagline and about text with translations, Instagram and Facebook (validated), section toggles, what the site takes from the dashboard (cover photo, hours), the address with Copy, and domains with status, DNS records, reasons and Check/Remove.
+- **Costs:** the site and subdomains are free. Render offers own domains on paid workspace plans only (Hobby includes 2, Pro 15, more are $0.25/month each), so restaurant domains are a paid add-on in practice.
+- **Later:** more templates, a photo gallery, events, and per-site analytics.
 
 ### 17. Management system (ongoing)
 Stock per ingredient, staff shifts, end-of-day sales. Build only after ordering exists, since it feeds on order data.

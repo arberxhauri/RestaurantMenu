@@ -1,0 +1,225 @@
+@using System.Globalization
+@using RestaurantMenu.Controllers
+@using RestaurantMenu.Helpers
+@model SitePage
+@inject IConfiguration Config
+@{
+    Layout = null;
+    var b = Model.Branch;
+    var s = Model.Site;
+    var lang = Model.Language;
+    var w = SiteRules.For(lang);
+    var seo = (SeoMetadata)ViewData["Seo"]!;
+    var theme = BrandTheme.Parse(b.ThemeColors);
+    seo.ThemeColor = theme.Primary;
+    var themeClass = theme.Appearance switch { "light" => "theme-light", "dark" => "theme-dark", _ => "" };
+    var photoHero = !string.IsNullOrEmpty(b.Banner);
+    var heroInk = photoHero ? "#FFFFFF" : theme.HeaderText;
+    var tagline = string.IsNullOrWhiteSpace(s.Tagline) ? null : TranslationHelper.GetTranslation(s.Tagline, s.TaglineTranslations, lang);
+    var about = string.IsNullOrWhiteSpace(s.About) ? null : TranslationHelper.GetTranslation(s.About, s.AboutTranslations, lang);
+    CultureInfo priceCulture;
+    try { priceCulture = CultureInfo.GetCultureInfo(lang); } catch (CultureNotFoundException) { priceCulture = CultureInfo.InvariantCulture; }
+    var hours = b.OpeningHours ?? new List<BranchHours>();
+    var showHours = b.HoursEnabled && hours.Any();
+    var today = Model.Status?.LocalNow.DayOfWeek ?? DateTime.UtcNow.DayOfWeek;
+    var mapsUrl = "https://www.google.com/maps/search/?api=1&query=" + Uri.EscapeDataString(b.Name + ", " + b.Address);
+    var embedUrl = "https://www.google.com/maps?output=embed&q=" + Uri.EscapeDataString(b.Name + ", " + b.Address);
+    string Capital(string t) => t.Length == 0 ? t : char.ToUpper(t[0], priceCulture) + t[1..];
+    var highlights = s.ShowHighlights ? Model.Highlights : Array.Empty<Product>();
+}
+<!DOCTYPE html>
+<html lang="@lang">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    @await Html.PartialAsync("_SeoMeta", seo)
+    @if (photoHero) { <link rel="preload" as="image" href="@b.Banner" fetchpriority="high" /> }
+    <partial name="_HeadAssets" />
+    <link rel="stylesheet" href="~/css/menu.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/website.css" asp-append-version="true" />
+    <style>
+        :root {
+            --brand: @theme.Primary;
+            --brand-2: @theme.Secondary;
+            --on-brand: @theme.OnPrimary;
+            --brand-ink-light: @theme.PrimaryInkLight;
+            --brand-ink-dark: @theme.PrimaryInkDark;
+            --hero-ink: @heroInk;
+        }
+    </style>
+</head>
+<body class="menu-page site-page @themeClass">
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    @if (Model.Preview)
+    {
+        <div class="w-preview" role="status">
+            <i class="ph ph-eye" aria-hidden="true"></i>
+            <span><strong>Preview.</strong> Only your team sees this site until you publish it.</span>
+            <a href="/branch/@b.Id/website">Website settings</a>
+        </div>
+    }
+
+    <header class="w-bar">
+        <a class="w-brand" href="#top">
+            @if (!string.IsNullOrEmpty(b.Logo)) { <img src="@b.Logo" alt="" width="36" height="36" /> }
+            <span translate="no">@b.Name</span>
+        </a>
+        <nav class="w-links" aria-label="@b.Name">
+            @if (about != null) { <a href="#about">@w.About</a> }
+            <a href="@Model.MenuUrl">@w.SeeMenu</a>
+            @if (showHours) { <a href="#hours">@w.Hours</a> }
+            <a href="#find">@w.FindUs</a>
+        </nav>
+        @if (Model.Languages.Length > 1)
+        {
+            <details class="w-lang">
+                <summary aria-label="Language: @LanguageHelper.GetLanguageName(lang)"><i class="ph ph-translate" aria-hidden="true"></i>@lang.ToUpperInvariant()</summary>
+                <ul>
+                    @foreach (var l in Model.Languages)
+                    {
+                        <li><a href="?lang=@l" lang="@l" hreflang="@l" aria-current="@(l == lang ? "true" : null)">@LanguageHelper.GetLanguageName(l)</a></li>
+                    }
+                </ul>
+            </details>
+        }
+        @if (Model.BookUrl != null) { <a class="w-bar-book" href="@Model.BookUrl">@w.Book</a> }
+    </header>
+
+    <section class="w-hero @(photoHero ? "w-hero--photo" : "w-hero--colour")" id="top">
+        @if (photoHero) { <img class="w-hero-img" src="@b.Banner" alt="" fetchpriority="high" /> }
+        <div class="w-hero-scrim" aria-hidden="true"></div>
+        <div class="w-hero-content">
+            <h1 translate="no">@b.Name</h1>
+            @if (tagline != null) { <p class="w-tagline">@tagline</p> }
+            @if (Model.Status != null)
+            {
+                <p class="w-status @(Model.Status.IsOpen ? "is-open" : "")"><span class="w-dot" aria-hidden="true"></span>@OpeningHours.Label(Model.Status, lang)</p>
+            }
+            <div class="w-cta">
+                <a class="w-btn w-btn--primary" href="@Model.MenuUrl"><i class="ph ph-book-open-text" aria-hidden="true"></i>@w.SeeMenu</a>
+                @if (Model.BookUrl != null) { <a class="w-btn" href="@Model.BookUrl"><i class="ph ph-calendar-check" aria-hidden="true"></i>@w.Book</a> }
+                <a class="w-btn" href="tel:@b.PhoneNumber"><i class="ph ph-phone" aria-hidden="true"></i>@w.Call</a>
+            </div>
+        </div>
+    </section>
+
+    <main id="main">
+        @if (about != null)
+        {
+            <section class="w-section w-about" id="about" aria-labelledby="aboutTitle">
+                <div class="w-wrap">
+                    <h2 id="aboutTitle">@w.About</h2>
+                    <div class="w-about-text">
+                        @foreach (var para in about.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) { <p>@para</p> }
+                    </div>
+                </div>
+            </section>
+        }
+
+        @if (highlights.Count > 0)
+        {
+            <section class="w-section w-dishes" aria-labelledby="dishTitle">
+                <div class="w-wrap">
+                    <h2 id="dishTitle">@w.Highlights</h2>
+                    <ul class="w-dish-grid">
+                        @foreach (var p in highlights)
+                        {
+                            var name = TranslationHelper.GetTranslation(p.Name, p.NameTranslations, lang);
+                            var desc = TranslationHelper.GetTranslation(p.Description ?? "", p.DescriptionTranslations, lang);
+                            <li class="w-dish">
+                                @if (!string.IsNullOrEmpty(p.Image)) { <img src="@p.Image" alt="@name" loading="lazy" width="600" height="450" /> }
+                                else { <div class="w-dish-noimg" aria-hidden="true"><i class="ph ph-fork-knife"></i></div> }
+                                <div class="w-dish-body">
+                                    <h3>@name</h3>
+                                    @if (!string.IsNullOrWhiteSpace(desc)) { <p>@desc</p> }
+                                    <span class="w-price tabular">@(Model.Currency + p.Price.ToString("N2", priceCulture))</span>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                    <a class="w-btn w-btn--primary w-more" href="@Model.MenuUrl">@w.FullMenu <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+                </div>
+            </section>
+        }
+
+        <section class="w-section w-visit" aria-label="@w.FindUs">
+            <div class="w-wrap w-visit-grid">
+                @if (showHours)
+                {
+                    <div class="w-hours" id="hours">
+                        <h2>@w.Hours</h2>
+                        <dl>
+                            @foreach (var day in OpeningHours.Week)
+                            {
+                                <div class="@(day == today ? "is-today" : "")">
+                                    <dt>@Capital(OpeningHours.DayName(day, lang))@if (day == today) { <span class="w-today">@w.Today</span> }</dt>
+                                    <dd>@OpeningHours.DayText(hours, day, lang)</dd>
+                                </div>
+                            }
+                        </dl>
+                    </div>
+                }
+                <div class="w-find" id="find">
+                    <h2>@w.FindUs</h2>
+                    <p class="w-address"><i class="ph ph-map-pin" aria-hidden="true"></i><span>@b.Address</span></p>
+                    <p><a href="tel:@b.PhoneNumber"><i class="ph ph-phone" aria-hidden="true"></i>@b.PhoneNumber</a></p>
+                    <div class="w-find-actions">
+                        <a class="w-btn w-btn--primary" href="@mapsUrl" target="_blank" rel="noopener noreferrer"><i class="ph ph-navigation-arrow" aria-hidden="true"></i>@w.Directions</a>
+                        @if (Model.BookUrl != null) { <a class="w-btn w-btn--line" href="@Model.BookUrl"><i class="ph ph-calendar-check" aria-hidden="true"></i>@w.Book</a> }
+                    </div>
+                    @if (s.ShowMap)
+                    {
+                        @* Loaded only when asked: no Google request (or cookies) until the guest wants the map. *@
+                        <div class="w-map" data-map="@embedUrl">
+                            <button type="button" class="w-btn w-btn--line" data-map-load><i class="ph ph-map-trifold" aria-hidden="true"></i>@w.ShowMap</button>
+                            <small>@w.MapNote</small>
+                        </div>
+                    }
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="w-footer">
+        <div class="w-wrap">
+            @if (s.Instagram != null || s.Facebook != null)
+            {
+                <div class="w-social" aria-label="@w.Follow">
+                    <span>@w.Follow</span>
+                    @if (s.Instagram != null) { <a href="https://www.instagram.com/@s.Instagram/" target="_blank" rel="noopener noreferrer me"><i class="ph ph-instagram-logo" aria-hidden="true"></i>@@@s.Instagram</a> }
+                    @if (s.Facebook != null) { <a href="@s.Facebook" target="_blank" rel="noopener noreferrer me"><i class="ph ph-facebook-logo" aria-hidden="true"></i>Facebook</a> }
+                </div>
+            }
+            <p><span translate="no">@b.Name</span> · @b.Address · <a href="tel:@b.PhoneNumber">@b.PhoneNumber</a></p>
+            <a class="m-powered" href="@((Config["Seo:BaseUrl"] ?? "").TrimEnd('/'))/" rel="noopener">
+                <partial name="_BrandMark" model="16" /><span>Powered by <strong>My Quick Menu</strong></span>
+            </a>
+        </div>
+    </footer>
+
+    @if (Model.BookUrl != null)
+    {
+        <a class="w-float-book" href="@Model.BookUrl"><i class="ph ph-calendar-check" aria-hidden="true"></i>@w.Book</a>
+    }
+
+    <script>
+        document.querySelectorAll('[data-map-load]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var box = btn.closest('[data-map]');
+                var f = document.createElement('iframe');
+                f.src = box.getAttribute('data-map');
+                f.title = btn.textContent.trim();
+                f.loading = 'lazy';
+                f.referrerPolicy = 'no-referrer-when-downgrade';
+                box.textContent = '';
+                box.appendChild(f);
+                box.classList.add('is-loaded');
+            });
+        });
+        document.querySelectorAll('.w-lang').forEach(function (d) {
+            document.addEventListener('click', function (e) { if (!d.contains(e.target)) d.open = false; });
+        });
+    </script>
+</body>
+</html>

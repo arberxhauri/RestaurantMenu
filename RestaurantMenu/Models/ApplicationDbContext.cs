@@ -23,6 +23,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<OrderItem> OrderItems { get; set; }
     public DbSet<ReservationSettings> ReservationSettings { get; set; }
     public DbSet<Reservation> Reservations { get; set; }
+    public DbSet<BranchSite> BranchSites { get; set; }
+    public DbSet<Domain> Domains { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -185,6 +187,30 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.Property(r => r.CancelledBy).HasMaxLength(12);
             e.Property(r => r.StartsAtLocal).HasColumnType("timestamp without time zone");
             e.HasQueryFilter(r => !r.Branch!.IsDeleted);
+        });
+
+        // Websites. One site row per branch; domains are unique across the platform (a host
+        // can only ever lead to one restaurant). Both follow the branch's soft delete.
+        builder.Entity<BranchSite>(e =>
+        {
+            e.HasKey(x => x.BranchId);
+            e.HasOne(x => x.Branch).WithOne().HasForeignKey<BranchSite>(x => x.BranchId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(x => x.Tagline).HasMaxLength(120);
+            e.Property(x => x.About).HasMaxLength(3000);
+            e.Property(x => x.Instagram).HasMaxLength(60);
+            e.Property(x => x.Facebook).HasMaxLength(200);
+            e.HasQueryFilter(x => !x.Branch!.IsDeleted);
+        });
+        builder.Entity<Domain>(e =>
+        {
+            e.HasIndex(d => d.Host).IsUnique();
+            e.HasIndex(d => d.BranchId);
+            e.HasOne(d => d.Branch).WithMany().HasForeignKey(d => d.BranchId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(d => d.Host).HasMaxLength(253);
+            e.Property(d => d.Token).HasMaxLength(64);
+            e.Property(d => d.LastError).HasMaxLength(300);
+            e.Property(d => d.RenderId).HasMaxLength(64);
+            e.HasQueryFilter(d => !d.Branch!.IsDeleted);
         });
 
         // Decimal precision for Price

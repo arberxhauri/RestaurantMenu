@@ -138,6 +138,15 @@ builder.Services.AddHostedService<BackgroundJobsWorker>();
 builder.Services.AddScoped<BookingService>();
 builder.Services.AddSingleton<BookingReminderService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<BookingReminderService>());
+
+// Restaurant websites: /site/{slug}, and the restaurant's own domain (SiteHostMiddleware).
+// Sites__WildcardDomain gives every site a free {restaurant}.yourdomain address;
+// Sites__RenderApiKey + Sites__RenderServiceId register own domains with Render automatically.
+builder.Services.Configure<SiteOptions>(builder.Configuration.GetSection("Sites"));
+builder.Services.AddSingleton<SiteHosts>();
+builder.Services.AddHttpClient<DomainService>(c => c.Timeout = TimeSpan.FromSeconds(20))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+builder.Services.AddHostedService<DomainCheckService>();
 builder.Services.AddSignalR();
 
 // Menu analytics: anonymous events (no cookies, no IP or device stored), owner reports,
@@ -220,6 +229,10 @@ var app = builder.Build();
 // Must run before anything reads Request.Scheme or Request.Host — including
 // UseHttpsRedirection and every SEO URL the views build.
 app.UseForwardedHeaders();
+
+// Restaurants' own domains: before static files and routing, so "/" on such a domain becomes
+// that restaurant's website and back-office paths go to the app's own address.
+app.UseMiddleware<SiteHostMiddleware>();
 
 // This is where ALL uploaded images will live (persistent disk)
 var persistentImagesRoot = Path.Combine(diskMount, "images");

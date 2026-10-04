@@ -1,0 +1,186 @@
+@using RestaurantMenu.Controllers
+@using RestaurantMenu.Helpers
+@model WebsitePage
+@{
+    var b = Model.Branch;
+    var s = Model.Site;
+    ViewData["Title"] = "Website - " + b.Name;
+    string Tr(string? json, string lang) => string.IsNullOrEmpty(json) ? "" : TranslationHelper.GetTranslation("", json, lang);
+    var siteShort = Model.SiteUrl.Replace("https://", "").Replace("http://", "");
+    var alsoSub = Model.SubdomainUrl != null && Model.Domains.Any(d => d.Verified) ? " and " + Model.SubdomainUrl.Replace("https://", "").TrimEnd('/') : "";
+    var liveUrl = Model.Domains.FirstOrDefault(d => d.Verified) is { } live ? $"https://{SiteRules.DisplayHost(live.Host)}/" : Model.SubdomainUrl ?? Model.SiteUrl;
+}
+
+<ol class="crumbs">
+    <li><a asp-controller="Dashboard" asp-action="Index">My branches</a></li>
+    <li><a asp-controller="Branch" asp-action="Details" asp-route-id="@b.Id">@b.Name</a></li>
+    <li aria-current="page">Website</li>
+</ol>
+
+<header class="page-head">
+    <div>
+        <h1>Website</h1>
+        <p>A site for @b.Name built from your dashboard: photos, colours, opening hours, featured dishes and bookings stay up to date by themselves.</p>
+    </div>
+    <div class="page-actions">
+        <a class="btn btn-outline-secondary btn-sm" href="@Model.SiteUrl" target="_blank" rel="noopener"><i class="ph ph-eye" aria-hidden="true"></i>@(s.Enabled ? "Open site" : "Preview")</a>
+    </div>
+</header>
+
+@if (Model.Errors?.Count > 0)
+{
+    <div class="flash flash--danger mb-4" role="alert"><i class="ph ph-warning-octagon" aria-hidden="true"></i><p>@string.Join(" ", Model.Errors)</p></div>
+}
+
+<div class="ws-layout">
+    <form method="post" asp-action="Save" asp-route-id="@b.Id" class="panel">
+        <div class="panel-body">
+            <div class="form-check form-switch mb-1">
+                <input type="checkbox" class="form-check-input" role="switch" id="enabled" name="enabled" value="true" @(s.Enabled ? "checked" : "") />
+                <label class="form-check-label fw-semibold" for="enabled">Published</label>
+                <input type="hidden" name="enabled" value="false" />
+            </div>
+            <p class="hint mt-0">Off: only your team sees the site (as a preview). On: anyone can visit it.</p>
+
+            <h2 class="h6 mt-4">About the restaurant</h2>
+            <div class="mb-3">
+                <label class="form-label" for="tagline">Tagline <span class="optional">one line under the name</span></label>
+                <input id="tagline" name="tagline" class="form-control" maxlength="120" value="@s.Tagline" placeholder="e.g. Seafood by the harbour since 1998" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="about">About us <span class="optional">a few sentences</span></label>
+                <textarea id="about" name="about" class="form-control" rows="5" maxlength="3000" placeholder="Who you are, what you cook, what makes a visit special.">@s.About</textarea>
+                <span class="hint">An empty line starts a new paragraph. This is the text in English (the site's main language).</span>
+            </div>
+            @if (Model.Languages.Length > 0)
+            {
+                <details class="ws-tr">
+                    <summary>Translations (@string.Join(", ", Model.Languages.Select(LanguageHelper.GetLanguageName)))</summary>
+                    @foreach (var l in Model.Languages)
+                    {
+                        <fieldset class="ws-tr-lang">
+                            <legend>@LanguageHelper.GetLanguageName(l)</legend>
+                            <label class="form-label" for="tagline_@l">Tagline</label>
+                            <input id="tagline_@l" name="tagline_@l" class="form-control mb-2" maxlength="120" value="@Tr(s.TaglineTranslations, l)" lang="@l" />
+                            <label class="form-label" for="about_@l">About us</label>
+                            <textarea id="about_@l" name="about_@l" class="form-control" rows="4" maxlength="3000" lang="@l">@Tr(s.AboutTranslations, l)</textarea>
+                        </fieldset>
+                    }
+                    <span class="hint">Empty: guests in that language see the English text.</span>
+                </details>
+            }
+
+            <h2 class="h6 mt-4">Social</h2>
+            <div class="ws-grid">
+                <div>
+                    <label class="form-label" for="instagram">Instagram</label>
+                    <div class="input-group"><span class="input-group-text">@@</span><input id="instagram" name="instagram" class="form-control" maxlength="60" value="@s.Instagram" placeholder="yourrestaurant" spellcheck="false" /></div>
+                </div>
+                <div>
+                    <label class="form-label" for="facebook">Facebook page</label>
+                    <input id="facebook" name="facebook" class="form-control" maxlength="200" value="@s.Facebook" placeholder="https://facebook.com/yourrestaurant" spellcheck="false" />
+                </div>
+            </div>
+
+            <h2 class="h6 mt-4">Sections</h2>
+            <div class="form-check form-switch mb-1">
+                <input type="checkbox" class="form-check-input" role="switch" id="showHighlights" name="showHighlights" value="true" @(s.ShowHighlights ? "checked" : "") />
+                <label class="form-check-label" for="showHighlights">Dishes from the menu</label>
+                <input type="hidden" name="showHighlights" value="false" />
+            </div>
+            <p class="hint mt-0">Your featured dishes (Recommend on the dish), else dishes with photos, up to 6.</p>
+            <div class="form-check form-switch mb-1">
+                <input type="checkbox" class="form-check-input" role="switch" id="showMap" name="showMap" value="true" @(s.ShowMap ? "checked" : "") />
+                <label class="form-check-label" for="showMap">Map</label>
+                <input type="hidden" name="showMap" value="false" />
+            </div>
+            <p class="hint mt-0">Loaded from Google Maps only when a guest taps "Show map".</p>
+
+            <ul class="ws-from">
+                <li class="@(Model.HasBanner ? "is-ok" : "")"><i class="ph @(Model.HasBanner ? "ph-check-circle" : "ph-circle")" aria-hidden="true"></i>Cover photo @(Model.HasBanner ? "" : "· add a banner in Edit branch for a photo header")</li>
+                <li class="@(Model.HasHours ? "is-ok" : "")"><i class="ph @(Model.HasHours ? "ph-check-circle" : "ph-circle")" aria-hidden="true"></i>Opening hours @(Model.HasHours ? "" : "· add them in Edit branch")</li>
+            </ul>
+        </div>
+        <div class="panel-foot">
+            <button type="submit" class="btn btn-primary"><i class="ph ph-check" aria-hidden="true"></i>Save</button>
+        </div>
+    </form>
+
+    <aside class="ws-side">
+        <section class="panel" aria-labelledby="addrTitle">
+            <div class="panel-body">
+                <h2 id="addrTitle" class="h5 mb-2">Address</h2>
+                <div class="input-group mb-2">
+                    <input class="form-control mono" value="@liveUrl" readonly aria-label="Website address" />
+                    <button type="button" class="btn btn-outline-secondary" data-copy="@liveUrl" data-copy-done="Website address copied"><i class="ph ph-copy" aria-hidden="true"></i>Copy</button>
+                </div>
+                <p class="hint mt-0 mb-0">
+                    @if (!s.Enabled) { <span>Publish the site to share it.</span> }
+                    Also at <a href="@Model.SiteUrl" target="_blank" rel="noopener">@siteShort</a>@alsoSub.
+                </p>
+            </div>
+        </section>
+
+        <section class="panel" id="domains" aria-labelledby="domTitle">
+            <div class="panel-body">
+                <h2 id="domTitle" class="h5 mb-2">Your own domain</h2>
+                <p class="hint mt-0">Show the site at your own address, like www.yourrestaurant.al. You need a domain from any registrar; the secure https certificate is set up for you.</p>
+
+                @foreach (var d in Model.Domains)
+                {
+                    var shown = SiteRules.DisplayHost(d.Host);
+                    var apex = SiteRules.IsApex(d.Host);
+                    <div class="ws-domain @(d.Verified ? "is-ok" : "")">
+                        <div class="ws-domain-head">
+                            <strong class="mono">@shown</strong>
+                            @if (d.Verified) { <span class="chip chip--ok"><i class="ph ph-check" aria-hidden="true"></i>Connected</span> }
+                            else { <span class="chip chip--warn"><i class="ph ph-hourglass-medium" aria-hidden="true"></i>Waiting for DNS</span> }
+                        </div>
+                        @if (!d.Verified)
+                        {
+                            <p class="hint mb-1">At your domain provider, add this record@(apex ? " (and remove other A/AAAA records for it)" : ""):</p>
+                            <table class="ws-dns">
+                                <thead><tr><th scope="col">Type</th><th scope="col">Name</th><th scope="col">Value</th></tr></thead>
+                                <tbody>
+                                    @if (apex)
+                                    {
+                                        <tr><td>A</td><td class="mono">@@</td><td class="mono">@Model.ApexIp <button type="button" class="icon-btn" data-copy="@Model.ApexIp" data-copy-done="Copied" aria-label="Copy value"><i class="ph ph-copy" aria-hidden="true"></i></button></td></tr>
+                                    }
+                                    else
+                                    {
+                                        var name = d.Host.Split('.')[0];
+                                        <tr><td>CNAME</td><td class="mono">@name</td><td class="mono">@(Model.CnameTarget ?? "your-app.onrender.com") @if (Model.CnameTarget != null) { <button type="button" class="icon-btn" data-copy="@Model.CnameTarget" data-copy-done="Copied" aria-label="Copy value"><i class="ph ph-copy" aria-hidden="true"></i></button> }</td></tr>
+                                    }
+                                </tbody>
+                            </table>
+                            @if (d.LastError != null) { <p class="ws-domain-error"><i class="ph ph-info" aria-hidden="true"></i>@d.LastError</p> }
+                            @if (!Model.RenderApi) { <p class="hint mb-2">Also ask your My Quick Menu administrator to add @shown to the hosting (Render) so the https certificate is issued.</p> }
+                            <p class="hint">We check automatically every 10 minutes. DNS changes can take a few hours.</p>
+                        }
+                        else
+                        {
+                            <p class="hint mb-2">Live since @d.VerifiedUtc?.ToString("d MMM yyyy"). <a href="https://@shown/" target="_blank" rel="noopener">Open</a></p>
+                        }
+                        <div class="ws-domain-actions">
+                            @if (!d.Verified)
+                            {
+                                <form method="post" asp-action="CheckDomain" asp-route-id="@b.Id" asp-route-domainId="@d.Id"><button type="submit" class="btn btn-sm btn-primary"><i class="ph ph-arrows-clockwise" aria-hidden="true"></i>Check now</button></form>
+                            }
+                            <form method="post" asp-action="RemoveDomain" asp-route-id="@b.Id" asp-route-domainId="@d.Id" data-confirm="Remove @shown? It will stop showing your website."><button type="submit" class="btn btn-sm btn-outline-danger"><i class="ph ph-trash" aria-hidden="true"></i>Remove</button></form>
+                        </div>
+                    </div>
+                }
+
+                @if (Model.Domains.Count < SiteRules.MaxDomainsPerBranch)
+                {
+                    <form method="post" asp-action="AddDomain" asp-route-id="@b.Id" class="input-group mt-2">
+                        <label class="visually-hidden" for="host">Domain</label>
+                        <input id="host" name="host" class="form-control" placeholder="www.yourrestaurant.al" spellcheck="false" autocomplete="off" required />
+                        <button type="submit" class="btn btn-outline-secondary"><i class="ph ph-plus" aria-hidden="true"></i>Add</button>
+                    </form>
+                    <p class="hint mt-2 mb-0">Tip: add www.yourrestaurant.al; visitors to yourrestaurant.al are sent there once both are added.</p>
+                }
+            </div>
+        </section>
+    </aside>
+</div>

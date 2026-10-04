@@ -43,6 +43,9 @@ namespace RestaurantMenu.Controllers;
                 .OrderBy(u => u.FullName)
                 .ToListAsync();
             ViewBag.Email = _email;
+            // Restaurants' own domains: without a Render API key, each has to be added in Render by hand.
+            ViewBag.Domains = await _context.Domains.AsNoTracking().Include(d => d.Branch)
+                .OrderBy(d => d.Verified).ThenByDescending(d => d.CreatedUtc).Take(200).ToListAsync();
             return View(users);
         }
 
