@@ -342,8 +342,22 @@ Guests rate their visit from the menu. Low ratings reach the owner privately; hi
 - **Privacy:** guests' contact details are removed after a year (`Feedback__ContactRetentionDays`); the rating and comment stay.
 - **Later:** replying to the guest from the back office, feedback per dish, and ratings on the Overview and Insights.
 
-### 19. Offline-ready menu (PWA, 2 days)
-A service worker caching `/menu/{slug}`, its CSS/JS and dish images, so the menu still opens on weak restaurant Wi-Fi.
+### 19. Offline-ready menu (PWA): done
+The menu still opens on weak restaurant Wi-Fi, or with no connection, once a guest has opened it on that phone.
+
+- **Data:** none.
+- **Service worker** (`wwwroot/sw.js`, registered by `menu.js` with scope `/menu`, so it never touches the back office, kitchen, bookings or websites):
+  - **Menu pages** (`/menu/{slug}`): network first, so guests always see today's prices. With no answer in 3.5 s or offline, the last saved copy is shown; a late answer still refreshes the copy for next time. Up to 30 menus kept per phone.
+  - **CSS, JS, fonts, icons:** served from the cache at once and refreshed in the background. Files loaded before the worker took over (a guest's first visit) are saved too, including the Google Fonts files (Latin alphabets only).
+  - **Dish images:** cache first. After load, the page hands the worker every dish photo on the menu, so photos further down are saved before the guest scrolls to them (skipped on "data saver"). Up to 250 images.
+  - **Orders, feedback, order status and bookings** always go to the network: nothing is ever sent or answered from a stale copy.
+  - A menu never opened on that phone, offline: a small "You're offline / Try again" page (English and Albanian) instead of the browser's error.
+  - Bump `VERSION` in `sw.js` to drop every old cache.
+- **Guest note:** a dark bar at the top, "No connection. This is the menu as saved at 15:07; prices and dishes may have changed.", shown offline or when the copy is more than 5 minutes old. It hides when the connection comes back. In the menu's 7 languages (`Helpers/OfflineText`), hidden when printing.
+- **Server:**
+  - `/sw.js` is served with `Cache-Control: no-cache` and a JavaScript type, so a new version is picked up on the next visit. It is also served on restaurants' own domains and subdomains.
+  - `/menu/{slug}/manifest.webmanifest` (per language): name, the brand colour, the restaurant's logo (or ours), start URL and scope `/menu`, `display: standalone`, cached for an hour. Guests can "Add to Home Screen" and open the menu like an app.
+- **Later:** a saved copy of the order list while offline (sent when back online), and update prompts for guests who keep the menu open for hours.
 
 ---
 

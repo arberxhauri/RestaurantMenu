@@ -270,7 +270,19 @@ if (!app.Environment.IsDevelopment())
 app.UseStatusCodePagesWithReExecute("/home/status/{0}");
 
 app.UseHttpsRedirection();
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        // The menu's service worker (offline menus): always revalidated, so a new version is
+        // picked up on the next visit instead of whenever the browser's cache expires.
+        if (ctx.Context.Request.Path.Equals("/sw.js", StringComparison.OrdinalIgnoreCase))
+        {
+            ctx.Context.Response.Headers.CacheControl = "no-cache";
+            ctx.Context.Response.Headers.ContentType = "text/javascript; charset=utf-8";
+        }
+    }
+});
 
 app.UseRouting();
 app.UseRateLimiter();

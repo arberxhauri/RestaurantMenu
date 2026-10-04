@@ -746,8 +746,18 @@
 [data-rate-thanks] > i { color: #d6455d; }
 [data-rate-thanks] .m-btn { width: 100%; }
 
+/* ---------- Offline (saved copy) ---------- */
+.m-offline {
+    position: sticky; top: 0; z-index: 40;
+    display: flex; gap: 8px; align-items: flex-start;
+    margin: 0; padding: 10px 16px;
+    background: #2B2B2E; color: #F4F4F2; font-size: 14px; line-height: 1.4;
+}
+.m-offline[hidden] { display: none; }
+.m-offline i { font-size: 18px; margin-top: 1px; flex: none; }
+
 @media print {
-    .m-cats, .m-fab, .m-save, .m-lang, .m-sheet, .m-filterbar, .m-featured, .m-rate { display: none !important; }
+    .m-cats, .m-fab, .m-save, .m-lang, .m-sheet, .m-filterbar, .m-featured, .m-rate, .m-offline { display: none !important; }
     .m-hero { min-height: 0; color: #000; background: none; }
     .m-hero-img, .m-hero-scrim { display: none; }
     .m-item-open { border: 0; padding: 8px 0; }

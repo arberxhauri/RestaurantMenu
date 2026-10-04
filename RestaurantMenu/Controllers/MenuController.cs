@@ -263,6 +263,42 @@ public class MenuController : Controller
         return Ok(new { ok = true, google = result.GoogleUrl });
     }
 
+    /// <summary>
+    /// The menu as an installable web app ("Add to Home screen"): the restaurant's name,
+    /// colour and logo, opening on its menu (in the language it was installed from).
+    /// Scope /menu, like the service worker.
+    /// </summary>
+    [HttpGet("menu/{branchName}/manifest.webmanifest")]
+    public async Task<IActionResult> Manifest(string branchName, string? lang)
+    {
+        var key = Uri.UnescapeDataString(branchName).Trim().ToLower();
+        var branch = await _context.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Name.Replace(" ", "").ToLower() == key);
+        if (branch == null) return NotFound();
+        var languages = branch.SupportedLanguages.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        var language = lang != null && languages.Contains(lang) ? lang : null;
+        var theme = BrandTheme.Parse(branch.ThemeColors);
+        var slug = SeoService.Slug(branch.Name);
+        var icon = string.IsNullOrWhiteSpace(branch.Logo)
+            ? new { src = "/logo.png", sizes = "774x774", type = "image/png", purpose = "any" }
+            : new { src = branch.Logo, sizes = "any", type = branch.Logo.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ? "image/png" : branch.Logo.EndsWith(".webp", StringComparison.OrdinalIgnoreCase) ? "image/webp" : "image/jpeg", purpose = "any" };
+        var manifest = new
+        {
+            id = $"/menu/{slug}",
+            name = branch.Name,
+            short_name = branch.Name.Length > 12 ? branch.Name[..12].TrimEnd() : branch.Name,
+            description = $"The menu of {branch.Name}",
+            start_url = $"/menu/{slug}" + (language == null || language == SeoService.DefaultLanguage ? "" : $"?lang={language}"),
+            scope = "/menu",
+            display = "standalone",
+            background_color = "#F4F4F2",
+            theme_color = theme.Primary,
+            lang = language ?? languages.FirstOrDefault() ?? "en",
+            icons = new[] { icon }
+        };
+        Response.Headers.CacheControl = "public, max-age=3600";
+        return Content(System.Text.Json.JsonSerializer.Serialize(manifest), "application/manifest+json");
+    }
+
     private SeoMetadata BuildSeo(Branch branch, string language, string[] supportedLanguages)
     {
         var categoryNames = (branch.Categories ?? new List<Category>())

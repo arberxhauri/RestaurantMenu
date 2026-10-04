@@ -16,7 +16,7 @@ public class SiteHostMiddleware
 
     private static readonly string[] SharedPrefixes =
     {
-        "/css/", "/js/", "/lib/", "/img/", "/images/", "/favicon.ico", "/logo.png",
+        "/css/", "/js/", "/lib/", "/img/", "/images/", "/favicon.ico", "/logo.png", "/sw.js",
         "/menu/event", "/menu/order", "/menu/orders"
     };
 

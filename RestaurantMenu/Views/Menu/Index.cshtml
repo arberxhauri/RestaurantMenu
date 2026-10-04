@@ -1,5 +1,6 @@
 @using System.Globalization
 @using RestaurantMenu.Helpers
+@using RestaurantMenu.Services
 @model Branch
 @{
     ViewData["Title"] = Model.Name + " - Menu";
@@ -107,6 +108,7 @@
         <link rel="preload" as="image" href="@Model.Banner" fetchpriority="high" />
     }
     <partial name="_HeadAssets" />
+    <link rel="manifest" href="/menu/@SeoService.Slug(Model.Name)/manifest.webmanifest@(currentLang == "en" ? "" : $"?lang={currentLang}")" />
     <link rel="stylesheet" href="~/css/menu.css" asp-append-version="true" />
     <style>
         :root {
@@ -124,6 +126,8 @@
     </style>
 </head>
 <body class="menu-page @themeClass"
+      data-rendered-at="@DateTime.UtcNow.ToString("o")"
+      data-label-offline="@OfflineText.For(currentLang)"
       data-storage-key="@storageKey"
       data-branch-id="@Model.Id"
       data-event-url="@Url.Action("Event", "Menu")"
@@ -143,6 +147,8 @@
       data-label-without="@dt.Without">
 
     <a class="skip-link" href="#menu">Skip to menu</a>
+    @* Shown by menu.js when this copy came from the phone's saved menus (no connection). *@
+    <p class="m-offline" data-offline role="status" hidden><i class="ph ph-wifi-slash" aria-hidden="true"></i><span data-offline-text></span></p>
 
     <header class="m-hero m-hero--@headerStyle" id="top">
         @if (headerStyle == "photo")

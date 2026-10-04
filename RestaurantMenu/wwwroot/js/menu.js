@@ -795,6 +795,52 @@
         });
     })();
 
+    /* ---------- Offline-ready: service worker + "saved copy" note ---------- */
+    (function () {
+        var note = document.querySelector('[data-offline]');
+        var rendered = Date.parse(body.dataset.renderedAt || '');
+        function savedAt() {
+            try { return new Date(rendered).toLocaleTimeString(document.documentElement.lang || undefined, { hour: '2-digit', minute: '2-digit' }); }
+            catch (e) { return ''; }
+        }
+        function sync() {
+            if (!note) return;
+            // A copy older than a few minutes, opened fresh (not via Back), came from the saved menus.
+            var nav = (performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {};
+            var old = rendered && Date.now() - rendered > 5 * 60 * 1000 && nav.type !== 'back_forward';
+            var offline = navigator.onLine === false || old;
+            note.hidden = !offline;
+            if (offline) note.querySelector('[data-offline-text]').textContent = (body.dataset.labelOffline || '').replace('{0}', savedAt());
+        }
+        window.addEventListener('offline', sync);
+        window.addEventListener('online', function () { if (note) note.hidden = true; });
+        sync();
+
+        if (!('serviceWorker' in navigator)) return;
+        window.addEventListener('load', function () {
+            navigator.serviceWorker.register('/sw.js', { scope: '/menu' }).then(function () {
+                return navigator.serviceWorker.ready;
+            }).then(function (reg) {
+                // The styles, scripts and fonts this page loaded before the worker was in charge
+                // (a guest's first visit), so the saved copy looks the same offline.
+                var assets = [];
+                (performance.getEntriesByType ? performance.getEntriesByType('resource') : []).forEach(function (e) {
+                    if (/^(link|css|script)$/.test(e.initiatorType) && assets.indexOf(e.name) < 0) assets.push(e.name);
+                });
+                // Keep this menu's dish photos too, before the guest scrolls to them.
+                // Not on "data saver" connections.
+                var urls = [];
+                if (!(navigator.connection && navigator.connection.saveData)) {
+                    document.querySelectorAll('[data-item][data-img], img[src]').forEach(function (el) {
+                        var u = el.getAttribute('data-img') || el.getAttribute('src');
+                        if (u && urls.indexOf(u) < 0) urls.push(u);
+                    });
+                }
+                if (reg.active && (urls.length || assets.length)) reg.active.postMessage({ type: 'warm', urls: urls, assets: assets });
+            }).catch(function () { /* not available (private mode, old browser): the menu works as before */ });
+        });
+    })();
+
     load();
     render();
     apply();
