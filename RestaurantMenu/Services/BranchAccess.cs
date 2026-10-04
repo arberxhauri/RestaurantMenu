@@ -23,11 +23,13 @@ public enum BranchPermission
     EditDishes,
     /// <summary>The kitchen display: see table orders, move them along, pause new orders (Editor and up).</summary>
     Kitchen,
+    /// <summary>The bookings day view: add, confirm, seat, cancel, mark no-shows, close a day (Editor and up).</summary>
+    Bookings,
     /// <summary>Delete and restore dishes (Manager and up).</summary>
     DeleteDishes,
     /// <summary>Create, edit, delete and reorder categories (Manager and up).</summary>
     EditCategories,
-    /// <summary>Branch details, opening hours, brand, tables and ordering (Manager and up).</summary>
+    /// <summary>Branch details, opening hours, brand, tables and ordering, booking settings (Manager and up).</summary>
     EditBranch,
     /// <summary>Insights (Manager and up).</summary>
     ViewInsights,
@@ -76,7 +78,7 @@ public class BranchAccess : IBranchAccess
     /// <summary>The lowest role that has a permission. The single permission table.</summary>
     public static BranchRole Required(BranchPermission permission) => permission switch
     {
-        BranchPermission.View or BranchPermission.EditDishes or BranchPermission.Kitchen => BranchRole.Editor,
+        BranchPermission.View or BranchPermission.EditDishes or BranchPermission.Kitchen or BranchPermission.Bookings => BranchRole.Editor,
         BranchPermission.DeleteDishes or BranchPermission.EditCategories or BranchPermission.EditBranch
             or BranchPermission.ViewInsights or BranchPermission.Print => BranchRole.Manager,
         _ => BranchRole.Owner

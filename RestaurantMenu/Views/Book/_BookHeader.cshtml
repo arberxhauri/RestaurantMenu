@@ -1,0 +1,30 @@
+@using RestaurantMenu.Helpers
+@model (Branch Branch, string Language, string Subtitle, string? LanguageQuery)
+@{
+    var languages = Model.Branch.SupportedLanguages.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+}
+<header class="b-hero">
+    <div class="b-hero-inner">
+        @if (!string.IsNullOrEmpty(Model.Branch.Logo))
+        {
+            <img class="b-logo" src="@Model.Branch.Logo" alt="" width="56" height="56" />
+        }
+        else
+        {
+            <span class="b-logo b-logo--initial" aria-hidden="true">@Model.Branch.Name.Substring(0, 1)</span>
+        }
+        <div class="b-hero-text">
+            <h1 translate="no">@Model.Branch.Name</h1>
+            <p>@Model.Subtitle</p>
+        </div>
+        @if (Model.LanguageQuery != null && languages.Length > 1)
+        {
+            <nav class="b-langs" aria-label="Language">
+                @foreach (var l in languages)
+                {
+                    <a href="?lang=@l@Model.LanguageQuery" lang="@l" hreflang="@l" aria-current="@(l == Model.Language ? "true" : null)">@l.ToUpperInvariant()</a>
+                }
+            </nav>
+        }
+    </div>
+</header>

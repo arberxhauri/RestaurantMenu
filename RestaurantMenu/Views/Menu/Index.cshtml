@@ -190,6 +190,10 @@
             {
                 <p class="m-table"><i class="ph-fill ph-armchair" aria-hidden="true"></i><span>@tableLabel</span></p>
             }
+            @if (ViewBag.BookUrl is string bookUrl)
+            {
+                <a class="m-book" href="@bookUrl"><i class="ph ph-calendar-check" aria-hidden="true"></i><span>@BookingText.For(currentLang).Title</span></a>
+            }
             <div class="m-meta">
                 <a href="https://www.google.com/maps/search/?api=1&query=@Uri.EscapeDataString(Model.Address)" target="_blank" rel="noopener noreferrer">
                     <i class="ph ph-map-pin" aria-hidden="true"></i><span>@Model.Address</span>

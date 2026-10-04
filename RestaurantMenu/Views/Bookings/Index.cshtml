@@ -1,0 +1,249 @@
+@using System.Globalization
+@using RestaurantMenu.Controllers
+@using RestaurantMenu.Helpers
+@using RestaurantMenu.Models
+@model BookingDay
+@{
+    var b = Model.Branch;
+    var s = Model.Settings;
+    var en = CultureInfo.GetCultureInfo("en-GB");
+    var dayText = Model.Date.ToDateTime(TimeOnly.MinValue).ToString("dddd d MMMM yyyy", en);
+    ViewData["Title"] = "Bookings - " + b.Name;
+    string Iso(DateOnly d) => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    var history = (Dictionary<string, (int NoShows, int Visits)>)ViewBag.History;
+    var canSettings = ViewBag.CanSettings == true;
+    string bookingUrl = ViewBag.BookingUrl;
+
+    var holding = Model.Reservations.Where(r => BookingRules.HoldsSeats(r.Status)).ToList();
+    var pending = Model.Reservations.Count(r => r.Status == ReservationStatus.Pending);
+    var noShows = Model.Reservations.Count(r => r.Status == ReservationStatus.NoShow);
+
+    // One row per time: every bookable time of the day plus any booked time between them.
+    var capacity = Model.Slots.ToDictionary(x => x.Local, x => x);
+    var times = Model.Slots.Select(x => x.Local).Concat(Model.Reservations.Select(r => r.StartsAtLocal)).Distinct().OrderBy(t => t).ToList();
+
+    (string Label, string Icon, string To, string Style, string? Confirm)[] Actions(Reservation r) => r.Status switch
+    {
+        ReservationStatus.Pending => new[] { ("Confirm", "ph-check", "Confirmed", "primary", (string?)null), ("Decline", "ph-x", "Cancelled", "danger", $"Decline {r.Name}'s booking?" + (r.Source == "online" ? " They'll be told." : "")) },
+        ReservationStatus.Confirmed => new[] { ("Seated", "ph-armchair", "Seated", "primary", (string?)null), ("No-show", "ph-user-minus", "NoShow", "line", (string?)null), ("Cancel", "ph-x", "Cancelled", "danger", $"Cancel {r.Name}'s booking?" + (r.Source == "online" && !r.StartsAtUtc.Equals(default) ? " They'll be told." : "")) },
+        ReservationStatus.Seated => new[] { ("Undo", "ph-arrow-u-up-left", "Confirmed", "line", (string?)null) },
+        _ => new[] { ("Restore", "ph-arrow-u-up-left", "Confirmed", "line", (string?)null) }
+    };
+    string StatusText(ReservationStatus st) => st switch
+    {
+        ReservationStatus.Pending => "To confirm", ReservationStatus.Seated => "Seated", ReservationStatus.Cancelled => "Cancelled",
+        ReservationStatus.NoShow => "No-show", _ => "Confirmed"
+    };
+    string StatusChip(ReservationStatus st) => st switch
+    {
+        ReservationStatus.Pending => "chip--warn", ReservationStatus.Seated => "chip--ok", ReservationStatus.Confirmed => "chip--accent", _ => ""
+    };
+}
+
+<ol class="crumbs">
+    <li><a asp-controller="Dashboard" asp-action="Index">My branches</a></li>
+    <li><a asp-controller="Branch" asp-action="Details" asp-route-id="@b.Id">@b.Name</a></li>
+    <li aria-current="page">Bookings</li>
+</ol>
+
+<header class="page-head">
+    <div>
+        <h1>Bookings</h1>
+        <p>@dayText@(Model.Date == Model.Today ? " · today" : "")</p>
+    </div>
+    <div class="page-actions">
+        <a class="btn btn-outline-secondary btn-sm" href="@bookingUrl" target="_blank" rel="noopener"><i class="ph ph-arrow-square-out" aria-hidden="true"></i>Booking page</a>
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-copy="@bookingUrl" data-copy-done="Booking link copied"><i class="ph ph-link" aria-hidden="true"></i>Copy link</button>
+        @if (canSettings)
+        {
+            <a class="btn btn-outline-secondary btn-sm" asp-action="Settings" asp-route-id="@b.Id"><i class="ph ph-gear" aria-hidden="true"></i>Settings</a>
+        }
+    </div>
+</header>
+
+@if (!Model.Bookable)
+{
+    <div class="flash flash--warn mb-4" role="status">
+        <i class="ph ph-info" aria-hidden="true"></i>
+        <p>
+            @(s.Enabled ? "Guests can't book online yet: add your opening hours (Edit branch → Opening hours). Bookable times come from them." : "Online booking is off, so guests can't book from the booking page. You can still add bookings here.")
+            @if (canSettings && !s.Enabled) { <a asp-action="Settings" asp-route-id="@b.Id">Switch it on</a> }
+        </p>
+    </div>
+}
+
+<div class="bk-nav" aria-label="Choose a day">
+    <a class="icon-btn icon-btn--line" asp-action="Index" asp-route-id="@b.Id" asp-route-date="@Iso(Model.Date.AddDays(-1))" aria-label="Previous day" title="Previous day"><i class="ph ph-caret-left" aria-hidden="true"></i></a>
+    <form method="get" asp-action="Index" asp-route-id="@b.Id" data-autosubmit class="bk-date-form">
+        <label class="visually-hidden" for="bkDate">Day</label>
+        <input id="bkDate" type="date" name="date" value="@Iso(Model.Date)" class="form-control" />
+        <noscript><button type="submit" class="btn btn-outline-secondary btn-sm">Show</button></noscript>
+    </form>
+    <a class="icon-btn icon-btn--line" asp-action="Index" asp-route-id="@b.Id" asp-route-date="@Iso(Model.Date.AddDays(1))" aria-label="Next day" title="Next day"><i class="ph ph-caret-right" aria-hidden="true"></i></a>
+    @if (Model.Date != Model.Today)
+    {
+        <a class="btn btn-outline-secondary btn-sm" asp-action="Index" asp-route-id="@b.Id" asp-route-date="@Iso(Model.Today)">Today</a>
+    }
+    <form method="post" asp-action="CloseDay" asp-route-id="@b.Id" class="bk-close-form" data-confirm="@(Model.DayClosed ? "Open this day for online bookings again?" : "Close this day for online bookings? Bookings already made stay.")">
+        <input type="hidden" name="date" value="@Iso(Model.Date)" />
+        <input type="hidden" name="closed" value="@(Model.DayClosed ? "false" : "true")" />
+        <button type="submit" class="btn btn-outline-secondary btn-sm" @(Model.Date < Model.Today ? "disabled" : "")>
+            <i class="ph @(Model.DayClosed ? "ph-lock-open" : "ph-lock")" aria-hidden="true"></i>@(Model.DayClosed ? "Reopen day for online booking" : "Close day for online booking")
+        </button>
+    </form>
+</div>
+
+<p class="bk-live" data-bk-live data-stamp-url="@Url.Action("Stamp", new { id = b.Id, date = Iso(Model.Date) })" data-stamp="@Model.Stamp" hidden>
+    <i class="ph ph-bell-ringing" aria-hidden="true"></i>New or changed bookings for this day. <a href="">Refresh</a>
+</p>
+
+@if (Model.DayClosed)
+{
+    <div class="flash flash--warn mb-3" role="status"><i class="ph ph-lock" aria-hidden="true"></i><p>Closed for online bookings on this day. Guests see it as unavailable; you can still add bookings here.</p></div>
+}
+
+<div class="stats">
+    <div class="stat"><span class="stat-value">@holding.Count</span><span class="stat-label">Bookings</span></div>
+    <div class="stat"><span class="stat-value">@holding.Sum(r => r.Guests)</span><span class="stat-label">Guests expected</span></div>
+    <div class="stat"><span class="stat-value">@pending</span><span class="stat-label">To confirm</span></div>
+    <div class="stat"><span class="stat-value">@noShows</span><span class="stat-label">No-shows</span></div>
+</div>
+
+<div class="bk-layout">
+    <section class="bk-timeline" aria-label="Bookings by time">
+        @if (times.Count == 0)
+        {
+            <div class="panel"><div class="empty">
+                <i class="ph ph-calendar-blank" aria-hidden="true"></i>
+                <h2>Closed this day</h2>
+                <p>Your opening hours have no times on @Model.Date.ToDateTime(TimeOnly.MinValue).ToString("dddd", en)s. Bookings you add still show here.</p>
+            </div></div>
+        }
+        @for (var ti = 0; ti < times.Count; ti++)
+        {
+            var t = times[ti];
+            var here = Model.Reservations.Where(r => r.StartsAtLocal == t).ToList();
+            // A run of times without bookings reads as one line: "12:00 – 18:30 · free".
+            if (here.Count == 0)
+            {
+                var end = ti;
+                while (end + 1 < times.Count && !Model.Reservations.Any(r => r.StartsAtLocal == times[end + 1])) end++;
+                if (end > ti)
+                {
+                    <div class="bk-slot is-free">
+                        <div class="bk-slot-head">
+                            <time>@t.ToString("HH:mm", CultureInfo.InvariantCulture) – @times[end].ToString("HH:mm", CultureInfo.InvariantCulture)</time>
+                            <span class="bk-cap">No bookings · @s.CoversPerSlot guests per time</span>
+                        </div>
+                    </div>
+                    ti = end;
+                    continue;
+                }
+            }
+            var held = here.Where(r => BookingRules.HoldsSeats(r.Status)).Sum(r => r.Guests);
+            var cap = s.CoversPerSlot;
+            var over = held > cap;
+            var pct = Math.Min(100, held * 100.0 / Math.Max(1, cap));
+            <div class="bk-slot @(here.Count == 0 ? "is-free" : "")" id="t@(t.ToString("HHmm"))">
+                <div class="bk-slot-head">
+                    <time datetime="@t.ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture)">@t.ToString("HH:mm", CultureInfo.InvariantCulture)</time>
+                    <span class="bk-cap @(over ? "is-over" : "")">
+                        <span class="bk-cap-bar" aria-hidden="true"><span style="width:@pct.ToString("F0", CultureInfo.InvariantCulture)%"></span></span>
+                        @held / @cap guests@(over ? " · over capacity" : "")
+                    </span>
+                </div>
+                @foreach (var r in here)
+                {
+                    var h = history.TryGetValue(r.Phone, out var x) ? x : (0, 0);
+                    <article class="bk-res bk-res--@r.Status.ToString().ToLowerInvariant()" id="r@(r.Id)">
+                        <div class="bk-res-main">
+                            <div class="bk-res-title">
+                                <strong>@r.Name</strong>
+                                <span class="bk-guests"><i class="ph ph-users" aria-hidden="true"></i>@r.Guests</span>
+                                <span class="chip @StatusChip(r.Status)">@StatusText(r.Status)</span>
+                                @if (r.Source == "staff") { <span class="chip">Added by staff</span> }
+                                @if (h.Item1 > 0) { <span class="chip chip--danger"><i class="ph ph-warning" aria-hidden="true"></i>@h.Item1 no-show@(h.Item1 == 1 ? "" : "s") before</span> }
+                                else if (h.Item2 > 0) { <span class="chip chip--ok"><i class="ph ph-heart" aria-hidden="true"></i>Visited @h.Item2×</span> }
+                            </div>
+                            <div class="bk-res-meta">
+                                @if (r.Phone.Length > 0) { <a href="tel:@r.Phone"><i class="ph ph-phone" aria-hidden="true"></i>@BookingRules.FormatPhone(r.Phone)</a> }
+                                @if (r.Email != null) { <a href="mailto:@r.Email"><i class="ph ph-envelope-simple" aria-hidden="true"></i>@r.Email</a> }
+                                @if (r.CancelledBy != null && r.Status == ReservationStatus.Cancelled) { <span>Cancelled by @(r.CancelledBy == "guest" ? "the guest" : "the restaurant")</span> }
+                            </div>
+                            @if (r.Note != null) { <p class="bk-note"><i class="ph ph-chat-text" aria-hidden="true"></i>@r.Note</p> }
+                            @if (r.StaffNote != null) { <p class="bk-note bk-note--staff"><i class="ph ph-note-pencil" aria-hidden="true"></i>@r.StaffNote</p> }
+                        </div>
+                        <div class="bk-res-actions">
+                            @foreach (var a in Actions(r))
+                            {
+                                <form method="post" asp-action="Status" asp-route-id="@b.Id" asp-route-reservationId="@r.Id" data-confirm="@a.Confirm">
+                                    <input type="hidden" name="from" value="@r.Status" />
+                                    <input type="hidden" name="to" value="@a.To" />
+                                    <input type="hidden" name="date" value="@Iso(Model.Date)" />
+                                    <button type="submit" class="btn btn-sm @(a.Style switch { "primary" => "btn-primary", "danger" => "btn-outline-danger", _ => "btn-outline-secondary" })">
+                                        <i class="ph @a.Icon" aria-hidden="true"></i>@a.Label
+                                    </button>
+                                </form>
+                            }
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </section>
+
+    <aside class="bk-side">
+        <section class="panel" id="add" aria-labelledby="addTitle">
+            <div class="panel-body">
+                <h2 id="addTitle" class="h5 mb-1">Add a booking</h2>
+                <p class="hint mt-0 mb-3">Taken by phone, or a walk-in. You can go over the guests per time; you'll get a note when you do.</p>
+                <form method="post" asp-action="Add" asp-route-id="@b.Id" class="bk-add">
+                    <input type="hidden" name="date" value="@Iso(Model.Date)" />
+                    <div class="bk-add-row">
+                        <div>
+                            <label class="form-label" for="addTime">Time</label>
+                            <input id="addTime" name="time" class="form-control" list="slotTimes" placeholder="19:30" required pattern="[0-2]?[0-9]:[0-5][0-9]" inputmode="numeric" />
+                            <datalist id="slotTimes">
+                                @foreach (var sl in Model.Slots) { <option value="@sl.Time"></option> }
+                            </datalist>
+                        </div>
+                        <div>
+                            <label class="form-label" for="addGuests">Guests</label>
+                            <input id="addGuests" name="guests" type="number" class="form-control" min="1" max="500" value="2" required inputmode="numeric" />
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label" for="addName">Name</label>
+                        <input id="addName" name="name" class="form-control" maxlength="80" required autocomplete="off" />
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label" for="addPhone">Phone <span class="optional">optional</span></label>
+                        <input id="addPhone" name="phone" type="tel" class="form-control" maxlength="30" autocomplete="off" placeholder="069 123 4567" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="addNote">Note for the team <span class="optional">optional</span></label>
+                        <input id="addNote" name="note" class="form-control" maxlength="300" placeholder="e.g. window table" />
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100"><i class="ph ph-plus" aria-hidden="true"></i>Add booking</button>
+                </form>
+            </div>
+        </section>
+    </aside>
+</div>
+
+@section Scripts {
+    <script>
+        // Tell the team when bookings for this day change (a guest booked or cancelled), without reloading under them.
+        (function () {
+            var live = document.querySelector('[data-bk-live]');
+            if (!live) return;
+            setInterval(function () {
+                if (document.visibilityState !== 'visible') return;
+                fetch(live.dataset.stampUrl, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+                    .then(function (r) { return r.ok ? r.json() : null; })
+                    .then(function (d) { if (d && d.stamp !== live.dataset.stamp) live.hidden = false; })
+                    .catch(function () { });
+            }, 30000);
+        })();
+    </script>
+}

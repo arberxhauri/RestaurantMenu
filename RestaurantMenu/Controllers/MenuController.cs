@@ -93,6 +93,12 @@ public class MenuController : Controller
         ViewBag.Table = table;
         ViewBag.TableCode = code;
         ViewBag.Ordering = await OrderingStateAsync(branch, table, code);
+        // "Book a table" in the header while online booking is on (not at a table: they're already here).
+        var booking = await _context.ReservationSettings.AsNoTracking().FirstOrDefaultAsync(s => s.BranchId == branch.Id);
+        if (table == null && booking != null && BookingService.IsBookable(branch, booking))
+        {
+            ViewBag.BookUrl = $"/book/{canonicalSlug}" + (lang == SeoService.DefaultLanguage ? "" : $"?lang={lang}");
+        }
         ViewBag.SupportedLanguages = supportedLanguages;
         ViewBag.ThemeColors = branch.ThemeColors;
 

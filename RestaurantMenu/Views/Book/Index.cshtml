@@ -1,0 +1,172 @@
+@using System.Globalization
+@using RestaurantMenu.Controllers
+@using RestaurantMenu.Helpers
+@using RestaurantMenu.Services
+@model BookPage
+@inject SeoService Seo
+@{
+    Layout = null;
+    var b = Model.Branch;
+    var s = Model.Settings;
+    var lang = Model.Language;
+    var w = BookingText.For(lang);
+    var slug = SeoService.Slug(b.Name);
+    var theme = BrandTheme.Parse(b.ThemeColors);
+    var themeClass = theme.Appearance switch { "light" => "theme-light", "dark" => "theme-dark", _ => "" };
+    string Iso(DateOnly d) => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    var guestsQuery = $"&guests={Model.Guests}";
+    var langQuery = lang == "en" ? "" : $"&lang={lang}";
+    string? Err(string field) => Model.Errors.TryGetValue(field, out var m) ? m : null;
+    var openSlots = Model.Slots.Where(x => x.Open && x.Remaining >= Model.Guests).ToList();
+    var dayClosed = Model.Slots.Count == 0 || BookingRules.ClosedDates(s.ClosedDates).Contains(Model.Selected);
+    var selectedTime = Model.Form.Date != null && Model.Form.Time != null ? $"{Model.Form.Date}T{Model.Form.Time}" : null;
+    var selectedDateLabel = Model.SelectedLabel ?? BookingText.LongDate(Model.Selected.ToDateTime(TimeOnly.MinValue), lang);
+    var headModel = (b, lang, w.Title + " · " + b.Name);
+    var headerModel = (b, lang, w.Title, (string?)(guestsQuery + (Model.Selected == Model.Today ? "" : "&date=" + Iso(Model.Selected))));
+    var config = System.Text.Json.JsonSerializer.Serialize(new
+    {
+        slotsUrl = $"/book/{slug}/slots",
+        lang,
+        today = Iso(Model.Today),
+        words = new { w.NoSlots, w.ClosedDay, w.Loading, w.Booking, w.Book, w.Network, w.Today, w.Tomorrow }
+    });
+}
+<!DOCTYPE html>
+<html lang="@lang">
+<head>
+    <partial name="_BookHead" model="headModel" />
+    <meta name="description" content="@w.Title · @b.Name, @b.Address" />
+    <link rel="canonical" href="@Seo.Url("/book/" + slug)" />
+</head>
+<body class="menu-page book-page @themeClass">
+    <partial name="_BookHeader" model="headerModel" />
+
+    <main class="b-main" id="main">
+        @if (!Model.Bookable)
+        {
+            <section class="b-card b-card--center">
+                <i class="ph ph-phone-call b-big-icon" aria-hidden="true"></i>
+                <p>@string.Format(w.Unavailable, b.PhoneNumber)</p>
+                <div class="b-actions">
+                    <a class="m-btn m-btn--brand" href="tel:@b.PhoneNumber"><i class="ph ph-phone" aria-hidden="true"></i>@b.PhoneNumber</a>
+                    <a class="m-btn m-btn--ghost" href="@Url.Content($"~/menu/{slug}")@(lang == "en" ? "" : $"?lang={lang}")">@w.SeeMenu</a>
+                </div>
+            </section>
+        }
+        else
+        {
+            @* Step 1: party size and day. A GET form, so it works without JavaScript too. *@
+            <form class="b-card" method="get" action="/book/@slug" data-book-filter>
+                @if (lang != "en") { <input type="hidden" name="lang" value="@lang" /> }
+                <div class="b-field">
+                    <label for="guests" class="b-label">@w.Guests</label>
+                    <div class="b-stepper">
+                        <button type="button" data-step="-1" aria-label="−1" @(Model.Guests <= 1 ? "disabled" : "")><i class="ph ph-minus" aria-hidden="true"></i></button>
+                        <select id="guests" name="guests" data-guests>
+                            @for (var g = 1; g <= s.MaxPartySize; g++)
+                            {
+                                <option value="@g" selected="@(g == Model.Guests)">@BookingText.GuestCount(g, lang)</option>
+                            }
+                        </select>
+                        <button type="button" data-step="1" aria-label="+1" @(Model.Guests >= s.MaxPartySize ? "disabled" : "")><i class="ph ph-plus" aria-hidden="true"></i></button>
+                    </div>
+                    <p class="b-hint">@string.Format(w.LargeGroup, s.MaxPartySize, b.PhoneNumber)</p>
+                </div>
+
+                <div class="b-field">
+                    <span class="b-label" id="dateLabel">@w.Date</span>
+                    <div class="b-dates" role="list" aria-labelledby="dateLabel" data-dates>
+                        @foreach (var d in Model.Dates)
+                        {
+                            var (day, num) = BookingText.DateChip(d.Date, lang);
+                            var label = d.Date == Model.Today ? w.Today : d.Date == Model.Today.AddDays(1) ? w.Tomorrow : day;
+                            if (d.Open)
+                            {
+                                <a role="listitem" class="b-date" href="?date=@Iso(d.Date)@guestsQuery@langQuery" data-date="@Iso(d.Date)" aria-current="@(d.Date == Model.Selected ? "date" : null)">
+                                    <span>@label</span><strong>@num</strong>
+                                </a>
+                            }
+                            else
+                            {
+                                <span role="listitem" class="b-date is-closed" aria-disabled="true"><span>@label</span><strong>@num</strong></span>
+                            }
+                        }
+                    </div>
+                    <div class="b-other-date">
+                        <label for="date" class="visually-hidden">@w.Date</label>
+                        <input id="date" type="date" name="date" value="@Iso(Model.Selected)" min="@Iso(Model.Today)" max="@Iso(Model.LastDate)" data-date-input />
+                        <noscript><button type="submit" class="m-btn m-btn--ghost">@w.Time →</button></noscript>
+                    </div>
+                </div>
+            </form>
+
+            @* Step 2: time and details. *@
+            <form class="b-card" method="post" action="/book/@slug" data-book-form novalidate>
+                <input type="hidden" name="RequestId" value="" data-request-id />
+                <input type="hidden" name="Lang" value="@lang" />
+                <input type="hidden" name="Guests" value="@Model.Guests" data-guests-mirror />
+
+                <div class="b-field">
+                    <h2 class="b-label" id="timeLabel">@w.Time · <span data-day-label>@selectedDateLabel</span></h2>
+                    <div class="b-slots" role="radiogroup" aria-labelledby="timeLabel" data-slots aria-live="polite">
+                        @foreach (var slot in Model.Slots)
+                        {
+                            var value = slot.Local.ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture);
+                            var open = slot.Open && slot.Remaining >= Model.Guests;
+                            <label class="b-slot">
+                                <input type="radio" name="Time" value="@value" required @(open ? "" : "disabled") checked="@(value == selectedTime && open)" />
+                                <span>@slot.Time</span>
+                            </label>
+                        }
+                    </div>
+                    <p class="b-empty" data-slots-empty @(openSlots.Count > 0 ? "hidden" : "")>@(dayClosed ? w.ClosedDay : w.NoSlots)</p>
+                    @if (Err("time") is string te) { <p class="b-error" role="alert">@te</p> }
+                    <p class="b-error" role="alert" data-error="time" hidden></p>
+                </div>
+
+                <fieldset class="b-details">
+                    <legend class="b-label">@w.Details</legend>
+                    <div class="b-field">
+                        <label for="name">@w.Name</label>
+                        <input id="name" name="Name" value="@Model.Form.Name" autocomplete="name" maxlength="80" required aria-invalid="@(Err("name") != null ? "true" : null)" />
+                        <p class="b-error" role="alert" data-error="name" @(Err("name") == null ? "hidden" : "")>@Err("name")</p>
+                    </div>
+                    <div class="b-field">
+                        <label for="phone">@w.Phone</label>
+                        <input id="phone" name="Phone" type="tel" value="@Model.Form.Phone" autocomplete="tel" inputmode="tel" maxlength="30" required aria-describedby="phoneHint" aria-invalid="@(Err("phone") != null ? "true" : null)" />
+                        <p class="b-hint" id="phoneHint">@w.PhoneHint</p>
+                        <p class="b-error" role="alert" data-error="phone" @(Err("phone") == null ? "hidden" : "")>@Err("phone")</p>
+                    </div>
+                    <div class="b-field">
+                        <label for="email">@w.Email</label>
+                        <input id="email" name="Email" type="email" value="@Model.Form.Email" autocomplete="email" maxlength="256" spellcheck="false" aria-describedby="emailHint" aria-invalid="@(Err("email") != null ? "true" : null)" />
+                        <p class="b-hint" id="emailHint">@w.EmailHint</p>
+                        <p class="b-error" role="alert" data-error="email" @(Err("email") == null ? "hidden" : "")>@Err("email")</p>
+                    </div>
+                    <div class="b-field">
+                        <label for="note">@w.Note</label>
+                        <textarea id="note" name="Note" rows="2" maxlength="300" placeholder="@w.NotePlaceholder">@Model.Form.Note</textarea>
+                    </div>
+                </fieldset>
+                <p class="b-error" role="alert" data-error="guests" @(Err("guests") == null ? "hidden" : "")>@Err("guests")</p>
+
+                <button type="submit" class="m-btn m-btn--brand m-btn--block" data-book-submit>
+                    <i class="ph ph-calendar-check" aria-hidden="true"></i><span data-book-submit-label>@w.Book</span>
+                </button>
+            </form>
+
+            <p class="b-foot"><a href="@Url.Content($"~/menu/{slug}")@(lang == "en" ? "" : $"?lang={lang}")"><i class="ph ph-book-open-text" aria-hidden="true"></i>@w.SeeMenu</a> · <a href="tel:@b.PhoneNumber">@b.PhoneNumber</a></p>
+        }
+    </main>
+
+    <footer class="m-footer">
+        <a class="m-powered" href="/">
+            <partial name="_BrandMark" model="18" />
+            <span>Powered by <strong>My Quick Menu</strong></span>
+        </a>
+    </footer>
+
+    <script type="application/json" id="bookConfig">@Html.Raw(config)</script>
+    <script src="~/js/book.js" asp-append-version="true" defer></script>
+</body>
+</html>

@@ -1,0 +1,149 @@
+@using RestaurantMenu.Controllers
+@using RestaurantMenu.Helpers
+@using RestaurantMenu.Services
+@model BookingSettingsPage
+@inject SmsService Sms
+@inject EmailService Email
+@{
+    var b = Model.Branch;
+    var s = Model.Settings;
+    ViewData["Title"] = "Booking settings - " + b.Name;
+    string bookingUrl = ViewBag.BookingUrl;
+    var hasHours = b.HoursEnabled && b.OpeningHours?.Any() == true;
+    var leadOptions = new[] { (0, "No notice"), (30, "30 minutes"), (60, "1 hour"), (120, "2 hours"), (240, "4 hours"), (720, "12 hours"), (1440, "1 day"), (2880, "2 days") };
+}
+
+<ol class="crumbs">
+    <li><a asp-controller="Dashboard" asp-action="Index">My branches</a></li>
+    <li><a asp-controller="Branch" asp-action="Details" asp-route-id="@b.Id">@b.Name</a></li>
+    <li><a asp-action="Index" asp-route-id="@b.Id">Bookings</a></li>
+    <li aria-current="page">Settings</li>
+</ol>
+
+<header class="page-head">
+    <div>
+        <h1>Booking settings</h1>
+        <p>Guests book from your booking page, linked from the menu, your Instagram bio or a QR code.</p>
+    </div>
+</header>
+
+@if (Model.Errors?.Count > 0)
+{
+    <div class="flash flash--danger mb-4" role="alert"><i class="ph ph-warning-octagon" aria-hidden="true"></i>
+        <p>@string.Join(" ", Model.Errors)</p></div>
+}
+
+<div class="bk-settings">
+    <form method="post" asp-action="Settings" asp-route-id="@b.Id" class="panel">
+        <div class="panel-body">
+            <div class="form-check form-switch mb-2">
+                <input type="checkbox" name="Enabled" id="Enabled" value="true" class="form-check-input" role="switch" @(s.Enabled ? "checked" : "") />
+                <label class="form-check-label fw-semibold" for="Enabled">Take bookings online</label>
+                <input type="hidden" name="Enabled" value="false" />
+            </div>
+            @if (!hasHours)
+            {
+                <p class="hint mt-0"><i class="ph ph-info" aria-hidden="true"></i> Bookable times come from your opening hours, which aren't set yet. <a asp-controller="Branch" asp-action="Edit" asp-route-id="@b.Id">Add them in Edit branch</a>.</p>
+            }
+
+            <h2 class="h6 mt-4">Times</h2>
+            <div class="bk-grid">
+                <div>
+                    <label class="form-label" for="SlotMinutes">Time between bookable times</label>
+                    <select id="SlotMinutes" name="SlotMinutes" class="form-select">
+                        @foreach (var m in BookingRules.SlotLengths) { <option value="@m" selected="@(s.SlotMinutes == m)">Every @m minutes</option> }
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="LastSeatingMinutes">Last booking before closing</label>
+                    <select id="LastSeatingMinutes" name="LastSeatingMinutes" class="form-select">
+                        @foreach (var m in new[] { 0, 30, 60, 90, 120, 180 }) { <option value="@m" selected="@(s.LastSeatingMinutes == m)">@(m == 0 ? "Until closing" : $"{m} minutes before")</option> }
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="LeadMinutes">Minimum notice</label>
+                    <select id="LeadMinutes" name="LeadMinutes" class="form-select">
+                        @foreach (var (m, label) in leadOptions) { <option value="@m" selected="@(s.LeadMinutes == m)">@label</option> }
+                        @if (!leadOptions.Any(o => o.Item1 == s.LeadMinutes)) { <option value="@s.LeadMinutes" selected>@s.LeadMinutes minutes</option> }
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="MaxDaysAhead">Open for booking</label>
+                    <div class="input-group">
+                        <input id="MaxDaysAhead" name="MaxDaysAhead" type="number" class="form-control" min="1" max="365" value="@s.MaxDaysAhead" inputmode="numeric" />
+                        <span class="input-group-text">days ahead</span>
+                    </div>
+                </div>
+            </div>
+
+            <h2 class="h6 mt-4">Capacity</h2>
+            <div class="bk-grid">
+                <div>
+                    <label class="form-label" for="CoversPerSlot">Guests per time</label>
+                    <input id="CoversPerSlot" name="CoversPerSlot" type="number" class="form-control" min="1" max="1000" value="@s.CoversPerSlot" inputmode="numeric" />
+                    <span class="hint">How many guests can arrive at the same time, across all bookings. Keeps the kitchen's pace.</span>
+                </div>
+                <div>
+                    <label class="form-label" for="MaxPartySize">Largest party online</label>
+                    <input id="MaxPartySize" name="MaxPartySize" type="number" class="form-control" min="1" max="100" value="@s.MaxPartySize" inputmode="numeric" />
+                    <span class="hint">Bigger groups are asked to call you.</span>
+                </div>
+            </div>
+
+            <h2 class="h6 mt-4">Confirmations</h2>
+            <div class="form-check form-switch mb-1">
+                <input type="checkbox" name="AutoConfirm" id="AutoConfirm" value="true" class="form-check-input" role="switch" @(s.AutoConfirm ? "checked" : "") />
+                <label class="form-check-label" for="AutoConfirm">Confirm bookings automatically</label>
+                <input type="hidden" name="AutoConfirm" value="false" />
+            </div>
+            <p class="hint mt-0">Off: each booking waits for you to confirm it in the day view, and the guest is told once you do.</p>
+            <div class="form-check form-switch mb-1">
+                <input type="checkbox" name="NotifyOwner" id="NotifyOwner" value="true" class="form-check-input" role="switch" @(s.NotifyOwner ? "checked" : "") />
+                <label class="form-check-label" for="NotifyOwner">Email me about new bookings and cancellations</label>
+                <input type="hidden" name="NotifyOwner" value="false" />
+            </div>
+            <div class="bk-grid mt-3">
+                <div>
+                    <label class="form-label" for="ReminderHours">Reminder to the guest</label>
+                    <select id="ReminderHours" name="ReminderHours" class="form-select">
+                        @foreach (var h in new[] { 0, 1, 2, 3, 6, 24 }) { <option value="@h" selected="@(s.ReminderHours == h)">@(h == 0 ? "No reminder" : h == 24 ? "1 day before" : $"{h} hour{(h == 1 ? "" : "s")} before")</option> }
+                    </select>
+                    <span class="hint">With a link to cancel, which frees the table instead of a no-show.</span>
+                </div>
+                <div>
+                    <label class="form-label" for="CountryCode">Country code for local numbers</label>
+                    <div class="input-group">
+                        <span class="input-group-text">+</span>
+                        <input id="CountryCode" name="CountryCode" class="form-control" maxlength="3" value="@s.CountryCode" inputmode="numeric" />
+                    </div>
+                    <span class="hint">"069 123 4567" is saved as +355 69 123 4567.</span>
+                </div>
+            </div>
+
+            <p class="hint mt-3 mb-0">
+                <i class="ph ph-chat-circle-text" aria-hidden="true"></i>
+                Messages to guests: @(Sms.IsConfigured ? $"SMS through {Sms.ProviderName}" : "SMS isn't set up") · @(Email.IsConfigured ? "email to guests who give one" : "email isn't set up").
+                @if (!Sms.IsConfigured) { <span>Guests always see their booking on screen with a link to keep.</span> }
+            </p>
+        </div>
+        <div class="panel-foot">
+            <button type="submit" class="btn btn-primary"><i class="ph ph-check" aria-hidden="true"></i>Save settings</button>
+        </div>
+    </form>
+
+    <aside class="panel bk-share" aria-labelledby="shareTitle">
+        <div class="panel-body">
+            <h2 id="shareTitle" class="h5 mb-2">Your booking page</h2>
+            <div class="input-group mb-2">
+                <input class="form-control mono" value="@bookingUrl" readonly aria-label="Booking page link" />
+                <button type="button" class="btn btn-outline-secondary" data-copy="@bookingUrl" data-copy-done="Booking link copied"><i class="ph ph-copy" aria-hidden="true"></i>Copy</button>
+            </div>
+            <p class="hint mt-0">Put it in your Instagram bio, Google profile and WhatsApp. The menu shows a "Book a table" button while bookings are on.</p>
+            <div class="bk-qr">@Html.Raw(ViewBag.QrSvg)</div>
+            <div class="d-flex gap-2 flex-wrap">
+                <a class="btn btn-outline-secondary btn-sm" asp-action="Qr" asp-route-id="@b.Id"><i class="ph ph-download-simple" aria-hidden="true"></i>QR code (PNG)</a>
+                <a class="btn btn-outline-secondary btn-sm" href="@bookingUrl" target="_blank" rel="noopener"><i class="ph ph-arrow-square-out" aria-hidden="true"></i>Open</a>
+            </div>
+        </div>
+    </aside>
+</div>

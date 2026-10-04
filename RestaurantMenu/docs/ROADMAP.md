@@ -197,8 +197,47 @@ Guests at a table send their list to the kitchen; the kitchen display updates li
 - **Hosting:** Render supports WebSockets on every plan, nothing to set up. For more than one app instance, add a SignalR backplane (Redis).
 - **Later:** online payment (Stripe, or a local acquirer for Albania); "call the waiter / bring the bill" buttons; a printer ticket per order; order history and sales on Insights (feeds the management system).
 
-### 15. Bookings (2 to 3 weeks)
-`ReservationSettings` (slot length, covers per slot, lead time), `Reservation { Name, Phone, Guests, StartsAt, Status }`. A public widget at `/book/{slug}` (the landing's slot-picker tile is already the UI), owner calendar view, SMS confirmations through Twilio or a local SMS gateway, and no-show tracking.
+### 15. Bookings: done
+Guests book a table online; the restaurant runs the day from one page.
+
+- **Data** (migration `AddBookings`, additive):
+  - `ReservationSettings`, one per branch: on/off, time between slots (15/30/60), guests per time, largest party, minimum notice, days ahead, last booking before closing, auto-confirm, reminder hours, country code, owner emails, and closed days.
+  - `Reservation { PublicId, Name, Phone, Email, Guests, StartsAtUtc, StartsAtLocal, Status (Pending, Confirmed, Seated, Cancelled, NoShow), Note, StaffNote, Language, Source, CancelledBy, ReminderSentUtc }`.
+- **Availability** (`Helpers/BookingRules`, unit-tested):
+  - Times come from the branch's **opening hours**: every slot from opening until the last booking time.
+  - Evenings past midnight keep their late times on the day they started.
+  - Times skipped when the clocks go forward don't exist; times are converted to UTC in the branch's time zone.
+  - A time is open when it's far enough ahead, within the booking window, not on a closed day, and has room for the party.
+- **Booking safely** (`Services/BookingService`):
+  - Seats are counted and taken inside a transaction that locks the branch row, so two guests can't both get the last seats (tested: 10 at once for 3 places, exactly 3 succeeded).
+  - The page sends a request id, so a retry never books twice.
+  - Phones are normalised to international format ("069 123 4567" becomes +355691234567) and shown as "+355 69 123 4567".
+  - One phone may hold 3 upcoming bookings per restaurant.
+  - 10 bookings per 10 minutes per network (`Bookings__RateLimitPerIp`).
+  - Everything the guest typed is validated, with messages in their language.
+- **Guest booking page** `/book/{slug}`: the restaurant's logo and colours, light/dark like its menu, and the menu's 7 languages.
+  - Party size stepper (bigger groups are asked to call), date chips for two weeks plus a date field, and time pills in the landing page's style.
+  - Name, phone, optional email and a request, then the booking page.
+  - Times update without reloading. A time taken meanwhile says so and refreshes. The page also works without JavaScript.
+  - Linked from the menu ("Book a table" while bookings are on, but not when the guest is already at a table), and shareable on Instagram, Google or WhatsApp. The settings page has the link and a QR code (PNG).
+- **The guest's link** `/book/{slug}/r/{id}`: status, details and address, **Add to calendar** (.ics), and **Cancel booking** (until the time starts, which frees the seats and tells the owner).
+- **Messages:**
+  - SMS through **Twilio** (`Sms__TwilioAccountSid`, `Sms__TwilioAuthToken`, `Sms__TwilioFrom`; a Messaging Service SID works too). Or through **any HTTP SMS gateway**, such as a local Albanian provider (`Sms__WebhookUrl`, which receives JSON `{to, message}`, plus an optional `Sms__WebhookToken`).
+  - Email to guests who give one, using the existing email setup.
+  - Sent in the background in the guest's language: confirmation, "we'll confirm soon", confirmed, cancelled by the restaurant.
+  - A **reminder** N hours before, with a cancel link, which cuts no-shows. Each reminder is claimed in the database first, so it goes out once. Bookings made inside the window are skipped.
+  - The owner gets an email for each new online booking and each cancellation.
+  - Without SMS, bookings still work: confirmation on screen and by email.
+- **Day view** `/branch/{id}/bookings` (Editor and up, new `BranchPermission.Bookings`), the "calendar per day":
+  - Previous/next/today and a date picker; totals (bookings, guests expected, to confirm, no-shows).
+  - Every time of the day with a capacity bar ("4 / 6 guests", flagged over capacity). Runs of free times fold into one line.
+  - Each booking shows phone and email links, the guest's request, a staff note, "Added by staff", and the guest's history ("1 no-show before", "Visited 3×").
+  - Actions: Confirm or Decline (pending), Seated, No-show or Cancel (confirmed), Undo/Restore. Online guests are told when the restaurant confirms or cancels. Two screens can't overwrite each other.
+  - **Add a booking** for phone calls and walk-ins (may go over capacity, with a note).
+  - **Close day for online booking** for holidays and private events.
+  - The page checks every 30 seconds and offers to refresh when bookings change.
+- **Settings** `/branch/{id}/bookings/settings` (Manager and up): all of the above, the message status (SMS provider, email), the booking link with Copy, QR code and PNG download. Turning bookings on without opening hours explains what's missing.
+- **Later:** table assignment and floor plan, deposits for large groups (with online payment), waitlist when a day is full, booking stats on Insights.
 
 ### 16. Restaurant websites (2 to 3 weeks)
 A `/site/{slug}` template rendering branch data (hero, about, hours, menu highlights, booking button, map). Custom domains: a `Domain` table plus host-based routing middleware that maps `Host` to the branch, and Render custom domains with automatic TLS.

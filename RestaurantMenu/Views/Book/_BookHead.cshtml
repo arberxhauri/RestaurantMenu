@@ -1,0 +1,25 @@
+@using RestaurantMenu.Helpers
+@model (Branch Branch, string Language, string Title)
+@{
+    // <head> for the guest booking pages: the restaurant's colours (like its menu) and the shared menu styles.
+    var theme = BrandTheme.Parse(Model.Branch.ThemeColors);
+}
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="@theme.Primary" />
+<meta name="referrer" content="strict-origin-when-cross-origin" />
+<title>@Model.Title</title>
+<link rel="icon" href="@(string.IsNullOrEmpty(Model.Branch.Logo) ? "/logo.png" : Model.Branch.Logo)" />
+<partial name="_HeadAssets" />
+<link rel="stylesheet" href="~/css/menu.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/book.css" asp-append-version="true" />
+<style>
+    :root {
+        --brand: @theme.Primary;
+        --brand-2: @theme.Secondary;
+        --on-brand: @theme.OnPrimary;
+        --brand-ink-light: @theme.PrimaryInkLight;
+        --brand-ink-dark: @theme.PrimaryInkDark;
+        --hero-ink: @theme.HeaderText;
+    }
+</style>

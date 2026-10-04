@@ -1065,3 +1065,55 @@ a.chip--link:hover { background: var(--accent-soft); color: var(--accent); }
 /* Visually hidden labels inside a scrolling table are absolutely positioned; without a
    positioned scroll box they escape its clipping and widen the whole page on phones. */
 .table-responsive { position: relative; }
+
+/* ---------- Bookings (day view, settings) ---------- */
+.chip--danger { background: var(--danger-soft); color: var(--danger); }
+.chip i { margin-right: 3px; }
+.panel-foot { padding: 14px 20px; border-top: 1px solid var(--line); display: flex; gap: 10px; justify-content: flex-end; }
+.bk-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 20px; }
+.bk-date-form { margin: 0; }
+.bk-date-form .form-control { width: auto; min-width: 170px; }
+.bk-close-form { margin: 0 0 0 auto; }
+.bk-live { display: flex; align-items: center; gap: 8px; margin: 0 0 16px; padding: 10px 14px; border-radius: var(--r-md); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.bk-live[hidden] { display: none; }
+.bk-live a { color: inherit; }
+.bk-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start; }
+.bk-side { position: sticky; top: 16px; }
+.bk-timeline { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.bk-slot { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.bk-slot.is-free { padding: 8px 14px; background: transparent; border-style: dashed; }
+.bk-slot-head { display: flex; align-items: center; gap: 14px; }
+.bk-slot-head time { font: 700 18px/1 var(--font-mono); min-width: 58px; }
+.bk-slot.is-free time { font-size: 15px; color: var(--ink-3); white-space: nowrap; }
+.bk-cap { display: inline-flex; align-items: center; gap: 10px; color: var(--ink-3); font-size: 13px; }
+.bk-cap-bar { width: 96px; height: 6px; border-radius: 3px; background: var(--bg-2); overflow: hidden; }
+.bk-cap-bar span { display: block; height: 100%; background: var(--chart-1); border-radius: 3px; }
+.bk-cap.is-over { color: var(--danger); font-weight: 600; }
+.bk-cap.is-over .bk-cap-bar span { background: var(--danger); }
+.bk-res { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; padding: 12px; border-radius: var(--r-sm); background: var(--bg); border-left: 4px solid var(--accent); }
+.bk-res--pending { border-left-color: var(--warn); }
+.bk-res--seated { border-left-color: var(--ok); }
+.bk-res--cancelled, .bk-res--noshow { border-left-color: var(--line); opacity: .7; }
+.bk-res--cancelled .bk-res-title strong, .bk-res--noshow .bk-res-title strong { text-decoration: line-through; }
+.bk-res-main { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 6px; }
+.bk-res-title { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.bk-res-title strong { font-size: 16px; }
+.bk-guests { display: inline-flex; align-items: center; gap: 4px; font: 700 15px/1 var(--font-mono); }
+.bk-res-meta { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 14px; color: var(--ink-2); }
+.bk-res-meta a { color: inherit; display: inline-flex; align-items: center; gap: 5px; }
+.bk-note { margin: 0; display: flex; gap: 6px; font-size: 14px; color: var(--ink); }
+.bk-note i { color: var(--ink-3); margin-top: 2px; }
+.bk-note--staff { color: var(--ink-2); font-style: italic; }
+.bk-res-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.bk-res-actions form { margin: 0; }
+.bk-add-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px; }
+.bk-settings { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start; }
+.bk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 14px; }
+.bk-qr { width: 180px; max-width: 100%; margin: 8px 0 12px; padding: 8px; background: #fff; border-radius: var(--r-sm); border: 1px solid var(--line); }
+.bk-qr svg { width: 100%; height: auto; display: block; }
+@media (max-width: 991.98px) {
+    .bk-layout, .bk-settings { grid-template-columns: 1fr; }
+    .bk-side { position: static; }
+    .bk-side .panel-body { padding: 16px; }
+    .bk-close-form { margin-left: 0; }
+}

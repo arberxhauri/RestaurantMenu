@@ -56,6 +56,12 @@
                 <i class="ph ph-cooking-pot" aria-hidden="true"></i>Kitchen
             </a>
         }
+        @if (Can(BranchPermission.Bookings))
+        {
+            <a class="btn btn-outline-secondary btn-sm" asp-controller="Bookings" asp-action="Index" asp-route-id="@Model.Id">
+                <i class="ph ph-calendar-check" aria-hidden="true"></i>Bookings
+            </a>
+        }
         @if (Can(BranchPermission.EditBranch))
         {
             <a class="btn btn-outline-secondary btn-sm" asp-controller="Tables" asp-action="Index" asp-route-id="@Model.Id">

@@ -21,6 +21,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<DiningTable> Tables { get; set; }
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
+    public DbSet<ReservationSettings> ReservationSettings { get; set; }
+    public DbSet<Reservation> Reservations { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -153,6 +155,36 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.Property(i => i.OptionIds).HasMaxLength(200);
             e.Property(i => i.UnitPrice).HasPrecision(18, 2);
             e.HasQueryFilter(i => !i.Order!.Branch!.IsDeleted);
+        });
+
+        // Bookings. Settings are one row per branch (key = BranchId). Reservations follow
+        // their branch's soft delete; the day view reads one branch and date range.
+        builder.Entity<ReservationSettings>(e =>
+        {
+            e.HasKey(x => x.BranchId);
+            e.HasOne(x => x.Branch).WithOne().HasForeignKey<ReservationSettings>(x => x.BranchId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(x => x.CountryCode).HasMaxLength(4);
+            e.Property(x => x.ClosedDates).HasMaxLength(4000);
+            e.HasQueryFilter(x => !x.Branch!.IsDeleted);
+        });
+        builder.Entity<Reservation>(e =>
+        {
+            e.HasIndex(r => r.PublicId).IsUnique();
+            e.HasIndex(r => new { r.BranchId, r.ClientRequestId }).IsUnique().HasFilter("\"ClientRequestId\" IS NOT NULL");
+            e.HasIndex(r => new { r.BranchId, r.StartsAtUtc });
+            e.HasIndex(r => new { r.BranchId, r.Phone });
+            e.HasIndex(r => new { r.Status, r.StartsAtUtc }); // reminders
+            e.HasOne(r => r.Branch).WithMany().HasForeignKey(r => r.BranchId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(r => r.Name).HasMaxLength(80);
+            e.Property(r => r.Phone).HasMaxLength(20);
+            e.Property(r => r.Email).HasMaxLength(256);
+            e.Property(r => r.Note).HasMaxLength(300);
+            e.Property(r => r.StaffNote).HasMaxLength(300);
+            e.Property(r => r.Language).HasMaxLength(8);
+            e.Property(r => r.Source).HasMaxLength(10);
+            e.Property(r => r.CancelledBy).HasMaxLength(12);
+            e.Property(r => r.StartsAtLocal).HasColumnType("timestamp without time zone");
+            e.HasQueryFilter(r => !r.Branch!.IsDeleted);
         });
 
         // Decimal precision for Price

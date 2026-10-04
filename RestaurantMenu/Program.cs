@@ -127,6 +127,17 @@ builder.Services.AddTransient<InviteMailer>();
 // Table ordering: guests' orders go to kitchen displays live over SignalR (WebSockets,
 // with fallbacks). One app instance: with several, add a backplane (e.g. Redis).
 builder.Services.AddScoped<OrderService>();
+
+// Bookings: availability, the guest's booking page, the owner's day view, reminders.
+// SMS is optional (Sms__TwilioAccountSid/AuthToken/From, or Sms__WebhookUrl for a local
+// gateway); without it guests get their confirmation on screen and by email.
+builder.Services.Configure<SmsOptions>(builder.Configuration.GetSection("Sms"));
+builder.Services.AddHttpClient<SmsService>(c => c.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddSingleton<BackgroundJobs>();
+builder.Services.AddHostedService<BackgroundJobsWorker>();
+builder.Services.AddScoped<BookingService>();
+builder.Services.AddSingleton<BookingReminderService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<BookingReminderService>());
 builder.Services.AddSignalR();
 
 // Menu analytics: anonymous events (no cookies, no IP or device stored), owner reports,
@@ -168,6 +179,12 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("orders", context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = ordersPerIp, Window = TimeSpan.FromMinutes(10), QueueLimit = 0 }));
+
+    // Online bookings, per client address: a family booking a few evenings, not a script
+    // filling the restaurant with fake bookings (one phone may also hold only 3 at a time).
+    options.AddPolicy("bookings", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = Math.Max(3, builder.Configuration.GetValue("Bookings:RateLimitPerIp", 10)), Window = TimeSpan.FromMinutes(10), QueueLimit = 0 }));
 
     // People get a page that explains, not a bare 429.
     options.OnRejected = (context, _) =>
@@ -266,6 +283,8 @@ using (var scope = app.Services.CreateScope())
         app.Logger.LogInformation("Email: sending through {Provider} from {From}", email.ProviderName, email.Sender!.Formatted);
     else
         app.Logger.LogWarning("Email: off. {Problem} Invite links are shown on screen and password reset by email is unavailable.", email.Problem);
+    var sms = scope.ServiceProvider.GetRequiredService<SmsService>();
+    app.Logger.LogInformation(sms.IsConfigured ? "SMS: sending through {Provider}" : "SMS: off (booking confirmations by email and on screen){Provider}", sms.ProviderName ?? "");
 }
 
 // Seed database

@@ -1,0 +1,72 @@
+@using System.Globalization
+@using RestaurantMenu.Controllers
+@using RestaurantMenu.Helpers
+@using RestaurantMenu.Models
+@using RestaurantMenu.Services
+@model ReservationPage
+@{
+    Layout = null;
+    var b = Model.Branch;
+    var r = Model.Reservation;
+    var lang = Model.Language;
+    var w = BookingText.For(lang);
+    var slug = SeoService.Slug(b.Name);
+    var theme = BrandTheme.Parse(b.ThemeColors);
+    var themeClass = theme.Appearance switch { "light" => "theme-light", "dark" => "theme-dark", _ => "" };
+    var active = !Model.IsPast && r.Status is ReservationStatus.Pending or ReservationStatus.Confirmed;
+    var headerModel = (b, lang, w.Title, (string?)null);
+    var (icon, title, text, tone) = r.Status switch
+    {
+        ReservationStatus.Cancelled => ("ph-x-circle", w.CancelledTitle, w.CancelledText, "off"),
+        _ when Model.IsPast => ("ph-clock-counter-clockwise", BookingText.Status(r.Status, lang), w.PastText, "off"),
+        ReservationStatus.Pending => ("ph-hourglass-medium", w.PendingTitle, w.PendingText, "wait"),
+        _ => ("ph-check-circle", w.ConfirmedTitle, (string?)null, "ok")
+    };
+}
+@{ var headModel = (b, lang, title + " · " + b.Name); }
+<!DOCTYPE html>
+<html lang="@lang">
+<head>
+    <partial name="_BookHead" model="headModel" />
+    <meta name="robots" content="noindex" />
+</head>
+<body class="menu-page book-page @themeClass">
+    <partial name="_BookHeader" model="headerModel" />
+
+    <main class="b-main" id="main">
+        <section class="b-card b-ticket b-ticket--@tone" aria-labelledby="ticketTitle">
+            <i class="ph-fill @icon b-ticket-icon" aria-hidden="true"></i>
+            <h2 id="ticketTitle">@title</h2>
+            @if (text != null) { <p class="b-ticket-text">@text</p> }
+
+            <dl class="b-facts">
+                <div><dt>@w.When</dt><dd>@BookingText.LongDate(r.StartsAtLocal, lang), <strong>@r.StartsAtLocal.ToString("HH:mm", CultureInfo.InvariantCulture)</strong></dd></div>
+                <div><dt>@w.Guests</dt><dd>@BookingText.GuestCount(r.Guests, lang)</dd></div>
+                <div><dt>@w.Name</dt><dd>@r.Name</dd></div>
+                @if (r.Phone.Length > 0) { <div><dt>@w.Phone</dt><dd>@BookingRules.FormatPhone(r.Phone)</dd></div> }
+                @if (r.Note != null) { <div><dt>@w.Note.Split(" (")[0]</dt><dd>@r.Note</dd></div> }
+                <div><dt><i class="ph ph-map-pin" aria-hidden="true"></i></dt><dd><a href="https://www.google.com/maps/search/?api=1&query=@Uri.EscapeDataString(b.Address)" target="_blank" rel="noopener noreferrer">@b.Address</a></dd></div>
+            </dl>
+
+            <div class="b-actions">
+                @if (active)
+                {
+                    <a class="m-btn m-btn--brand" href="/book/@slug/r/@r.PublicId/calendar.ics" download><i class="ph ph-calendar-plus" aria-hidden="true"></i>@w.AddToCalendar</a>
+                    <form method="post" action="/book/@slug/r/@r.PublicId/cancel" data-confirm="@w.CancelConfirm">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="m-btn m-btn--ghost"><i class="ph ph-x" aria-hidden="true"></i>@w.Cancel</button>
+                    </form>
+                }
+                else
+                {
+                    <a class="m-btn m-btn--brand" href="/book/@slug@(lang == "en" ? "" : $"?lang={lang}")"><i class="ph ph-calendar-check" aria-hidden="true"></i>@w.BookAgain</a>
+                }
+                <a class="m-btn m-btn--ghost" href="@Model.MenuUrl"><i class="ph ph-book-open-text" aria-hidden="true"></i>@w.SeeMenu</a>
+            </div>
+        </section>
+        <p class="b-foot"><a href="tel:@b.PhoneNumber"><i class="ph ph-phone" aria-hidden="true"></i>@b.PhoneNumber</a></p>
+    </main>
+
+    <script src="~/js/book.js" asp-append-version="true" defer></script>
+</body>
+</html>
