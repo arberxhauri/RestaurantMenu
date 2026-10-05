@@ -72,6 +72,11 @@ namespace RestaurantMenu.Controllers;
 
             ViewBag.Currencies = CurrencyHelper.GetCurrencies();
             ViewBag.Hours = OpeningHours.ToForm(null);
+            // A new signup's first branch starts from the restaurant name they gave.
+            if (user.SignupRestaurantName is { Length: > 0 } restaurant && !await _context.Branches.AnyAsync(b => b.UserId == user.Id))
+            {
+                return View(new Branch { Name = restaurant, Currency = user.Country == "AL" ? "ALL" : "EUR" });
+            }
             return View();
         }
 
@@ -424,6 +429,7 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
             {
                 return BadRequest($"Table numbers go from 1 to {SeoService.MaxTable}.");
             }
+            if (download) await MarkQrOpenedAsync(user);
 
             format = format.ToLowerInvariant();
             if (format != "svg" && format != "png")
@@ -466,6 +472,7 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
                 return NotFound();
             }
 
+            await MarkQrOpenedAsync(user);
             layout = layout == PrintViewModel.Sticker ? PrintViewModel.Sticker : PrintViewModel.Tent;
             var perPage = layout == PrintViewModel.Tent ? 2 : 12;
 
@@ -625,6 +632,14 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
 
             TempData["Success"] = $"{branch.Name} is back and its menu is online again.";
             return RedirectToAction("Index", "Dashboard");
+        }
+
+        /// <summary>Onboarding's last step ("print the QR code") is done once they print or download one.</summary>
+        private async Task MarkQrOpenedAsync(ApplicationUser? user)
+        {
+            if (user is not { SignupSource: SignupSource.SelfServe, OnboardingQrUtc: null }) return;
+            user.OnboardingQrUtc = DateTime.UtcNow;
+            await _userManager.UpdateAsync(user);
         }
 
         /// <summary>Why this owner can't add a branch right now, or null if they can.</summary>

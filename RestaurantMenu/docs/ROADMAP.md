@@ -446,6 +446,52 @@ Phase 1 of `docs/PLAN-signup-payments.md`. One subscription per owner says what 
   - Set `Billing__Prices__…` once prices are decided.
   - Nothing changes for existing restaurants until an admin changes their plan.
 
+### 24. Self-serve signup and free trial: done (behind `Signup__Enabled`)
+Phase 2 of `docs/PLAN-signup-payments.md`. A restaurant picks modules, signs up, confirms its email and gets a 14-day trial, in English or Albanian, with or without JavaScript. Off until `Signup__Enabled=true`, and only with working email (the confirmation link is the way in). The startup log says `Signup: open …`, or why not.
+
+- **Data** (migration `AddSelfServeSignup`, additive) on `AspNetUsers`:
+  - `SignupSource` (Admin or SelfServe), `Country`, `Language` (en or sq).
+  - `TermsVersion`, `TermsAcceptedUtc`.
+  - `ApprovedUtc`, `ApprovalNote`.
+  - `SignupRestaurantName`.
+  - `OnboardingQrUtc`, `OnboardingDoneUtc`.
+  - Existing accounts are Admin and count as approved.
+- **`/pricing`** (`?lang=sq`, indexable):
+  - Three starting points: Menu, Menu + website + bookings, Everything. A preset is only a starting selection.
+  - Module checkboxes, branch count, monthly or yearly.
+  - The total comes from `PricingRules.Quote` on the server: per-branch modules × branches, own domain per domain, the yearly saving. A module without a price shows "price on request".
+  - Without JavaScript, "Update price" reloads the page; `pricing.js` recalculates live.
+  - "Start free trial" carries the selection to `/signup` in the query string.
+- **`/signup`**:
+  - Fields: name, email, password, restaurant name (shows its future link, `…/menu/oliva-durres`, or "taken, yours will be oliva-2"), country, terms (stores `TermsInfo.Version`).
+  - Bot protection: a honeypot, a signed form timestamp (under 3 seconds = bot, which gets the normal page and nothing is created), and the `signup` rate limit (`Signup__RateLimitPerIp`, 5 per hour).
+  - A removed account's email: "contact us". An existing email: "sign in or reset".
+- **Confirmation:**
+  - The email link opens a page with a button. Only the POST confirms, so mail scanners can't.
+  - Then either the account opens (trial clock starts, signed in, dashboard), or with `Signup__RequireApproval` (default on) it waits. A second trial on the same company domain (not webmail) also waits, with a note.
+  - `Signup__NotifyEmail` is told someone is waiting.
+  - "Send the link again": one email per address per 2 minutes, and the same answer for any address.
+  - Signing in before confirming or approval is refused, in their language.
+- **Admin → User management:**
+  - "Waiting for approval" with Approve (the trial starts and they're emailed) and Decline.
+  - Owner chips: email not confirmed, waiting, self-serve.
+- **Onboarding** (self-serve owners): a dashboard checklist (create your branch, add a category and dishes, print the QR) that ticks itself off, with Hide.
+  - The first branch's name is prefilled from signup.
+  - The trial banner is in the owner's language.
+- **Landing:** with signup open, "Start free trial" (to `/pricing`), a Pricing nav link and a pricing section with "from €X a month". Closed: unchanged ("Get in touch").
+- **Cleanup:** accounts never confirmed after `Signup__UnconfirmedDays` (7) are deleted with their unstarted trial, by the daily cleanup.
+- **Language:** all funnel words are in `Helpers/SignupText.cs` (en, sq), covered by `TranslationCoverageTests` (a table can now declare its own languages).
+- **Tests:** `PricingRulesTests`, `SignupRulesTests`.
+- **Checked end to end** (no JavaScript, mock email):
+  - In Albanian: pricing → signup → refused sign-in before confirming → email → confirm → dashboard (checklist and trial in Albanian) → branch (name prefilled, `/menu/oliva-durres`) → category → dish → live menu → print → checklist 3/3. **About 6 seconds of clicks.**
+  - In English, approval mode: waits, sign-in refused while waiting, admin notified, approved, emailed, signs in, trial running.
+  - Also: second trial on the same domain flagged; bots, duplicate and removed emails, bad fields, broken links, resend and the rate limit; flag off hides everything; 8-day-old unconfirmed signup deleted.
+- **Deploy:**
+  1. Set the prices (`Billing__Prices__…`), `Email__…` and `Seo__BaseUrl`.
+  2. Then `Signup__Enabled=true`. Keep `Signup__RequireApproval=true` at first.
+  3. Optionally set `Signup__NotifyEmail`.
+- **Not yet:** paying. "Contact us" links stand in for checkout until phase 3.
+
 ---
 
 ## Suggested order

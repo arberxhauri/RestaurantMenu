@@ -241,10 +241,10 @@ Six phases, each deployable on its own and each ending with the usual write-up (
 **Accept when:** existing customers see no change; an admin can switch a test owner's Bookings off and the booking page degrades as described.
 
 ### Phase 2: self-serve signup and trial
-- [ ] `PricingRules.Quote` and the `/pricing` page; pricing section and "Start free trial" CTA on the landing (behind the flag)
-- [ ] `SignupController`: account form, slug suggestion, honeypot, rate limit, verification email, approval mode
-- [ ] Onboarding checklist on the dashboard; trial banner
-- [ ] Albanian and English text for the funnel pages and emails, with coverage tests
+- [x] `PricingRules.Quote` and the `/pricing` page; pricing section and "Start free trial" CTA on the landing (behind the flag)
+- [x] `SignupController`: account form, slug suggestion, honeypot, rate limit, verification email, approval mode
+- [x] Onboarding checklist on the dashboard; trial banner
+- [x] Albanian and English text for the funnel pages and emails, with coverage tests
 
 **Accept when:** with the flag on in staging, a new restaurant can sign up, verify, create a branch and open its live menu in under ten minutes, in either language, without JavaScript.
 

@@ -13,10 +13,14 @@
 @{
     var contactUrl = Configuration["Landing:ContactUrl"] is { Length: > 0 } configured ? configured : "https://4cs.al/";
     Entitlements? plan = null;
+    var language = "en";
     if (User.IsInRole("OWNER") && Users.GetUserId(User) is { } ownerId)
     {
         plan = await Entitlements.ForOwnerAsync(ownerId);
+        // The trial line is part of the signup funnel: in the owner's language (en or sq).
+        if (plan.Status == SubscriptionStatus.Trialing) language = (await Users.GetUserAsync(User))?.Language ?? "en";
     }
+    var sw = SignupText.For(language);
     var gate = ViewData[ModuleGate.Key] as ModuleGate;
     var limitation = plan == null ? null : EntitlementRules.Limitation(plan);
     var trialDays = plan?.TrialDaysLeft(DateTime.UtcNow);
@@ -33,10 +37,9 @@ else if (trialDays is { } days)
 {
     <div class="flash flash--warn plan-notice" role="status">
         <i class="ph ph-hourglass-medium" aria-hidden="true"></i>
-        <p>
-            @(days == 0 ? "Your free trial ends today." : days == 1 ? "1 day left in your free trial." : $"{days} days left in your free trial.")
-            After it ends your menus stay online and the back office becomes read-only.
-            <a href="@contactUrl" target="_blank" rel="noopener">Contact us to keep everything running</a>
+        <p lang="@language">
+            @SignupText.TrialLeft(sw, days) @sw.TrialAfter
+            <a href="@contactUrl" target="_blank" rel="noopener">@sw.TrialContact</a>
         </p>
     </div>
 }

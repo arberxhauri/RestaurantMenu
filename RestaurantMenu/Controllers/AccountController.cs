@@ -58,6 +58,29 @@ public class AccountController : Controller
         if (ModelState.IsValid)
         {
             var user = await _userManager.FindByEmailAsync(model.Email);
+            // A self-serve signup can't sign in until its email is confirmed and (with approval
+            // on) the admin let it in. The right password gets told why, in its own language;
+            // a wrong one gets the usual answer and counts towards the lockout.
+            if (user is { AwaitingEmail: true } or { AwaitingApproval: true })
+            {
+                var check = await _signInManager.CheckPasswordSignInAsync(user, model.Password, lockoutOnFailure: true);
+                if (check.Succeeded)
+                {
+                    var w = Helpers.SignupText.For(user.Language);
+                    if (user.AwaitingEmail)
+                    {
+                        ModelState.AddModelError("", string.Format(w.LoginUnconfirmed, user.Email));
+                        ViewBag.ResendUrl = $"/signup/check?e={Uri.EscapeDataString(user.Email!)}&lang={user.Language}";
+                        ViewBag.ResendLabel = w.Resend;
+                    }
+                    else
+                    {
+                        ModelState.AddModelError("", w.LoginPending);
+                    }
+                    return View(model);
+                }
+                user = check.IsLockedOut ? user : null;
+            }
             if (user != null)
             {
                 var result = await _signInManager.PasswordSignInAsync(

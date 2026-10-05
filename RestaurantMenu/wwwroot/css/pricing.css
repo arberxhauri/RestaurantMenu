@@ -1,0 +1,57 @@
+/* /pricing: presets, the build-your-plan form and the sticky total. Tokens from tokens.css. */
+.pricing-head { position: relative; max-width: 68ch; margin: 8px 0 24px; }
+.pricing-head h1 { font-size: clamp(32px, 4vw, 48px); margin: 0 0 8px; }
+.pricing-head .lead { color: var(--ink-2); margin: 0; }
+.pricing-lang { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 12px; font-size: 14px; color: var(--ink-2); text-decoration: none; }
+.pricing-lang:hover { color: var(--ink); }
+
+.preset-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
+.preset {
+    display: flex; flex-direction: column; gap: 6px; padding: 18px; border: 1px solid var(--line);
+    border-radius: var(--r-lg); background: var(--surface); color: var(--ink); text-decoration: none;
+    transition: border-color .15s var(--ease-out), box-shadow .15s var(--ease-out);
+}
+.preset:hover { border-color: var(--line-2); box-shadow: var(--shadow-sm); }
+.preset.is-current { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.preset strong { font-size: 17px; }
+.preset span { color: var(--ink-3); font-size: 14px; }
+.preset em { margin-top: auto; padding-top: 6px; font-style: normal; font-weight: 600; color: var(--ink); }
+
+.pricing-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+.pricing-form { margin: 0; }
+.pricing-summary { position: sticky; top: 20px; margin: 0; }
+
+.module-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+.module > label, .module.is-fixed { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-md); cursor: pointer; }
+.module.is-fixed { cursor: default; background: var(--surface-2); }
+.module > label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.module > label:has(input:disabled) { opacity: .55; cursor: not-allowed; }
+.module input { margin-top: 3px; }
+.module-check { color: var(--ok); font-size: 20px; line-height: 1; }
+.module-body { display: grid; gap: 2px; }
+.module-body span { color: var(--ink-3); font-size: 14px; }
+.module-body em { font-style: normal; }
+.module-price { white-space: nowrap; font-size: 14px; color: var(--ink-2); text-align: right; }
+
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r-pill); padding: 3px; gap: 2px; }
+.seg label { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: var(--r-pill); cursor: pointer; font-size: 14px; }
+.seg label:has(input:checked) { background: var(--ink); color: var(--bg); }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.quote-lines { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 6px; font-size: 14px; }
+.quote-lines li { display: flex; justify-content: space-between; gap: 12px; color: var(--ink-2); }
+.quote-total { display: flex; align-items: baseline; gap: 6px; margin: 12px 0 4px; padding-top: 12px; border-top: 1px solid var(--line); }
+.quote-total strong { font-size: 28px; }
+.quote-saving { color: var(--ok); font-weight: 600; margin: 0 0 12px; }
+
+@media (max-width: 899.98px) {
+    .pricing-layout { grid-template-columns: 1fr; }
+    .pricing-summary { position: static; }
+}
+@media (max-width: 639.98px) {
+    .preset-grid { grid-template-columns: 1fr; }
+    .module > label, .module.is-fixed { grid-template-columns: 24px minmax(0, 1fr); }
+    .module-price { grid-column: 2; text-align: left; }
+}
+@media (prefers-reduced-motion: reduce) { .preset { transition: none; } }

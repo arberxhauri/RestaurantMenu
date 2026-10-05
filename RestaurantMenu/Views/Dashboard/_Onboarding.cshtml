@@ -1,0 +1,46 @@
+@model RestaurantMenu.Controllers.OnboardingModel
+@{
+    var w = Model.W;
+    (bool Done, string Title, string Text, string? Href)[] steps =
+    {
+        (Model.HasBranch, w.OnbBranch, w.OnbBranchText, Url.Action("Create", "Branch")),
+        (Model.HasDishes, w.OnbMenu, w.OnbMenuText, Model.FirstBranchId is { } b1 ? Url.Action("Details", "Branch", new { id = b1 }) : null),
+        (Model.PrintedQr, w.OnbQr, w.OnbQrText, Model.FirstBranchId is { } b2 ? Url.Action("Print", "Branch", new { id = b2 }) : null)
+    };
+    var next = steps.Select((s, i) => (s, i)).FirstOrDefault(x => !x.s.Done).i;
+}
+
+<section class="panel onboarding mb-4" aria-labelledby="onb-title">
+    <div class="panel-body">
+        <div class="onboarding-head">
+            <div>
+                <h2 id="onb-title" class="h5 mb-1">@(Model.AllDone ? w.OnbAllDone : w.OnbTitle)</h2>
+                @if (!Model.AllDone) { <p class="text-muted mb-0">@w.OnbIntro</p> }
+            </div>
+            <form asp-controller="Dashboard" asp-action="HideOnboarding" method="post">
+                <button type="submit" class="btn btn-sm btn-quiet">@w.OnbHide</button>
+            </form>
+        </div>
+        <ol class="onboarding-steps">
+            @for (var i = 0; i < steps.Length; i++)
+            {
+                var s = steps[i];
+                <li class="@(s.Done ? "is-done" : i == next ? "is-next" : "")">
+                    <span class="onb-mark" aria-hidden="true">@if (s.Done) { <i class="ph ph-check"></i> } else { @(i + 1) }</span>
+                    <span class="onb-body">
+                        <strong>@s.Title</strong>
+                        <span>@s.Text</span>
+                    </span>
+                    @if (s.Done)
+                    {
+                        <span class="chip chip--ok">@w.OnbDone</span>
+                    }
+                    else if (s.Href != null)
+                    {
+                        <a class="btn btn-sm @(i == next ? "btn-primary" : "btn-outline-secondary")" href="@s.Href">@w.OnbStart</a>
+                    }
+                </li>
+            }
+        </ol>
+    </div>
+</section>

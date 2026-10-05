@@ -1,0 +1,74 @@
+@model RestaurantMenu.ViewModels.SignupStatusPage
+@{
+    Layout = "_AuthLayout";
+    var w = Model.W;
+    var lang = Model.Lang;
+    string contactUrl = ViewBag.ContactUrl as string ?? "https://4cs.al/";
+}
+
+@switch (Model.Kind)
+{
+    case "check":
+        <div class="auth-icon"><i class="ph ph-envelope-simple-open" aria-hidden="true"></i></div>
+        <h1>@w.CheckTitle</h1>
+        @if (Model.Busy)
+        {
+            <div class="flash flash--danger mb-3" role="alert"><i class="ph ph-warning-octagon" aria-hidden="true"></i><p>@w.ErrBusy</p></div>
+        }
+        else if (Model.Failed)
+        {
+            <div class="flash flash--warn mb-3" role="alert"><i class="ph ph-warning" aria-hidden="true"></i><p>@w.EmailFailed</p></div>
+        }
+        else if (Model.Sent)
+        {
+            <div class="flash flash--ok mb-3" role="status"><i class="ph ph-check-circle" aria-hidden="true"></i><p>@w.ResendDone</p></div>
+        }
+        <p class="auth-sub">@string.Format(w.CheckText, string.IsNullOrEmpty(Model.Email) ? "…" : Model.Email)</p>
+        <p class="auth-sub">@w.CheckSpam</p>
+        <form method="post" action="/signup/resend" class="mt-3">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="lang" value="@lang" />
+            <label for="email" class="form-label">@w.Email</label>
+            <div class="input-group">
+                <input id="email" name="email" type="email" value="@Model.Email" class="form-control" autocomplete="email" spellcheck="false" required />
+                <button type="submit" class="btn btn-outline-secondary">@w.Resend</button>
+            </div>
+        </form>
+        break;
+
+    case "confirm":
+        <div class="auth-icon"><i class="ph ph-seal-check" aria-hidden="true"></i></div>
+        <h1>@w.VerifyTitle</h1>
+        <p class="auth-sub">@string.Format(w.VerifyText, Model.Email ?? "")</p>
+        <form method="post" action="/signup/confirm">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="u" value="@Model.UserId" />
+            <input type="hidden" name="t" value="@Model.Token" />
+            <input type="hidden" name="lang" value="@lang" />
+            <button type="submit" class="btn btn-primary btn-lg w-100">@w.VerifyButton <i class="ph ph-arrow-right" aria-hidden="true"></i></button>
+        </form>
+        break;
+
+    case "pending":
+        <div class="auth-icon"><i class="ph ph-hourglass-medium" aria-hidden="true"></i></div>
+        <h1>@w.PendingTitle</h1>
+        <p class="auth-sub">@w.PendingText</p>
+        break;
+
+    case "invalid":
+        <div class="auth-icon"><i class="ph ph-link-break" aria-hidden="true"></i></div>
+        <h1>@w.VerifyTitle</h1>
+        <p class="auth-sub">@w.VerifyInvalid</p>
+        <div class="d-flex gap-2 flex-wrap">
+            <a class="btn btn-primary" asp-controller="Account" asp-action="Login">@w.SignIn</a>
+            <a class="btn btn-outline-secondary" href="/signup@(lang == "en" ? "" : "?lang=" + lang)">@w.CreateAccount</a>
+        </div>
+        break;
+
+    default: // closed
+        <div class="auth-icon"><i class="ph ph-storefront" aria-hidden="true"></i></div>
+        <h1>@w.SignupTitle</h1>
+        <p class="auth-sub">@w.Closed</p>
+        <a class="btn btn-primary" href="@contactUrl" target="_blank" rel="noopener">@w.ContactUs <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+        break;
+}

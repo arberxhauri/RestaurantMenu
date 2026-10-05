@@ -38,6 +38,17 @@ public class BranchSlugs
                    .FirstOrDefaultAsync();
     }
 
+    /// <summary>
+    /// The link a new branch with this name would get right now, and whether its plain link is
+    /// already taken (signup shows "yours will be oliva-2"). Nothing is reserved.
+    /// </summary>
+    public async Task<(string Slug, bool Taken)> SuggestAsync(string? name)
+    {
+        var wanted = SlugRules.FromName(name);
+        var slug = SlugRules.Unique(name, await TakenAsync(wanted, 0));
+        return (slug, slug != wanted);
+    }
+
     /// <summary>Gives a new branch the first free slug for its name.</summary>
     public async Task AssignAsync(Branch branch)
     {

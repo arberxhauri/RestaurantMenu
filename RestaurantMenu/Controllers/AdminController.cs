@@ -138,6 +138,20 @@ namespace RestaurantMenu.Controllers;
             return View(model);
         }
 
+        /// <summary>Lets a self-serve signup in: the account opens, the trial starts, they get an email.</summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Approve(string userId)
+        {
+            var signup = HttpContext.RequestServices.GetRequiredService<SignupService>();
+            var ok = await signup.ApproveAsync(userId, _userManager.GetUserId(User), DateTime.UtcNow);
+            var user = ok ? await _userManager.FindByIdAsync(userId) : null;
+            TempData[ok ? "Success" : "Error"] = ok
+                ? $"{user!.FullName} is in: their trial has started and they've been emailed."
+                : "That account isn't waiting for approval any more.";
+            return RedirectToAction("Index");
+        }
+
         /// <summary>New invite link for an owner who hasn't set a password yet (or lost the email).</summary>
         [HttpPost]
         [ValidateAntiForgeryToken]

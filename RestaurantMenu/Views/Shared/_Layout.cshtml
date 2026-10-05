@@ -144,7 +144,7 @@
                 <partial name="_BrandMark" model="26" />
                 <span class="brand-word">myquick<em>menu</em></span>
             </a>
-            <a class="btn btn-outline-secondary btn-sm" asp-controller="Account" asp-action="Login">Sign in</a>
+            <a class="btn btn-outline-secondary btn-sm" asp-controller="Account" asp-action="Login">@(ViewData["SignInLabel"] as string ?? "Sign in")</a>
         </header>
         <main id="main" class="public-main">
             @RenderBody()

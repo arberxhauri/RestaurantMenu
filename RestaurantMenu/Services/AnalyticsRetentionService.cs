@@ -20,6 +20,7 @@ public class AnalyticsRetentionService : BackgroundService
     private readonly int _orderRetentionDays;
     private readonly int _contactRetentionDays;
     private readonly int _bookingRetentionDays;
+    private readonly int _unconfirmedDays;
 
     public AnalyticsRetentionService(IServiceScopeFactory scopes, ILogger<AnalyticsRetentionService> logger, IConfiguration config)
     {
@@ -29,6 +30,7 @@ public class AnalyticsRetentionService : BackgroundService
         _orderRetentionDays = Math.Max(30, config.GetValue("Orders:RetentionDays", 400));
         _contactRetentionDays = Math.Max(30, config.GetValue("Feedback:ContactRetentionDays", 365));
         _bookingRetentionDays = Math.Max(30, config.GetValue("Bookings:RetentionDays", 400));
+        _unconfirmedDays = Math.Max(1, config.GetValue("Signup:UnconfirmedDays", 7));
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -74,6 +76,13 @@ public class AnalyticsRetentionService : BackgroundService
                     if (bookings > 0)
                     {
                         _logger.LogInformation("Booking retention: deleted {Count} bookings older than {Days} days", bookings, _bookingRetentionDays);
+                    }
+
+                    // Self-serve signups that never confirmed their email (Signup__UnconfirmedDays).
+                    var signups = await SignupService.DeleteUnconfirmedAsync(db, _unconfirmedDays, DateTime.UtcNow, stoppingToken);
+                    if (signups > 0)
+                    {
+                        _logger.LogInformation("Signup cleanup: deleted {Count} accounts that never confirmed their email within {Days} days", signups, _unconfirmedDays);
                     }
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)

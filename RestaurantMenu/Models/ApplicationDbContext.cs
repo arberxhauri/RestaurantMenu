@@ -65,6 +65,17 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         // Soft delete query filters
         builder.Entity<ApplicationUser>()
             .HasQueryFilter(u => !u.IsDeleted);
+        builder.Entity<ApplicationUser>(e =>
+        {
+            e.Property(u => u.SignupSource).HasConversion<string>().HasMaxLength(20).HasDefaultValue(SignupSource.Admin);
+            e.Property(u => u.Country).HasMaxLength(2).HasDefaultValue("AL");
+            e.Property(u => u.Language).HasMaxLength(8).HasDefaultValue("en");
+            e.Property(u => u.TermsVersion).HasMaxLength(20);
+            e.Property(u => u.ApprovalNote).HasMaxLength(300);
+            e.Property(u => u.SignupRestaurantName).HasMaxLength(100);
+            // The admin's "waiting for approval" list and the unconfirmed-signup cleanup.
+            e.HasIndex(u => new { u.SignupSource, u.ApprovedUtc });
+        });
 
         builder.Entity<Branch>()
             .HasQueryFilter(b => !b.IsDeleted);

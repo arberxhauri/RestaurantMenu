@@ -1,6 +1,6 @@
 @* Sign in, set/reset password, forgot password: form on the left, photo on the right. *@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="@(ViewData["Lang"] as string ?? "en")">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -30,9 +30,13 @@
             </footer>
         </div>
 
+        @* Signup pages in Albanian pass their own alt text and no English caption. *@
         <figure class="auth-photo m-0">
-            <img src="~/img/plates-overhead.webp" width="1400" height="934" alt="Plates of food shared across a dark wooden table" />
-            <figcaption>Change a price once. It's on every table a second later.</figcaption>
+            <img src="~/img/plates-overhead.webp" width="1400" height="934" alt="@(ViewData["PhotoAlt"] as string ?? "Plates of food shared across a dark wooden table")" />
+            @if (ViewData["Lang"] is null or "en")
+            {
+                <figcaption>Change a price once. It's on every table a second later.</figcaption>
+            }
         </figure>
     </div>
 

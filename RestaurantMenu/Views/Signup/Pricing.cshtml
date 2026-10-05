@@ -1,0 +1,138 @@
+@using RestaurantMenu.Helpers
+@model RestaurantMenu.ViewModels.PricingPage
+@{
+    var w = Model.W;
+    var lang = Model.Lang;
+    var sel = Model.Selection;
+    var q = Model.Quote;
+    var langQuery = lang == "en" ? "" : "&lang=" + lang;
+    string Money(int cents) => PricingRules.Money(cents, Model.Currency);
+    string Period(BillingInterval i) => i == BillingInterval.Year ? w.PerYear : w.PerMonth;
+    string? UnitPrice(BillingModule m)
+    {
+        if (!Model.Prices.TryGetValue((m, sel.Interval), out var c)) return null;
+        return $"{Money(c)} {Period(sel.Interval)}" + (EntitlementRules.IsPerBranch(m) ? $" {w.PerBranch}" : $" {w.Each}");
+    }
+    var signupUrl = $"/signup?{sel.ToQuery()}{langQuery}";
+    // Prices for the live total (pricing.js): module → { Month, Year } in cents.
+    var priceJson = System.Text.Json.JsonSerializer.Serialize(
+        Model.Prices.GroupBy(p => p.Key.Item1.ToString()).ToDictionary(g => g.Key, g => g.ToDictionary(p => p.Key.Item2.ToString(), p => p.Value)));
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/pricing.css" asp-append-version="true" />
+}
+
+<div class="pricing" data-pricing data-prices="@priceJson" data-currency="@Model.Currency"
+     data-per-month="@w.PerMonth" data-per-year="@w.PerYear" data-on-request="@w.PriceOnRequest" data-saving="@w.YearlySaving" data-lang="@lang">
+    <header class="pricing-head">
+        <a class="pricing-lang" href="/pricing?@sel.ToQuery()&lang=@w.SwitchLanguageCode" hreflang="@w.SwitchLanguageCode" lang="@w.SwitchLanguageCode">
+            <i class="ph ph-translate" aria-hidden="true"></i>@w.SwitchLanguage
+        </a>
+        <h1>@w.PricingTitle</h1>
+        <p class="lead">@string.Format(w.PricingIntro, Model.TrialDays)</p>
+    </header>
+
+    <section aria-labelledby="presets-title">
+        <h2 id="presets-title" class="visually-hidden">@w.PresetsTitle</h2>
+        <div class="preset-grid">
+            @foreach (var (key, s, quote) in Model.Presets)
+            {
+                var (title, text) = SignupText.Preset(w, key);
+                var current = s.Modules.SetEquals(sel.Modules);
+                <a class="preset @(current ? "is-current" : "")" href="/pricing?preset=@key&b=@sel.Branches&i=@sel.Interval@langQuery#build" aria-current="@(current ? "true" : null)">
+                    <strong>@title</strong>
+                    <span>@text</span>
+                    @if (quote.Complete)
+                    {
+                        <em>@string.Format(w.FromPerMonth, Money(quote.PerMonthCents))</em>
+                    }
+                </a>
+            }
+        </div>
+    </section>
+
+    <div class="pricing-layout" id="build">
+        <form method="get" action="/pricing" class="panel pricing-form" data-pricing-form>
+            <input type="hidden" name="lang" value="@lang" />
+            <section class="form-section">
+                <h2>@w.BuildTitle</h2>
+                <ul class="module-list">
+                    <li class="module is-fixed">
+                        <span class="module-check"><i class="ph ph-check-circle" aria-hidden="true"></i></span>
+                        <span class="module-body">
+                            <strong>@w.MenuIncluded</strong>
+                            <span>@w.MenuIncludedText</span>
+                        </span>
+                        <span class="module-price" data-unit="Menu" data-suffix="@w.PerBranch">@UnitPrice(BillingModule.Menu)</span>
+                    </li>
+                    @foreach (var m in PricingRules.Sellable)
+                    {
+                        var needs = EntitlementRules.Requires(m);
+                        <li class="module">
+                            <label>
+                                <input type="checkbox" class="form-check-input" name="m" value="@m" checked="@sel.Modules.Contains(m)"
+                                       data-module="@m" data-needs="@needs" data-per-branch="@(EntitlementRules.IsPerBranch(m) ? "1" : "0")" />
+                                <span class="module-body">
+                                    <strong>@SignupText.ModuleName(w, m)</strong>
+                                    <span>@SignupText.ModuleText(w, m)@if (needs != null) { <em> (@string.Format(w.Needs, SignupText.ModuleName(w, needs.Value)))</em> }</span>
+                                </span>
+                                <span class="module-price" data-unit="@m" data-suffix="@(EntitlementRules.IsPerBranch(m) ? w.PerBranch : w.Each)">@UnitPrice(m)</span>
+                            </label>
+                        </li>
+                    }
+                </ul>
+            </section>
+            <section class="form-section">
+                <div class="fields">
+                    <div>
+                        <label for="b" class="form-label">@w.Branches</label>
+                        <input id="b" name="b" type="number" min="1" max="@PlanSelection.MaxBranches" value="@sel.Branches" class="form-control tabular" inputmode="numeric" data-branches />
+                        <span class="hint">@w.BranchesHint</span>
+                    </div>
+                    <fieldset>
+                        <legend class="form-label">@w.Monthly / @w.Yearly</legend>
+                        <div class="seg">
+                            <label><input type="radio" name="i" value="Month" checked="@(sel.Interval == BillingInterval.Month)" data-interval /> @w.Monthly</label>
+                            <label><input type="radio" name="i" value="Year" checked="@(sel.Interval == BillingInterval.Year)" data-interval /> @w.Yearly</label>
+                        </div>
+                    </fieldset>
+                </div>
+                <button type="submit" class="btn btn-outline-secondary mt-3" data-update-button>@w.UpdatePrice</button>
+            </section>
+        </form>
+
+        <aside class="panel pricing-summary" aria-labelledby="summary-title" aria-live="polite">
+            <div class="panel-body">
+                <h2 id="summary-title" class="h5">@w.Total</h2>
+                <ul class="quote-lines" data-lines>
+                    @foreach (var line in q.Lines)
+                    {
+                        <li>
+                            <span>@SignupText.ModuleName(w, line.Module)@(line.Quantity > 1 ? $" × {line.Quantity}" : "")</span>
+                            <span class="tabular">@(line.TotalCents is { } c ? Money(c) : "–")</span>
+                        </li>
+                    }
+                </ul>
+                <p class="quote-total" data-total>
+                    @if (q.Complete)
+                    {
+                        <strong class="tabular">@Money(q.TotalCents)</strong> <span>@Period(sel.Interval)</span>
+                    }
+                    else
+                    {
+                        <strong>@w.PriceOnRequest</strong>
+                    }
+                </p>
+                <p class="quote-saving" data-saving-line @(q.YearlySavingCents == null ? "hidden" : "")>@(q.YearlySavingCents is { } saving ? string.Format(w.YearlySaving, Money(saving)) : "")</p>
+                <a class="btn btn-primary btn-lg w-100" href="@signupUrl" data-start>@w.StartTrial <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+                <p class="hint mt-2">@string.Format(w.TrialNote, Model.TrialDays)</p>
+                <p class="hint">@w.VatNote</p>
+            </div>
+        </aside>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/pricing.js" asp-append-version="true" defer></script>
+}

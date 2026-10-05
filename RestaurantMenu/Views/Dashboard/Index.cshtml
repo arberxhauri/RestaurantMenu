@@ -45,6 +45,11 @@
     }
 </header>
 
+@if (ViewBag.Onboarding is RestaurantMenu.Controllers.OnboardingModel onboarding)
+{
+    <partial name="_Onboarding" model="onboarding" />
+}
+
 <div class="stats">
     @if (isOwner)
     {

@@ -69,9 +69,36 @@ public class DashboardController : Controller
         foreach (var ownerId in branches.Select(b => b.UserId).Distinct())
             paused.UnionWith(await _entitlements.PausedBranchesAsync(ownerId));
         ViewBag.Paused = paused;
+
+        // Onboarding for self-serve owners until they hide it: branch, dishes, QR code.
+        if (isOwner && user.SignupSource == SignupSource.SelfServe && user.OnboardingDoneUtc == null)
+        {
+            var own = branches.Where(b => b.UserId == user.Id).OrderBy(b => b.Id).ToList();
+            ViewBag.Onboarding = new OnboardingModel(
+                Helpers.SignupText.For(user.Language),
+                FirstBranchId: own.FirstOrDefault()?.Id,
+                HasBranch: own.Count > 0,
+                HasDishes: own.Any(b => b.Categories?.Any(c => c.Products?.Any() == true) == true),
+                PrintedQr: user.OnboardingQrUtc != null);
+        }
         ViewBag.Week = await _insights.WeekByBranchAsync(
             branches.Where(b => BranchAccess.Allows(roles[b.Id], BranchPermission.ViewInsights)).Select(b => b.Id).ToList());
         return View(branches);
+    }
+
+    /// <summary>Hides the onboarding checklist for good.</summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "OWNER")]
+    public async Task<IActionResult> HideOnboarding()
+    {
+        var user = await _userManager.GetUserAsync(User);
+        if (user != null && user.OnboardingDoneUtc == null)
+        {
+            user.OnboardingDoneUtc = DateTime.UtcNow;
+            await _userManager.UpdateAsync(user);
+        }
+        return RedirectToAction(nameof(Index));
     }
 
     /// <summary>
@@ -101,4 +128,10 @@ public class DashboardController : Controller
         TempData["Success"] = $"Saved. {string.Join(", ", own.Where(b => picked.Contains(b.Id)).Select(b => b.Name))} stay{(picked.Count == 1 ? "s" : "")} active; the rest are paused, with their menus still online.";
         return RedirectToAction(nameof(Index));
     }
+}
+
+/// <summary>The dashboard's "get your menu live" checklist (self-serve owners, in their language).</summary>
+public record OnboardingModel(Helpers.SignupText.Words W, int? FirstBranchId, bool HasBranch, bool HasDishes, bool PrintedQr)
+{
+    public bool AllDone => HasBranch && HasDishes && PrintedQr;
 }

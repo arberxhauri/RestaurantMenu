@@ -1236,3 +1236,19 @@ a.chip--link:hover { background: var(--accent-soft); color: var(--accent); }
 .fb-pages a { min-width: 36px; height: 36px; display: grid; place-items: center; border-radius: var(--r-sm); border: 1px solid var(--line); text-decoration: none; color: inherit; }
 .fb-pages a[aria-current="page"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 @media (max-width: 1099.98px) { .fb-layout { grid-template-columns: minmax(0, 1fr); } }
+
+/* Signup (Views/Signup): the plan being signed up for, and the icon on the status pages. */
+.signup-plan { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); font-size: 14px; }
+.auth-icon { display: grid; place-items: center; width: 52px; height: 52px; margin-bottom: 16px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: 26px; }
+
+/* Onboarding checklist on the dashboard (self-serve owners). */
+.onboarding-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+.onboarding-steps { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 8px; }
+.onboarding-steps li { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-md); }
+.onboarding-steps li.is-next { border-color: var(--accent); background: var(--accent-soft); }
+.onboarding-steps li.is-done { color: var(--ink-3); }
+.onb-mark { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--line-2); font-weight: 600; }
+.is-done .onb-mark { background: var(--ok-soft); border-color: transparent; color: var(--ok); }
+.onb-body { display: grid; gap: 2px; }
+.onb-body span { font-size: 14px; color: var(--ink-3); }
+@media (max-width: 575.98px) { .onboarding-steps li { grid-template-columns: 32px minmax(0, 1fr); } .onboarding-steps li > :last-child { grid-column: 2; justify-self: start; } }

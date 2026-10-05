@@ -1,0 +1,122 @@
+@using RestaurantMenu.Helpers
+@model RestaurantMenu.ViewModels.SignupPage
+@{
+    Layout = "_AuthLayout";
+    var w = Model.W;
+    var f = Model.Form;
+    var lang = Model.Lang;
+    string? Err(string field) => Model.Errors.TryGetValue(field, out var e) ? e : null;
+    string Invalid(string field) => Model.Errors.ContainsKey(field) ? "is-invalid" : "";
+    var planNames = string.Join(", ", Model.Plan.Modules.OrderBy(m => m).Select(m => m == BillingModule.Menu ? w.PresetMenu : SignupText.ModuleName(w, m)));
+    var priceText = Model.Quote.Complete
+        ? $"{PricingRules.Money(Model.Quote.TotalCents, Model.Quote.Currency)} {(Model.Plan.Interval == BillingInterval.Year ? w.PerYear : w.PerMonth)}"
+        : null;
+    var changeUrl = $"/pricing?{Model.Plan.ToQuery()}{(lang == "en" ? "" : "&lang=" + lang)}#build";
+    var terms = $"<a href=\"/home/terms\" target=\"_blank\" rel=\"noopener\">{System.Net.WebUtility.HtmlEncode(w.TermsLink)}</a>";
+    var privacy = $"<a href=\"/home/privacy\" target=\"_blank\" rel=\"noopener\">{System.Net.WebUtility.HtmlEncode(w.PrivacyLink)}</a>";
+    var termsLabel = string.Format(System.Net.WebUtility.HtmlEncode(w.TermsLabel), terms, privacy);
+}
+
+<a class="auth-link d-inline-flex align-items-center gap-1 mb-3" href="/signup?@Model.Plan.ToQuery()&lang=@w.SwitchLanguageCode" lang="@w.SwitchLanguageCode">
+    <i class="ph ph-translate" aria-hidden="true"></i>@w.SwitchLanguage
+</a>
+
+<h1>@w.SignupTitle</h1>
+<p class="auth-sub">@string.Format(w.SignupIntro, Model.TrialDays)</p>
+
+<div class="signup-plan mb-4">
+    <span><strong>@w.YourPlan:</strong> @planNames · @(Model.Plan.Branches == 1 ? w.BranchOne : string.Format(w.BranchMany, Model.Plan.Branches))@(priceText == null ? "" : " · " + priceText)</span>
+    <a class="auth-link" href="@changeUrl">@w.ChangePlan</a>
+</div>
+
+@if (Model.Problem != null)
+{
+    <div class="flash flash--danger mb-3" role="alert"><i class="ph ph-warning-octagon" aria-hidden="true"></i><p>@Model.Problem
+        @if (Model.Problem == w.ErrExists)
+        {
+            <a asp-controller="Account" asp-action="Login">@w.SignIn</a>
+        }
+    </p></div>
+}
+@if (Err("") is { } general)
+{
+    <div class="flash flash--warn mb-3" role="alert"><i class="ph ph-warning" aria-hidden="true"></i><p>@general</p></div>
+}
+
+<form method="post" action="/signup" novalidate data-signup>
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="T" value="@Model.FormTime" />
+    <input type="hidden" name="Lang" value="@lang" />
+    @foreach (var m in Model.Plan.Modules.Where(m => m != BillingModule.Menu))
+    {
+        <input type="hidden" name="M" value="@m" />
+    }
+    <input type="hidden" name="B" value="@Model.Plan.Branches" />
+    <input type="hidden" name="I" value="@Model.Plan.Interval" />
+
+    @* Honeypot: people never see or fill it. *@
+    <div class="visually-hidden" aria-hidden="true">
+        <label for="Website">Website</label>
+        <input id="Website" name="Website" type="text" tabindex="-1" autocomplete="off" />
+    </div>
+
+    <div class="mb-3">
+        <label for="FullName" class="form-label">@w.FullName</label>
+        <input id="FullName" name="FullName" value="@f.FullName" class="form-control form-control-lg @Invalid("FullName")" autocomplete="name" maxlength="100" required aria-describedby="FullName-err" />
+        @if (Err("FullName") is { } e1) { <span id="FullName-err" class="field-validation-error">@e1</span> }
+    </div>
+
+    <div class="mb-3">
+        <label for="Email" class="form-label">@w.Email</label>
+        <input id="Email" name="Email" type="email" value="@f.Email" class="form-control @Invalid("Email")" autocomplete="email" spellcheck="false" maxlength="256" required aria-describedby="Email-hint Email-err" />
+        <span id="Email-hint" class="hint">@w.EmailHint</span>
+        @if (Err("Email") is { } e2) { <span id="Email-err" class="field-validation-error">@e2</span> }
+    </div>
+
+    <div class="mb-3">
+        <label for="Password" class="form-label">@w.Password</label>
+        <input id="Password" name="Password" type="password" class="form-control @Invalid("Password")" autocomplete="new-password" minlength="8" maxlength="128" required aria-describedby="Password-hint Password-err" />
+        <span id="Password-hint" class="hint">@w.PasswordHint</span>
+        @if (Err("Password") is { } e3) { <span id="Password-err" class="field-validation-error">@e3</span> }
+    </div>
+
+    <div class="mb-3">
+        <label for="Restaurant" class="form-label">@w.Restaurant</label>
+        <input id="Restaurant" name="Restaurant" value="@f.Restaurant" class="form-control @Invalid("Restaurant")" autocomplete="organization" maxlength="80" required
+               aria-describedby="Restaurant-hint Restaurant-err" data-link-check="/signup/link" />
+        <span id="Restaurant-hint" class="hint" data-link-hint data-hint="@w.RestaurantHint" data-taken="@w.LinkTaken" aria-live="polite">
+            @if (Model.Link is { } link)
+            {
+                @(link.Taken ? string.Format(w.LinkTaken, Model.MenuBase + link.Slug) : string.Format(w.RestaurantHint, Model.MenuBase + link.Slug))
+            }
+        </span>
+        @if (Err("Restaurant") is { } e4) { <span id="Restaurant-err" class="field-validation-error">@e4</span> }
+    </div>
+
+    <div class="mb-3">
+        <label for="Country" class="form-label">@w.Country</label>
+        <select id="Country" name="Country" class="form-select @Invalid("Country")" autocomplete="country" required>
+            <option value="">—</option>
+            @foreach (var (code, name) in SignupText.CountriesFor(lang))
+            {
+                <option value="@code" selected="@(f.Country == code)">@name</option>
+            }
+        </select>
+        @if (Err("Country") is { } e5) { <span class="field-validation-error">@e5</span> }
+    </div>
+
+    <div class="form-check mb-4">
+        <input id="Terms" name="Terms" type="checkbox" value="true" class="form-check-input @Invalid("Terms")" checked="@f.Terms" required />
+        <label for="Terms" class="form-check-label">@Html.Raw(termsLabel)</label>
+        @if (Err("Terms") is { } e6) { <span class="field-validation-error d-block">@e6</span> }
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-lg w-100">
+        @w.CreateAccount <i class="ph ph-arrow-right" aria-hidden="true"></i>
+    </button>
+    <p class="auth-sub mt-3 mb-0">@w.HaveAccount <a asp-controller="Account" asp-action="Login">@w.SignIn</a></p>
+</form>
+
+@section Scripts {
+    <script src="~/js/signup.js" asp-append-version="true" defer></script>
+}

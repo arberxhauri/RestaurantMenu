@@ -14,6 +14,10 @@
 
 <form asp-action="Login" method="post" novalidate>
     <div asp-validation-summary="ModelOnly" role="alert"></div>
+    @if (ViewBag.ResendUrl is string resendUrl)
+    {
+        <p class="mb-3"><a class="auth-link" href="@resendUrl">@ViewBag.ResendLabel</a></p>
+    }
 
     <div class="mb-3">
         <label asp-for="Email" class="form-label">Email</label>

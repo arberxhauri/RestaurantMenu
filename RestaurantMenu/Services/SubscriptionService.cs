@@ -70,6 +70,49 @@ public class SubscriptionService
     }
 
     /// <summary>
+    /// A self-serve signup's plan: a trial of the modules they picked, at the branch count they
+    /// picked. The clock doesn't run yet (no end date): it starts when the account opens, see
+    /// <see cref="StartTrialAsync"/>. Added to the context, not saved.
+    /// </summary>
+    public Subscription AddTrial(ApplicationUser owner, PlanSelection plan, DateTime utcNow)
+    {
+        var s = new Subscription
+        {
+            OwnerId = owner.Id,
+            Status = SubscriptionStatus.Trialing,
+            Interval = plan.Interval,
+            Currency = _options.Currency,
+            BranchQuantity = plan.Branches,
+            CreatedUtc = utcNow,
+            UpdatedUtc = utcNow
+        };
+        foreach (var m in plan.Modules.Append(BillingModule.Menu).Distinct())
+            s.Items.Add(new SubscriptionItem { Module = m, Quantity = EntitlementRules.IsPerBranch(m) ? plan.Branches : 1, UnitAmountCents = 0 });
+        _db.Subscriptions.Add(s);
+        return s;
+    }
+
+    /// <summary>
+    /// Starts a signup's trial clock (Billing__TrialDays from now) when the account opens: on email
+    /// confirmation, or on the admin's approval. Does nothing to a trial that already runs or to
+    /// any other plan. Saved, with an audit row.
+    /// </summary>
+    public async Task StartTrialAsync(string ownerId, string? actorId, DateTime utcNow)
+    {
+        var s = await FindAsync(ownerId);
+        if (s == null || s.IsLegacy || s.Status != SubscriptionStatus.Trialing || s.TrialEndsUtc != null) return;
+        var before = Describe(s);
+        s.TrialEndsUtc = utcNow.AddDays(Math.Max(1, _options.TrialDays));
+        s.UpdatedUtc = utcNow;
+        await _db.SaveChangesAsync();
+        _db.SubscriptionAudits.Add(new SubscriptionAudit
+        {
+            SubscriptionId = s.Id, ActorId = actorId, Action = "trial started", FromJson = before, ToJson = Describe(s), AtUtc = utcNow
+        });
+        await _db.SaveChangesAsync();
+    }
+
+    /// <summary>
     /// Applies an admin's change and records it. <paramref name="expectedVersion"/> is the version
     /// the form was built from. Null when saved; otherwise what went wrong (someone else changed
     /// the plan since the form was opened).
@@ -163,6 +206,18 @@ public class SubscriptionService
         return rows.GroupBy(p => p.Module)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(p => p.ValidFromUtc).First().UnitAmountCents);
     }
+
+    /// <summary>Current unit prices for both intervals, for quotes (PricingRules).</summary>
+    public async Task<Dictionary<(BillingModule, BillingInterval), int>> PriceTableAsync(DateTime utcNow)
+    {
+        var table = new Dictionary<(BillingModule, BillingInterval), int>();
+        foreach (var interval in Enum.GetValues<BillingInterval>())
+            foreach (var (module, cents) in await CurrentPricesAsync(_options.Currency, interval, utcNow))
+                table[(module, interval)] = cents;
+        return table;
+    }
+
+    public string Currency => _options.Currency;
 
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = false };
 

@@ -10,7 +10,7 @@
         if (p.IsLegacy) return "Legacy";
         return p.Status switch
         {
-            SubscriptionStatus.Trialing => $"Trial · {p.TrialDaysLeft(DateTime.UtcNow)} d left",
+            SubscriptionStatus.Trialing => p.TrialDaysLeft(DateTime.UtcNow) is { } d ? $"Trial · {d} d left" : "Trial · not started",
             SubscriptionStatus.Active => "Active",
             SubscriptionStatus.PastDue => "Past due",
             SubscriptionStatus.ReadOnly => p.TrialEnded ? "Trial ended" : "Read-only",
@@ -35,6 +35,41 @@
         <a asp-action="CreateUser" class="btn btn-primary"><i class="ph ph-user-plus" aria-hidden="true"></i>New owner</a>
     </div>
 </header>
+
+@if (users.Where(u => u.AwaitingApproval).ToList() is { Count: > 0 } waiting)
+{
+    <section class="panel mb-4" aria-labelledby="waiting-title">
+        <div class="panel-head"><h2 id="waiting-title" class="h5 m-0">Waiting for approval (@waiting.Count)</h2></div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead><tr><th scope="col">Signed up</th><th scope="col">Restaurant</th><th scope="col">Plan</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+                <tbody>
+                    @foreach (var u in waiting)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@u.FullName</strong><small class="d-block">@u.Email · @u.Country · @(u.Language == "sq" ? "Shqip" : "English")</small>
+                                @if (u.ApprovalNote != null) { <span class="chip chip--warn mt-1">@u.ApprovalNote</span> }
+                            </td>
+                            <td>@u.SignupRestaurantName<small class="d-block text-muted">@u.TermsAcceptedUtc?.ToString("d MMM yyyy HH:mm") UTC</small></td>
+                            <td><a asp-action="Plan" asp-route-id="@u.Id" class="chip chip--link">@PlanText(u)</a></td>
+                            <td class="text-end text-nowrap">
+                                <form asp-action="Approve" method="post" class="d-inline">
+                                    <input type="hidden" name="userId" value="@u.Id" />
+                                    <button type="submit" class="btn btn-sm btn-primary"><i class="ph ph-check" aria-hidden="true"></i>Approve</button>
+                                </form>
+                                <form asp-action="SoftDeleteUser" method="post" class="d-inline" data-confirm="Decline @u.FullName's signup? The account is removed and the email can't sign up again.">
+                                    <input type="hidden" name="userId" value="@u.Id" />
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary">Decline</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}
 
 @if (TempData["InviteLink"] is string inviteLink)
 {
@@ -95,9 +130,21 @@
                                     <span class="avatar" aria-hidden="true">@(string.IsNullOrEmpty(user.FullName) ? "?" : user.FullName.Substring(0, 1))</span>
                                     <span>
                                         <strong>@user.FullName</strong><small>@user.Email</small>
-                                        @if (user.PasswordHash == null)
+                                        @if (user.AwaitingEmail)
+                                        {
+                                            <span class="chip chip--later mt-1">Signed up · email not confirmed</span>
+                                        }
+                                        else if (user.AwaitingApproval)
+                                        {
+                                            <span class="chip chip--warn mt-1">Waiting for approval</span>
+                                        }
+                                        else if (user.PasswordHash == null)
                                         {
                                             <span class="chip chip--warn mt-1">Invite pending</span>
+                                        }
+                                        else if (user.SignupSource == SignupSource.SelfServe)
+                                        {
+                                            <span class="chip chip--accent mt-1">Self-serve</span>
                                         }
                                     </span>
                                 </div>

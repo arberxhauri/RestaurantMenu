@@ -133,6 +133,9 @@ builder.Services.AddScoped<BranchSlugs>();
 builder.Services.Configure<BillingOptions>(builder.Configuration.GetSection("Billing"));
 builder.Services.AddScoped<IEntitlementService, EntitlementService>();
 builder.Services.AddScoped<SubscriptionService>();
+// Self-serve signup (/pricing, /signup), off until Signup__Enabled=true and email works.
+builder.Services.Configure<SignupOptions>(builder.Configuration.GetSection("Signup"));
+builder.Services.AddScoped<SignupService>();
 // Who may do what to a branch (owner, or staff member with a role). Used by every back-office controller.
 builder.Services.AddScoped<IBranchAccess, BranchAccess>();
 builder.Services.AddTransient<InviteMailer>();
@@ -227,8 +230,18 @@ builder.Services.AddRateLimiter(options =>
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = Math.Max(5, builder.Configuration.GetValue("Auth:LoginRateLimitPerIp", 20)), Window = TimeSpan.FromMinutes(10), QueueLimit = 0 }));
 
+    // Signup and "send the link again", per client address: a restaurant signing up (and maybe
+    // retrying), not a script creating accounts or spraying confirmation emails.
+    options.AddPolicy("signup", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = Math.Max(2, builder.Configuration.GetValue("Signup:RateLimitPerIp", 5)), Window = TimeSpan.FromHours(1), QueueLimit = 0 }));
+    // The signup form's live "your link will be …" check, per client address.
+    options.AddPolicy("signup-check", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+
     // People get a page that explains, not a bare 429.
-    options.OnRejected = (context, _) =>
+    options.OnRejected = async (context, ct) =>
     {
         var http = context.HttpContext;
         if (http.Request.Path.StartsWithSegments("/account/forgotpassword", StringComparison.OrdinalIgnoreCase))
@@ -236,12 +249,18 @@ builder.Services.AddRateLimiter(options =>
             http.Response.StatusCode = StatusCodes.Status303SeeOther;
             http.Response.Headers.Location = "/account/forgotpassword?busy=true";
         }
+        else if (http.Request.Path.StartsWithSegments("/signup", StringComparison.OrdinalIgnoreCase) && HttpMethods.IsPost(http.Request.Method))
+        {
+            http.Response.StatusCode = StatusCodes.Status303SeeOther;
+            var lang = http.Request.HasFormContentType ? (await http.Request.ReadFormAsync(ct))["lang"].ToString() : "";
+            var page = http.Request.Path.StartsWithSegments("/signup/resend", StringComparison.OrdinalIgnoreCase) ? "/signup/check" : "/signup";
+            http.Response.Headers.Location = page + "?busy=true" + (lang is "sq" or "en" ? "&lang=" + lang : "");
+        }
         else if (http.Request.Path.StartsWithSegments("/account/login", StringComparison.OrdinalIgnoreCase))
         {
             http.Response.StatusCode = StatusCodes.Status303SeeOther;
             http.Response.Headers.Location = "/account/login?busy=true";
         }
-        return ValueTask.CompletedTask;
     };
 });
 
@@ -353,6 +372,12 @@ using (var scope = app.Services.CreateScope())
         app.Logger.LogInformation("Email: sending through {Provider} from {From}", email.ProviderName, email.Sender!.Formatted);
     else
         app.Logger.LogWarning("Email: off. {Problem} Invite links are shown on screen and password reset by email is unavailable.", email.Problem);
+    var signup = scope.ServiceProvider.GetRequiredService<SignupService>();
+    var signupOptions = scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<SignupOptions>>().Value;
+    if (signup.IsOpen)
+        app.Logger.LogInformation("Signup: open at /signup ({Mode})", signupOptions.RequireApproval ? "the admin approves each new account" : "accounts open on email confirmation");
+    else if (signupOptions.Enabled)
+        app.Logger.LogWarning("Signup: Signup__Enabled is on but email isn't working, so signup stays closed (confirmation links need email). {Problem}", email.Problem);
     var sms = scope.ServiceProvider.GetRequiredService<SmsService>();
     app.Logger.LogInformation(sms.IsConfigured ? "SMS: sending through {Provider}" : "SMS: off (booking confirmations by email and on screen){Provider}", sms.ProviderName ?? "");
 }
