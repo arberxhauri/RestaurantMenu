@@ -1,0 +1,92 @@
+@using RestaurantMenu.Helpers
+@model List<Invoice>
+@{
+    ViewData["Title"] = "Invoices";
+    string show = ViewBag.Show;
+    var settings = (PlanSettings)ViewBag.Settings;
+    var failed = (List<BillingEvent>)ViewBag.FailedEvents;
+    var now = DateTime.UtcNow;
+    var today = DateOnly.FromDateTime(now).ToString("yyyy-MM-dd");
+    string Money(int cents, string currency) => PricingRules.Money(cents, currency, alwaysCents: true);
+    (string Key, string Label)[] tabs = { ("open", "To pay"), ("overdue", $"Overdue ({ViewBag.Overdue})"), ("paid", "Paid"), ("void", "Void"), ("all", "All") };
+}
+
+<header class="page-head">
+    <div>
+        <h1>Invoices</h1>
+        <p>Bank transfers: when the money is in the account, mark the invoice paid and the restaurant's plan runs on. Open: @Money((int)ViewBag.OpenTotal, settings.Currency).</p>
+    </div>
+    <div class="page-actions">
+        <form asp-action="RunBilling" method="post">
+            <button type="submit" class="btn btn-outline-secondary" title="What the billing worker does every minute: apply payments, move statuses with the clock, issue renewals, send emails."><i class="ph ph-arrows-clockwise" aria-hidden="true"></i>Run billing checks now</button>
+        </form>
+    </div>
+</header>
+
+@if (!settings.CanInvoice)
+{
+    <div class="flash flash--warn mb-3" role="status"><i class="ph ph-warning" aria-hidden="true"></i><p>Restaurants can't get invoices yet: fill in your legal name and IBAN on <a asp-action="Prices">Plans &amp; prices</a>.</p></div>
+}
+@if (failed.Count > 0)
+{
+    <div class="flash flash--danger mb-3" role="alert"><i class="ph ph-warning-octagon" aria-hidden="true"></i>
+        <p><strong>Problems:</strong> @foreach (var e in failed) { <span class="d-block">@e.Provider @e.EventId: @e.LastError (attempt @e.Attempts, retrying)</span> }</p></div>
+}
+
+<nav class="d-flex flex-wrap gap-2 mb-3" aria-label="Filter invoices">
+    @foreach (var (key, label) in tabs)
+    {
+        <a class="chip @(show == key ? "chip--accent" : "chip--link")" asp-action="Billing" asp-route-show="@key" aria-current="@(show == key ? "page" : null)">@label</a>
+    }
+</nav>
+
+@if (Model.Count == 0)
+{
+    <div class="panel"><div class="empty"><i class="ph ph-receipt" aria-hidden="true"></i><h2>Nothing here</h2><p>Invoices appear when restaurants choose bank transfer, and before each renewal.</p></div></div>
+}
+else
+{
+    <div class="table-responsive panel">
+        <table class="data-table">
+            <thead><tr><th scope="col">Invoice</th><th scope="col">Restaurant</th><th scope="col">Period</th><th scope="col">Total</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+            <tbody>
+                @foreach (var i in Model)
+                {
+                    var overdue = i.Status == InvoiceStatus.Open && i.DueUtc < now;
+                    <tr>
+                        <td><span class="mono">@i.Number</span><small class="d-block text-muted">@i.Kind · issued @BillingText.Date(i.IssuedUtc, "en")</small></td>
+                        <td>@i.BuyerName<small class="d-block text-muted">@i.Owner?.Email@(i.BuyerNipt == null ? "" : " · NIPT " + i.BuyerNipt)</small></td>
+                        <td class="text-nowrap">@BillingText.Date(i.PeriodStartUtc, "en") – @BillingText.LastDay(i.PeriodEndUtc, "en")</td>
+                        <td class="tabular">@Money(i.TotalCents, i.Currency)</td>
+                        <td>
+                            @switch (i.Status)
+                            {
+                                case InvoiceStatus.Paid: <span class="chip chip--ok">Paid @BillingText.Date(i.PaidUtc ?? i.IssuedUtc, "en")</span> if (i.PaidNote != null) { <small class="d-block text-muted">@i.PaidNote</small> } break;
+                                case InvoiceStatus.Void: <span class="chip chip--later">Void</span> break;
+                                default: <span class="chip @(overdue ? "chip--danger" : "chip--warn")">@(overdue ? "Overdue" : "Due") @BillingText.Date(i.DueUtc, "en")</span> break;
+                            }
+                        </td>
+                        <td class="text-end">
+                            <div class="d-flex flex-wrap gap-1 justify-content-end align-items-center">
+                                @if (i.Status == InvoiceStatus.Open)
+                                {
+                                    <form asp-action="MarkPaid" method="post" class="d-flex gap-1 align-items-center">
+                                        <input type="hidden" name="id" value="@i.Id" />
+                                        <label class="visually-hidden" for="paid-@i.Id">Received on</label>
+                                        <input id="paid-@i.Id" name="paidOn" type="date" value="@today" max="@today" class="form-control form-control-sm" style="width:auto" />
+                                        <label class="visually-hidden" for="note-@i.Id">Note</label>
+                                        <input id="note-@i.Id" name="note" class="form-control form-control-sm" placeholder="Note (optional)" maxlength="300" style="width:9rem" />
+                                        <button type="submit" class="btn btn-sm btn-primary" data-confirm="Mark @i.Number (@Money(i.TotalCents, i.Currency)) as paid?"><i class="ph ph-check" aria-hidden="true"></i>Paid</button>
+                                    </form>
+                                    <form asp-action="ResendInvoice" method="post"><input type="hidden" name="id" value="@i.Id" /><button type="submit" class="icon-btn" title="Email it again" aria-label="Email @i.Number again"><i class="ph ph-paper-plane-tilt" aria-hidden="true"></i></button></form>
+                                    <form asp-action="VoidInvoice" method="post" data-confirm="Void @i.Number? It can't be paid any more; its number isn't reused."><input type="hidden" name="id" value="@i.Id" /><button type="submit" class="icon-btn icon-btn--danger" title="Void" aria-label="Void @i.Number"><i class="ph ph-x-circle" aria-hidden="true"></i></button></form>
+                                }
+                                <a class="icon-btn" asp-action="InvoicePdf" asp-route-id="@i.Id" title="PDF" aria-label="PDF of @i.Number"><i class="ph ph-file-pdf" aria-hidden="true"></i></a>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

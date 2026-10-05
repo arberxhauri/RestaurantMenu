@@ -15,6 +15,11 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<BranchSlugAlias> BranchSlugAliases { get; set; }
     public DbSet<PriceBook> PriceBook { get; set; }
     public DbSet<PlanSettings> PlanSettings { get; set; }
+    public DbSet<Invoice> Invoices { get; set; }
+    public DbSet<InvoiceLine> InvoiceLines { get; set; }
+    public DbSet<InvoiceSequence> InvoiceSequences { get; set; }
+    public DbSet<BillingEvent> BillingEvents { get; set; }
+    public DbSet<BillingEmailLog> BillingEmailLog { get; set; }
     public DbSet<Subscription> Subscriptions { get; set; }
     public DbSet<SubscriptionItem> SubscriptionItems { get; set; }
     public DbSet<BillingProfile> BillingProfiles { get; set; }
@@ -144,6 +149,72 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.Property(p => p.Currency).HasMaxLength(3);
             e.Property(p => p.UpdatedById).HasMaxLength(450);
             e.Property(p => p.Version).IsRowVersion();
+            e.Property(p => p.OperatorName).HasMaxLength(200);
+            e.Property(p => p.OperatorNipt).HasMaxLength(20);
+            e.Property(p => p.OperatorAddress).HasMaxLength(300);
+            e.Property(p => p.OperatorEmail).HasMaxLength(256);
+            e.Property(p => p.OperatorIban).HasMaxLength(40);
+            e.Property(p => p.OperatorBank).HasMaxLength(120);
+            e.Property(p => p.OperatorSwift).HasMaxLength(11);
+            e.Property(p => p.VatPercent).HasPrecision(5, 2);
+            e.Property(p => p.InvoiceDueDays).HasDefaultValue(14);
+            e.Property(p => p.RenewalLeadDays).HasDefaultValue(7);
+        });
+        builder.Entity<Invoice>(e =>
+        {
+            e.HasIndex(i => i.Number).IsUnique();
+            e.HasIndex(i => new { i.OwnerId, i.IssuedUtc });
+            e.HasIndex(i => new { i.Status, i.DueUtc });
+            // One live invoice per subscription and period: the worker can't bill a period twice.
+            e.HasIndex(i => new { i.SubscriptionId, i.PeriodStartUtc }).IsUnique().HasFilter("\"Status\" <> 'Void'");
+            e.HasOne(i => i.Owner).WithMany().HasForeignKey(i => i.OwnerId).OnDelete(DeleteBehavior.Restrict);
+            e.Property(i => i.Number).HasMaxLength(20);
+            e.Property(i => i.Kind).HasMaxLength(10);
+            e.Property(i => i.Currency).HasMaxLength(3);
+            e.Property(i => i.Status).HasConversion<string>().HasMaxLength(10);
+            e.Property(i => i.Interval).HasConversion<string>().HasMaxLength(10);
+            e.Property(i => i.Provider).HasConversion<string>().HasMaxLength(20);
+            e.Property(i => i.VatPercent).HasPrecision(5, 2);
+            e.Property(i => i.Language).HasMaxLength(8);
+            e.Property(i => i.PaidNote).HasMaxLength(300);
+            e.Property(i => i.ProviderRef).HasMaxLength(100);
+            e.Property(i => i.FiscalCode).HasMaxLength(100);
+            e.Property(i => i.SellerName).HasMaxLength(200);
+            e.Property(i => i.SellerNipt).HasMaxLength(20);
+            e.Property(i => i.SellerAddress).HasMaxLength(300);
+            e.Property(i => i.SellerIban).HasMaxLength(40);
+            e.Property(i => i.SellerBank).HasMaxLength(120);
+            e.Property(i => i.SellerSwift).HasMaxLength(11);
+            e.Property(i => i.BuyerName).HasMaxLength(200);
+            e.Property(i => i.BuyerNipt).HasMaxLength(20);
+            e.Property(i => i.BuyerAddress).HasMaxLength(400);
+            e.Property(i => i.BuyerEmail).HasMaxLength(256);
+        });
+        builder.Entity<InvoiceLine>(e =>
+        {
+            e.HasOne(l => l.Invoice).WithMany(i => i.Lines).HasForeignKey(l => l.InvoiceId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(l => l.Module).HasConversion<string>().HasMaxLength(20);
+        });
+        builder.Entity<InvoiceSequence>(e =>
+        {
+            e.HasKey(x => x.Year);
+            e.Property(x => x.Year).ValueGeneratedNever();
+        });
+        builder.Entity<BillingEvent>(e =>
+        {
+            e.HasIndex(x => new { x.Provider, x.EventId }).IsUnique();
+            e.HasIndex(x => x.ProcessedUtc);
+            e.Property(x => x.Provider).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Type).HasConversion<string>().HasMaxLength(30);
+            e.Property(x => x.EventId).HasMaxLength(100);
+            e.Property(x => x.LastError).HasMaxLength(1000);
+        });
+        builder.Entity<BillingEmailLog>(e =>
+        {
+            e.HasIndex(x => new { x.OwnerId, x.Kind, x.PeriodKey }).IsUnique();
+            e.Property(x => x.OwnerId).HasMaxLength(450);
+            e.Property(x => x.Kind).HasMaxLength(40);
+            e.Property(x => x.PeriodKey).HasMaxLength(60);
         });
         builder.Entity<Subscription>(e =>
         {
@@ -155,6 +226,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.Property(s => s.Currency).HasMaxLength(3);
             e.Property(s => s.ProviderCustomerId).HasMaxLength(100);
             e.Property(s => s.ProviderSubscriptionId).HasMaxLength(100);
+            e.Property(s => s.NextModules).HasMaxLength(200);
+            e.Property(s => s.NextInterval).HasConversion<string>().HasMaxLength(10);
             e.Property(s => s.Version).IsRowVersion();
             // Matches the user filter: a removed owner's subscription is never read on its own.
             e.HasQueryFilter(s => !s.Owner!.IsDeleted);

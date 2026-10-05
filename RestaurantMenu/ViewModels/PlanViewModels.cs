@@ -83,6 +83,17 @@ public class PlanSettingsForm
     // is always filled from the saved settings by From).
     public bool SignupEnabled { get; set; }
     public bool SignupRequireApproval { get; set; }
+    // Invoices: the seller and the rules.
+    public string? OperatorName { get; set; }
+    public string? OperatorNipt { get; set; }
+    public string? OperatorAddress { get; set; }
+    public string? OperatorEmail { get; set; }
+    public string? OperatorIban { get; set; }
+    public string? OperatorBank { get; set; }
+    public string? OperatorSwift { get; set; }
+    public string? VatPercent { get; set; } = "0";
+    public int InvoiceDueDays { get; set; } = 14;
+    public int RenewalLeadDays { get; set; } = 7;
     public uint? Version { get; set; }
     /// <summary>"Ordering_Month" → "9.00".</summary>
     public Dictionary<string, string?> Prices { get; set; } = new();
@@ -97,6 +108,10 @@ public class PlanSettingsForm
         GraceDays = s.GraceDays,
         SignupEnabled = s.SignupEnabled,
         SignupRequireApproval = s.SignupRequireApproval,
+        OperatorName = s.OperatorName, OperatorNipt = s.OperatorNipt, OperatorAddress = s.OperatorAddress, OperatorEmail = s.OperatorEmail,
+        OperatorIban = s.OperatorIban, OperatorBank = s.OperatorBank, OperatorSwift = s.OperatorSwift,
+        VatPercent = s.VatPercent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture),
+        InvoiceDueDays = s.InvoiceDueDays, RenewalLeadDays = s.RenewalLeadDays,
         Version = s.Version == 0 ? null : s.Version,
         Prices = prices.ToDictionary(p => Key(p.Key.Item1, p.Key.Item2), p => (string?)Helpers.MoneyInput.Format(p.Value))
     };

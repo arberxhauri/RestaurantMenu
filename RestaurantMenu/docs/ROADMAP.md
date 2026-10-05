@@ -511,6 +511,52 @@ The plan settings, signup switches and prices were env vars (`Billing__…`, `Si
   - A new signup gets the database's 21-day trial without approval.
 - **On Render:** nothing to set for plans or prices. Email (`Email__…`) and `Seo__BaseUrl` are still env vars, since they're secrets and infrastructure.
 
+### 26. Billing core and bank transfer: done
+Phase 3 of `docs/PLAN-signup-payments.md`. Restaurants pay by bank transfer against invoices, and the trial → paid → overdue → read-only lifecycle runs by itself.
+
+- **Data** (migration `AddBillingCore`, additive):
+  - `Invoices` and `InvoiceLines`: seller, buyer, prices and VAT copied in at issue, so a sent invoice never changes. One live invoice per subscription and period.
+  - `InvoiceSequences`: `MQM-2026-0001`, sequential per year, bumped atomically, never reused. The number is also the transfer reference.
+  - `BillingEvents`: the inbox, unique on provider and event id.
+  - `BillingEmailLog`: unique on owner, kind and period.
+  - On `Subscriptions`, the next period's change (`NextModules`, `NextBranchQuantity`, `NextInterval`).
+  - On `PlanSettings`: seller name, NIPT, address, email, IBAN, bank, SWIFT, VAT %, days to pay (14), renewal lead days (7). Edited on Admin → Plans & prices.
+- **Rules** (`Helpers/SubscriptionRules.cs`, `InvoiceRules`; `SubscriptionRulesTests`, `InvoiceRulesTests` with fixed clocks):
+  - Calendar periods.
+  - A first period starts when a running trial ends; the trial is never cut short.
+  - A payment makes any state Active for the invoice's period.
+  - An unpaid end means PastDue, with the grace end fixed when announced, then ReadOnly.
+  - Cancel at period end means Cancelled.
+  - Reminders: trial at 7, 3 and 1 days; grace and invoice due at 3 days.
+  - VAT rounding; the IBAN printed in groups of four.
+- **Paying** (`Services/BillingService.cs`):
+  - On `/billing`, "Get the invoice" saves the billing details (NIPT required in Albania) and issues the invoice: modules × branches, monthly or yearly, VAT. It's emailed with its PDF (QuestPDF, `InvoicePdf`, in the owner's language).
+  - The admin marks it paid with the date received. That's stored in the inbox, then applied by the same processing a card provider's webhook will use: invoice Paid, subscription Active for its period, modules and prices from the invoice, owner thanked. Marking it twice is refused.
+- **`BillingWorker`:**
+  - Every 30 seconds it applies inbox events, each in its own transaction (`FOR UPDATE SKIP LOCKED`), retried with backoff and logged after 10 failures.
+  - Every minute, under an advisory lock, it moves stored statuses with the clock, issues renewal invoices the lead days before a period ends (with the next-period change), and sends the invoice, due, past-due, read-only, cancelled and trial emails. Each email goes once, via `BillingEmailLog`, and is retried if sending failed.
+  - Admin → Invoices → "Run billing checks now" runs the same thing at once.
+- **Owner `/billing`** (sidebar "Billing", English or Albanian, open even when read-only):
+  - Status and plan with its price.
+  - The open invoice with beneficiary, bank, IBAN, SWIFT and reference.
+  - "Get the invoice" when there's something to pay.
+  - Changing modules, branches or the period: at once during a trial, otherwise from the next period, with Undo.
+  - Cancel and resume, and every invoice as a PDF.
+  - The trial and read-only banners and the "not in your plan" cards now link here.
+- **Admin → Invoices:** To pay, Overdue, Paid, Void and All; mark paid (date and note), resend, void, PDF; inbox problems; the open total.
+- **Email attachments:** Resend, Brevo and SMTP can now attach files (`EmailMessage.Attachments`).
+- **Checked end to end** (mock email, time moved in the database):
+  - Dita's 21-day trial ends → ReadOnly, "trial ended" email.
+  - `/billing` → bank transfer, monthly → `MQM-2026-0001`, €81.00 + VAT 20% = €97.20, PDF attached.
+  - The admin marks it paid → Active until 5 Nov, thanked.
+  - 5 days before the end → renewal `MQM-2026-0002` with PDF. Unpaid past the end → PastDue (grace to 18 Oct, still writable), then a 3-days-left reminder, then ReadOnly. The public menu stays up with ordering off.
+  - The renewal is paid → Active again.
+  - A next-period change, cancel and resume.
+  - Ana in Albanian: page, email and PDF in Albanian; yearly invoice starting at her trial's end.
+  - The worker on its own sent Marco "Your free trial ends in 3 days".
+- **Deploy:** the migration runs on its own. Then in **Admin → Plans & prices**, fill in your legal name, NIPT, address, IBAN, bank and SWIFT, set VAT, check the prices, and tick **Signup open**. Download one invoice PDF in production to confirm PDFs render on Render.
+- **Not yet:** fiscalization of these invoices (a `FiscalCode` field is ready; ask the accountant), cards (phase 4, Paddle), mid-period upgrades with proration (changes wait for the next period).
+
 ---
 
 ## Suggested order

@@ -73,6 +73,23 @@
         </section>
 
         <section class="form-section">
+            <h2>Invoices and bank transfer</h2>
+            <p>The seller on every invoice, and where restaurants pay. Bank transfer is offered once the name and IBAN are filled in. Invoices already issued keep what was on them.</p>
+            <div class="fields">
+                <div class="span-2"><label for="OperatorName" class="form-label">Legal name</label><input id="OperatorName" name="OperatorName" value="@f.OperatorName" class="form-control" maxlength="200" placeholder="e.g. 4CS shpk" /></div>
+                <div><label for="OperatorNipt" class="form-label">NIPT</label><input id="OperatorNipt" name="OperatorNipt" value="@f.OperatorNipt" class="form-control mono" maxlength="20" /></div>
+                <div><label for="OperatorEmail" class="form-label">Billing email</label><input id="OperatorEmail" name="OperatorEmail" type="email" value="@f.OperatorEmail" class="form-control" maxlength="256" /></div>
+                <div class="span-2"><label for="OperatorAddress" class="form-label">Address</label><input id="OperatorAddress" name="OperatorAddress" value="@f.OperatorAddress" class="form-control" maxlength="300" /></div>
+                <div class="span-2"><label for="OperatorIban" class="form-label">IBAN</label><input id="OperatorIban" name="OperatorIban" value="@f.OperatorIban" class="form-control mono" maxlength="40" spellcheck="false" /></div>
+                <div><label for="OperatorBank" class="form-label">Bank</label><input id="OperatorBank" name="OperatorBank" value="@f.OperatorBank" class="form-control" maxlength="120" /></div>
+                <div><label for="OperatorSwift" class="form-label">SWIFT/BIC</label><input id="OperatorSwift" name="OperatorSwift" value="@f.OperatorSwift" class="form-control mono" maxlength="11" /></div>
+                <div><label for="VatPercent" class="form-label">VAT (%)</label><input id="VatPercent" name="VatPercent" value="@f.VatPercent" class="form-control tabular" inputmode="decimal" /><span class="hint">Added on invoices. 0 while you're not VAT-registered.</span></div>
+                <div><label for="InvoiceDueDays" class="form-label">Days to pay</label><input id="InvoiceDueDays" name="InvoiceDueDays" type="number" min="1" max="90" value="@f.InvoiceDueDays" class="form-control tabular" /><span class="hint">For a first invoice.</span></div>
+                <div><label for="RenewalLeadDays" class="form-label">Renewal invoice, days before</label><input id="RenewalLeadDays" name="RenewalLeadDays" type="number" min="0" max="60" value="@f.RenewalLeadDays" class="form-control tabular" /><span class="hint">Issued this long before a paid period ends, due on that day.</span></div>
+            </div>
+        </section>
+
+        <section class="form-section">
             <h2>Prices</h2>
             <p>Without VAT, per branch unless noted. Leave a box empty for "price on request". A change applies to new subscriptions and renewals; existing ones keep the price they were sold at.</p>
             <div class="table-responsive">

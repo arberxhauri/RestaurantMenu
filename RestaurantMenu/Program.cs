@@ -137,6 +137,12 @@ builder.Services.AddScoped<SubscriptionService>();
 // Self-serve signup (/pricing, /signup), off until Signup__Enabled=true and email works.
 builder.Services.Configure<SignupOptions>(builder.Configuration.GetSection("Signup"));
 builder.Services.AddScoped<SignupService>();
+// Billing (phase 3): invoices, bank transfer, the inbox and the lifecycle worker.
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+builder.Services.AddScoped<BillingMailer>();
+builder.Services.AddScoped<BillingService>();
+builder.Services.AddScoped<BillingRunner>();
+builder.Services.AddHostedService<BillingWorker>();
 // Who may do what to a branch (owner, or staff member with a role). Used by every back-office controller.
 builder.Services.AddScoped<IBranchAccess, BranchAccess>();
 builder.Services.AddTransient<InviteMailer>();

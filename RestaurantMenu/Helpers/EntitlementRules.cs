@@ -148,7 +148,8 @@ public static class EntitlementRules
             IsLegacy: s.IsLegacy,
             TrialEndsUtc: status == SubscriptionStatus.Trialing ? s.TrialEndsUtc : null,
             GraceEndsUtc: status == SubscriptionStatus.PastDue ? s.GraceEndsUtc ?? s.CurrentPeriodEndUtc?.AddDays(d.GraceDays) : null,
-            TrialEnded: s.Status == SubscriptionStatus.Trialing && status == SubscriptionStatus.ReadOnly);
+            // A trial that ran out without ever being paid (the stored status may already say ReadOnly).
+            TrialEnded: status == SubscriptionStatus.ReadOnly && s.TrialEndsUtc != null && s.CurrentPeriodEndUtc == null);
     }
 
     /// <summary>

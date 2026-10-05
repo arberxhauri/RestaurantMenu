@@ -21,7 +21,9 @@ public sealed class AccountGateFilter : IAsyncActionFilter
 {
     private static readonly HashSet<string> OpenControllers = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Account", "Admin", "Home", "Menu", "Seo", "Book", "Site"
+        "Account", "Admin", "Home", "Menu", "Seo", "Book", "Site", "Signup",
+        // Paying is how a read-only account gets fixed.
+        "Billing"
     };
 
     private readonly IEntitlementService _entitlements;

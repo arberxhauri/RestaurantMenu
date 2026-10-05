@@ -66,6 +66,17 @@ public class EntitlementRulesTests
     }
 
     [Fact]
+    public void A_trial_that_ran_out_still_reads_as_a_trial_after_the_worker_stored_read_only()
+    {
+        var stored = Plan(SubscriptionStatus.ReadOnly) with { TrialEndsUtc = Now.AddDays(-2) };
+        var e = EntitlementRules.Compute(stored, Now, Defaults);
+        Assert.True(e.TrialEnded);
+        Assert.Contains("trial", EntitlementRules.Limitation(e), StringComparison.OrdinalIgnoreCase);
+        // Once something was paid, a later read-only is a lapsed plan, not an ended trial.
+        Assert.False(EntitlementRules.Compute(stored with { CurrentPeriodEndUtc = Now.AddDays(-20) }, Now, Defaults).TrialEnded);
+    }
+
+    [Fact]
     public void Trial_days_round_up_and_never_go_negative()
     {
         var s = Plan(SubscriptionStatus.Trialing) with { TrialEndsUtc = Now.AddHours(1) };

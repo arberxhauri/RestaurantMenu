@@ -119,7 +119,7 @@ public static class SignupText
             OnbDone: "Done", OnbAllDone: "Your menu is live. Well done!", OnbHide: "Hide this list", OnbStart: "Start",
             TrialDays: "{0} days left in your free trial.", TrialOneDay: "1 day left in your free trial.", TrialToday: "Your free trial ends today.",
             TrialAfter: "After it ends your menus stay online and the back office becomes read-only.",
-            TrialContact: "Contact us to keep everything running",
+            TrialContact: "Choose how to pay to keep everything running",
             Photo: "Plates of food shared across a dark wooden table"),
 
         ["sq"] = new Words(
@@ -195,7 +195,7 @@ public static class SignupText
             OnbDone: "Gati", OnbAllDone: "Menuja juaj është online. Të lumtë!", OnbHide: "Fshihe këtë listë", OnbStart: "Fillo",
             TrialDays: "Ju kanë mbetur {0} ditë nga prova falas.", TrialOneDay: "Ju ka mbetur 1 ditë nga prova falas.", TrialToday: "Prova juaj falas mbaron sot.",
             TrialAfter: "Pasi të mbarojë, menutë mbeten online dhe paneli kalon vetëm për lexim.",
-            TrialContact: "Na kontaktoni që gjithçka të vazhdojë",
+            TrialContact: "Zgjidhni si të paguani që gjithçka të vazhdojë",
             Photo: "Pjata me ushqim të ndara mbi një tavolinë druri të errët")
     };
 

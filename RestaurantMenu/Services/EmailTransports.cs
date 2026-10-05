@@ -79,6 +79,8 @@ public class ResendEmailTransport : HttpEmailTransport
             ["text"] = m.Text
         };
         if (from.ReplyTo != null) body["reply_to"] = from.ReplyTo;
+        if (m.Attachments is { Count: > 0 } files)
+            body["attachments"] = files.Select(f => new { filename = f.FileName, content = Convert.ToBase64String(f.Content) }).ToArray();
 
         var request = new HttpRequestMessage(HttpMethod.Post, _o.ResendEndpoint) { Content = Json(body) };
         request.Headers.Authorization = new("Bearer", _o.ResendApiKey!.Trim());
@@ -110,6 +112,8 @@ public class BrevoEmailTransport : HttpEmailTransport
             ["textContent"] = m.Text
         };
         if (from.ReplyTo != null) body["replyTo"] = new { email = from.ReplyTo };
+        if (m.Attachments is { Count: > 0 } files)
+            body["attachment"] = files.Select(f => new { name = f.FileName, content = Convert.ToBase64String(f.Content) }).ToArray();
 
         var request = new HttpRequestMessage(HttpMethod.Post, _o.BrevoEndpoint) { Content = Json(body) };
         request.Headers.Add("api-key", _o.BrevoApiKey!.Trim());
@@ -155,6 +159,8 @@ public class SmtpEmailTransport : IEmailTransport
         if (from.ReplyTo != null) message.ReplyToList.Add(from.ReplyTo);
         message.AlternateViews.Add(AlternateView.CreateAlternateViewFromString(m.Text, Encoding.UTF8, "text/plain"));
         message.AlternateViews.Add(AlternateView.CreateAlternateViewFromString(m.Html, Encoding.UTF8, "text/html"));
+        foreach (var f in m.Attachments ?? Array.Empty<EmailAttachment>())
+            message.Attachments.Add(new Attachment(new MemoryStream(f.Content), f.FileName, f.ContentType));
 
         using var client = new SmtpClient(_o.Host, _o.Port) { EnableSsl = _o.EnableSsl, Timeout = 20000 };
         if (!string.IsNullOrEmpty(_o.User)) client.Credentials = new NetworkCredential(_o.User, _o.Password);

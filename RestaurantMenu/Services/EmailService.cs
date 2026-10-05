@@ -27,8 +27,15 @@ public class EmailOptions
     public string BrevoEndpoint { get; set; } = "https://api.brevo.com/v3/smtp/email";
 }
 
-/// <summary>One email. <see cref="Text"/> is the plain-text part, which spam filters and some readers want.</summary>
-public record EmailMessage(string To, string? ToName, string Subject, string Html, string Text);
+/// <summary>
+/// One email. <see cref="Text"/> is the plain-text part, which spam filters and some readers want.
+/// <see cref="Attachments"/>: files to attach (an invoice PDF).
+/// </summary>
+public record EmailMessage(string To, string? ToName, string Subject, string Html, string Text,
+    IReadOnlyList<EmailAttachment>? Attachments = null);
+
+/// <summary>A file attached to an email.</summary>
+public record EmailAttachment(string FileName, string ContentType, byte[] Content);
 
 /// <summary>Who emails come from, resolved once from the settings.</summary>
 public record EmailSender(string Address, string Name, string? ReplyTo)

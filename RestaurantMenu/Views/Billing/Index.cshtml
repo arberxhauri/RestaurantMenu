@@ -1,0 +1,202 @@
+@using RestaurantMenu.Helpers
+@model RestaurantMenu.Controllers.BillingPage
+@{
+    var w = Model.W;
+    var lang = Model.Lang;
+    var sub = Model.Sub;
+    var now = Model.Now;
+    var utcNow = DateTime.UtcNow;
+    var f = Model.Details;
+    string Money(int cents, string currency) => PricingRules.Money(cents, currency);
+    string Modules(PlanSelection p) => string.Join(", ", p.Modules.OrderBy(m => m).Select(m => BillingText.Module(lang, m)));
+    string PlanLine(PlanSelection p) =>
+        $"{Modules(p)} · {w.Branches.ToLowerInvariant()}: {p.Branches} · {(p.Interval == BillingInterval.Year ? w.Yearly : w.Monthly).ToLowerInvariant()}";
+    var q = Model.CurrentQuote;
+    var priceText = q.Complete
+        ? string.Format(q.Selection.Interval == BillingInterval.Year ? w.PerYear : w.PerMonth, Money(q.TotalCents, q.Currency)) + (Model.Settings.VatPercent > 0 ? " " + w.VatExtra : "")
+        : w.PriceOnRequest;
+    var status = sub.IsLegacy ? w.StatusLegacy
+        : now.Status switch
+        {
+            SubscriptionStatus.Trialing when sub.TrialEndsUtc is { } t => string.Format(w.StatusTrial, now.TrialDaysLeft(utcNow), BillingText.LastDay(t, lang)),
+            SubscriptionStatus.Active when sub.CancelAtPeriodEnd && sub.CurrentPeriodEndUtc is { } c => string.Format(w.StatusCancelling, BillingText.LastDay(c, lang)),
+            SubscriptionStatus.Active when sub.CurrentPeriodEndUtc is { } e => string.Format(w.StatusActive, BillingText.LastDay(e, lang)),
+            SubscriptionStatus.Active => w.StatusActiveNoEnd,
+            SubscriptionStatus.PastDue => string.Format(w.StatusPastDue, BillingText.Date(now.GraceEndsUtc ?? utcNow, lang)),
+            SubscriptionStatus.ReadOnly when now.TrialEnded => w.StatusTrialEnded,
+            SubscriptionStatus.Cancelled => w.StatusCancelled,
+            _ => w.StatusReadOnly
+        };
+    var statusKind = sub.IsLegacy || now.Status == SubscriptionStatus.Active ? "ok" : now.CanWrite ? "warn" : "danger";
+    var paidPeriod = sub.CurrentPeriodEndUtc != null;
+}
+
+<div lang="@lang">
+<header class="page-head">
+    <div>
+        <h1>@w.Title</h1>
+        <p>@w.Intro</p>
+    </div>
+</header>
+
+@if (Model.Errors is { Count: > 0 })
+{
+    <div class="flash flash--danger mb-3" role="alert"><i class="ph ph-warning-octagon" aria-hidden="true"></i><p>@string.Join(" ", Model.Errors)</p></div>
+}
+
+<section class="panel mb-4" aria-labelledby="plan-title">
+    <div class="panel-body">
+        <h2 id="plan-title" class="h5">@w.YourPlan</h2>
+        <div class="flash flash--@statusKind mb-3" role="status"><i class="ph @(statusKind == "ok" ? "ph-check-circle" : statusKind == "warn" ? "ph-clock-countdown" : "ph-lock-simple")" aria-hidden="true"></i><p>@status</p></div>
+        <p class="mb-1"><strong>@PlanLine(Model.Current)</strong></p>
+        @if (!sub.IsLegacy)
+        {
+            <p class="text-muted mb-0">@priceText</p>
+        }
+        @if (Model.Next is { } next)
+        {
+            <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+                <span class="chip chip--accent"><i class="ph ph-calendar-plus" aria-hidden="true"></i>@string.Format(w.NextChange, BillingText.Date(sub.CurrentPeriodEndUtc ?? utcNow, lang), PlanLine(next))</span>
+                <form method="post" action="/billing/plan/undo">@Html.AntiForgeryToken()<button type="submit" class="btn btn-sm btn-quiet">@w.UndoChange</button></form>
+            </div>
+        }
+    </div>
+</section>
+
+@if (Model.Open is { } open)
+{
+    var overdue = open.DueUtc < utcNow;
+    <section class="panel mb-4 billing-invoice" aria-labelledby="open-title">
+        <div class="panel-body">
+            <div class="d-flex flex-wrap justify-content-between gap-2 align-items-baseline">
+                <h2 id="open-title" class="h5 m-0">@string.Format(w.OpenInvoice, open.Number)</h2>
+                @if (overdue) { <span class="chip chip--danger">@w.Overdue</span> }
+            </div>
+            <p class="billing-amount"><span class="text-muted">@w.AmountDue</span> <strong class="tabular">@PricingRules.Money(open.TotalCents, open.Currency, alwaysCents: true)</strong></p>
+            <p class="mb-3">@string.Format(w.DueBy, BillingText.Date(open.DueUtc, lang))</p>
+            <dl class="billing-bank">
+                <dt>@w.Beneficiary</dt><dd>@open.SellerName</dd>
+                @if (open.SellerBank != null) { <dt>@w.Bank</dt><dd>@open.SellerBank</dd> }
+                <dt>@w.Iban</dt><dd class="mono">@InvoiceRules.FormatIban(open.SellerIban)</dd>
+                @if (open.SellerSwift != null) { <dt>@w.Swift</dt><dd class="mono">@open.SellerSwift</dd> }
+                <dt>@w.Reference</dt><dd><strong class="mono">@open.Number</strong> <span class="hint d-block">@w.ReferenceHint</span></dd>
+            </dl>
+            <a class="btn btn-outline-secondary" href="/billing/invoices/@(open.Id).pdf"><i class="ph ph-file-pdf" aria-hidden="true"></i>@w.DownloadPdf</a>
+        </div>
+    </section>
+}
+
+@if (Model.CanPay)
+{
+    <section class="panel mb-4" aria-labelledby="pay-title">
+        <div class="panel-body">
+            <h2 id="pay-title" class="h5">@w.PayTitle</h2>
+            @if (!Model.Settings.CanInvoice)
+            {
+                <p class="mb-0">@w.ErrNotReady</p>
+            }
+            else
+            {
+                var start = SubscriptionRules.FirstPeriodStart(BillingService.State(sub), utcNow);
+                <p class="text-muted">@string.Format(w.PayIntro, BillingText.Date(start, lang), Model.Settings.InvoiceDueDays)</p>
+                <form method="post" action="/billing/checkout">
+                    @Html.AntiForgeryToken()
+                    <div class="fields">
+                        <div class="span-2"><label for="LegalName" class="form-label">@w.LegalName</label><input id="LegalName" name="LegalName" value="@f.LegalName" class="form-control" maxlength="200" required autocomplete="organization" /></div>
+                        <div><label for="Nipt" class="form-label">@w.Nipt</label><input id="Nipt" name="Nipt" value="@f.Nipt" class="form-control mono" maxlength="20" spellcheck="false" /><span class="hint">@w.NiptHint</span></div>
+                        <div><label for="Email" class="form-label">@w.BillingEmail</label><input id="Email" name="Email" type="email" value="@f.Email" class="form-control" maxlength="256" required autocomplete="email" /></div>
+                        <div><label for="Address" class="form-label">@w.Address</label><input id="Address" name="Address" value="@f.Address" class="form-control" maxlength="300" autocomplete="street-address" /></div>
+                        <div><label for="City" class="form-label">@w.City</label><input id="City" name="City" value="@f.City" class="form-control" maxlength="100" autocomplete="address-level2" /></div>
+                        <fieldset class="span-2">
+                            <legend class="form-label">@w.Monthly / @w.Yearly</legend>
+                            <label class="form-check form-check-inline"><input class="form-check-input" type="radio" name="Interval" value="Month" @(f.Interval == BillingInterval.Month ? "checked" : "") /> <span class="form-check-label">@w.Monthly</span></label>
+                            <label class="form-check form-check-inline"><input class="form-check-input" type="radio" name="Interval" value="Year" @(f.Interval == BillingInterval.Year ? "checked" : "") /> <span class="form-check-label">@w.Yearly</span></label>
+                        </fieldset>
+                    </div>
+                    <button type="submit" class="btn btn-primary mt-3"><i class="ph ph-receipt" aria-hidden="true"></i>@w.GetInvoice</button>
+                </form>
+            }
+        </div>
+    </section>
+}
+
+@if (!sub.IsLegacy)
+{
+    <section class="panel mb-4" aria-labelledby="change-title">
+        <div class="panel-body">
+            <h2 id="change-title" class="h5">@w.ChangeTitle</h2>
+            <p class="text-muted">@(paidPeriod ? string.Format(w.ChangeHintPaid, BillingText.Date(sub.CurrentPeriodEndUtc!.Value, lang)) : w.ChangeHintTrial)</p>
+            @{ var target = Model.Next ?? Model.Current; }
+            <form method="post" action="/billing/plan">
+                @Html.AntiForgeryToken()
+                <div class="d-grid gap-2 mb-3">
+                    @foreach (var m in PricingRules.Sellable)
+                    {
+                        <label class="form-check">
+                            <input class="form-check-input" type="checkbox" name="m" value="@m" @(target.Modules.Contains(m) ? "checked" : "") />
+                            <span class="form-check-label"><strong>@BillingText.Module(lang, m)</strong> <span class="text-muted">@SignupText.ModuleText(SignupText.For(lang), m)</span></span>
+                        </label>
+                    }
+                </div>
+                <div class="fields">
+                    <div><label for="b" class="form-label">@w.Branches</label><input id="b" name="b" type="number" min="1" max="@PlanSelection.MaxBranches" value="@target.Branches" class="form-control tabular" inputmode="numeric" /></div>
+                    <fieldset>
+                        <legend class="form-label">@w.Monthly / @w.Yearly</legend>
+                        <label class="form-check form-check-inline"><input class="form-check-input" type="radio" name="i" value="Month" @(target.Interval == BillingInterval.Month ? "checked" : "") /> <span class="form-check-label">@w.Monthly</span></label>
+                        <label class="form-check form-check-inline"><input class="form-check-input" type="radio" name="i" value="Year" @(target.Interval == BillingInterval.Year ? "checked" : "") /> <span class="form-check-label">@w.Yearly</span></label>
+                    </fieldset>
+                </div>
+                <button type="submit" class="btn btn-outline-secondary mt-3">@w.SaveChange</button>
+            </form>
+        </div>
+    </section>
+}
+
+<section class="mb-4" aria-labelledby="invoices-title">
+    <h2 id="invoices-title" class="section-head">@w.InvoicesTitle</h2>
+    @if (Model.Invoices.Count == 0)
+    {
+        <p class="text-muted">@w.NoInvoices</p>
+    }
+    else
+    {
+        <div class="table-responsive panel">
+            <table class="data-table">
+                <thead><tr><th scope="col">@w.ColNumber</th><th scope="col">@w.ColPeriod</th><th scope="col">@w.ColAmount</th><th scope="col">@w.ColStatus</th><th scope="col"><span class="visually-hidden">PDF</span></th></tr></thead>
+                <tbody>
+                    @foreach (var inv in Model.Invoices)
+                    {
+                        var st = BillingText.Status(w, inv.Status, inv.DueUtc, utcNow);
+                        <tr>
+                            <td class="mono">@inv.Number</td>
+                            <td class="text-nowrap">@BillingText.Date(inv.PeriodStartUtc, lang) – @BillingText.LastDay(inv.PeriodEndUtc, lang)</td>
+                            <td class="tabular">@PricingRules.Money(inv.TotalCents, inv.Currency, alwaysCents: true)</td>
+                            <td><span class="chip @(inv.Status == InvoiceStatus.Paid ? "chip--ok" : inv.Status == InvoiceStatus.Void ? "chip--later" : inv.DueUtc < utcNow ? "chip--danger" : "chip--warn")">@st</span></td>
+                            <td class="text-end">@if (inv.Status != InvoiceStatus.Void) { <a href="/billing/invoices/@(inv.Id).pdf" class="icon-btn" aria-label="@w.DownloadPdf @inv.Number" title="@w.DownloadPdf"><i class="ph ph-file-pdf" aria-hidden="true"></i></a> }</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+@if (!sub.IsLegacy && paidPeriod && sub.Status is SubscriptionStatus.Active or SubscriptionStatus.PastDue)
+{
+    <section class="panel mb-4" aria-labelledby="cancel-title">
+        <div class="panel-body">
+            <h2 id="cancel-title" class="h5">@w.CancelTitle</h2>
+            @if (sub.CancelAtPeriodEnd)
+            {
+                <p>@string.Format(w.ResumeText, BillingText.LastDay(sub.CurrentPeriodEndUtc!.Value, lang))</p>
+                <form method="post" action="/billing/cancel">@Html.AntiForgeryToken()<input type="hidden" name="resume" value="true" /><button type="submit" class="btn btn-primary">@w.ResumeButton</button></form>
+            }
+            else
+            {
+                <p class="text-muted">@string.Format(w.CancelText, BillingText.LastDay(sub.CurrentPeriodEndUtc!.Value, lang))</p>
+                <form method="post" action="/billing/cancel" data-confirm="@w.CancelButton?">@Html.AntiForgeryToken()<button type="submit" class="btn btn-outline-secondary">@w.CancelButton</button></form>
+            }
+        </div>
+    </section>
+}
+</div>

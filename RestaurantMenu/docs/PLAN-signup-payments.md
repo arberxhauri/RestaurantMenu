@@ -249,11 +249,11 @@ Six phases, each deployable on its own and each ending with the usual write-up (
 **Accept when:** with the flag on in staging, a new restaurant can sign up, verify, create a branch and open its live menu in under ten minutes, in either language, without JavaScript.
 
 ### Phase 3: billing core and bank transfer
-- [ ] `Invoice`, `InvoiceLine`, `BillingEvent`, `BillingEmailLog`; sequential invoice numbers per year
-- [ ] `SubscriptionRules` (the lifecycle above) and `BillingWorker`
-- [ ] `BankTransferProvider`, invoice PDF (QuestPDF) and email; `/admin/billing` with open invoices, mark paid, void, and resend
-- [ ] `/billing` page for owners: current modules, next invoice, invoices list, change modules (takes effect next period for bank transfer)
-- [ ] Trial and dunning emails
+- [x] `Invoice`, `InvoiceLine`, `BillingEvent`, `BillingEmailLog`; sequential invoice numbers per year
+- [x] `SubscriptionRules` (the lifecycle above) and `BillingWorker`
+- [x] `BankTransferProvider`, invoice PDF (QuestPDF) and email; `/admin/billing` with open invoices, mark paid, void, and resend
+- [x] `/billing` page for owners: current modules, next invoice, invoices list, change modules (takes effect next period for bank transfer)
+- [x] Trial and dunning emails
 
 **Accept when:** a trial ends, the owner chooses bank transfer, the admin marks the invoice paid and the account is Active; an unpaid invoice moves the account to PastDue, then ReadOnly after grace, with the menu still public. **Turn signup on here.**
 
@@ -285,8 +285,6 @@ New settings on Render (environment variables, double underscore for sections):
 | Setting | Example | Needed from |
 |---|---|---|
 | Signup on/off, approval, trial days, staff per branch, grace days, currency, prices | **In the database, Admin → Plans & prices** (decided 5 Oct 2026). The `Signup__…`/`Billing__…` env vars only seed the first start | Phases 1–2 |
-| `Billing__InvoiceDueDays` | `14` | Phase 3 |
-| `Billing__Operator__LegalName`, `__Nipt`, `__Address`, `__Iban`, `__Bank` | the operator's details | Phase 3 |
 | `Billing__Paddle__Environment` | `sandbox` or `production` | Phase 4 |
 | `Billing__Paddle__ApiKey`, `__WebhookSecret`, `__ClientToken` | secrets | Phase 4 |
 | `Seo__BaseUrl` | `https://myquickmenu.com` | Already required; verification links and Paddle return URLs depend on it |

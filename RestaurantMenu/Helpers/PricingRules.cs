@@ -108,11 +108,18 @@ public static class PricingRules
         return new Quote(s, lines, currency) { MonthlyForAYearCents = monthlyForAYear };
     }
 
-    /// <summary>"€15.00" for EUR, "1,500 ALL" otherwise. Invariant digits so the page never depends on the server's culture.</summary>
-    public static string Money(int cents, string currency) => currency switch
+    /// <summary>
+    /// "€15" or "€15.50" for EUR, "1,500 ALL" otherwise. Invariant digits so the page never depends
+    /// on the server's culture. <paramref name="alwaysCents"/>: invoices and amounts due show "€15.00".
+    /// </summary>
+    public static string Money(int cents, string currency, bool alwaysCents = false)
     {
-        "EUR" => "€" + (cents / 100m).ToString(cents % 100 == 0 ? "0" : "0.00", CultureInfo.InvariantCulture),
-        "USD" => "$" + (cents / 100m).ToString(cents % 100 == 0 ? "0" : "0.00", CultureInfo.InvariantCulture),
-        _ => (cents / 100m).ToString(cents % 100 == 0 ? "#,0" : "#,0.00", CultureInfo.InvariantCulture) + " " + currency
-    };
+        var whole = cents % 100 == 0 && !alwaysCents;
+        return currency switch
+        {
+            "EUR" => "€" + (cents / 100m).ToString(whole ? "#,0" : "#,0.00", CultureInfo.InvariantCulture),
+            "USD" => "$" + (cents / 100m).ToString(whole ? "#,0" : "#,0.00", CultureInfo.InvariantCulture),
+            _ => (cents / 100m).ToString(whole ? "#,0" : "#,0.00", CultureInfo.InvariantCulture) + " " + currency
+        };
+    }
 }

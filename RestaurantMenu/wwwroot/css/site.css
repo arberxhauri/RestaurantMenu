@@ -1252,3 +1252,10 @@ a.chip--link:hover { background: var(--accent-soft); color: var(--accent); }
 .onb-body { display: grid; gap: 2px; }
 .onb-body span { font-size: 14px; color: var(--ink-3); }
 @media (max-width: 575.98px) { .onboarding-steps li { grid-template-columns: 32px minmax(0, 1fr); } .onboarding-steps li > :last-child { grid-column: 2; justify-self: start; } }
+
+/* Billing (/billing): the amount due and the bank details to copy. */
+.billing-amount { display: flex; align-items: baseline; gap: 10px; margin: 12px 0 4px; }
+.billing-amount strong { font-size: 28px; }
+.billing-bank { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0 0 16px; padding: 14px 16px; border-radius: var(--r-md); background: var(--surface-2); }
+.billing-bank dt { font-weight: 500; color: var(--ink-3); }
+.billing-bank dd { margin: 0; overflow-wrap: anywhere; }

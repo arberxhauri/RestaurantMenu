@@ -77,7 +77,7 @@ public sealed class RequireModuleAttribute : Attribute, IAsyncActionFilter
         // A read-only account or paused branch: AccountGateFilter's message says why.
         var message = gate.AccountReadOnly || gate.Paused
             ? AccountGate.Reason(e)
-            : $"{EntitlementRules.Name(Module)} isn't in your plan, so this can't be changed. Contact us to add it.";
+            : $"{EntitlementRules.Name(Module)} isn't in your plan, so this can't be changed. The owner can add it on the Billing page.";
         var request = context.HttpContext.Request;
         if (AccountGate.WantsJson(request))
         {

@@ -6,7 +6,12 @@ using RestaurantMenu.Models;
 namespace RestaurantMenu.Services;
 
 /// <summary>The plan settings form (Admin → Plans &amp; prices).</summary>
-public record PlanSettingsInput(string Currency, int TrialDays, int SeatsPerBranch, int GraceDays, bool SignupEnabled, bool SignupRequireApproval);
+public record PlanSettingsInput(string Currency, int TrialDays, int SeatsPerBranch, int GraceDays, bool SignupEnabled, bool SignupRequireApproval,
+    InvoiceSettingsInput Invoicing);
+
+/// <summary>The seller on invoices and the invoicing rules (phase 3).</summary>
+public record InvoiceSettingsInput(string? Name, string? Nipt, string? Address, string? Email, string? Iban, string? Bank, string? Swift,
+    decimal VatPercent, int DueDays, int RenewalLeadDays);
 
 /// <summary>
 /// The platform's plan settings and price book, both in the database and edited in Admin → Plans
@@ -70,6 +75,18 @@ public class PlanSettingsService
         row.GraceDays = Math.Clamp(input.GraceDays, 0, 90);
         row.SignupEnabled = input.SignupEnabled;
         row.SignupRequireApproval = input.SignupRequireApproval;
+        static string? Clean(string? v, int max) => string.IsNullOrWhiteSpace(v) ? null : v.Trim().Length > max ? v.Trim()[..max] : v.Trim();
+        var inv = input.Invoicing;
+        row.OperatorName = Clean(inv.Name, 200);
+        row.OperatorNipt = Clean(inv.Nipt, 20)?.ToUpperInvariant();
+        row.OperatorAddress = Clean(inv.Address, 300);
+        row.OperatorEmail = Clean(inv.Email, 256);
+        row.OperatorIban = Clean(inv.Iban, 40)?.Replace(" ", "").ToUpperInvariant();
+        row.OperatorBank = Clean(inv.Bank, 120);
+        row.OperatorSwift = Clean(inv.Swift, 11)?.ToUpperInvariant();
+        row.VatPercent = Math.Clamp(inv.VatPercent, 0, 50);
+        row.InvoiceDueDays = Math.Clamp(inv.DueDays, 1, 90);
+        row.RenewalLeadDays = Math.Clamp(inv.RenewalLeadDays, 0, 60);
         row.UpdatedUtc = utcNow;
         row.UpdatedById = actorId;
         try

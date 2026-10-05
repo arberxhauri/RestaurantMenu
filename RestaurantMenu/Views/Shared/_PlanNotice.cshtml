@@ -26,11 +26,15 @@
     var trialDays = plan?.TrialDaysLeft(DateTime.UtcNow);
 }
 
-@if (limitation != null && gate is not { AccountReadOnly: true })
+@* /billing shows the plan's status itself. *@
+@if (ViewContext.RouteData.Values["controller"] as string == "Billing")
+{
+}
+else if (limitation != null && gate is not { AccountReadOnly: true })
 {
     <div class="flash flash--@(plan!.CanWrite ? "warn" : "danger") plan-notice" role="status">
         <i class="ph @(plan.CanWrite ? "ph-clock-countdown" : "ph-lock-simple")" aria-hidden="true"></i>
-        <p>@limitation <a href="@contactUrl" target="_blank" rel="noopener">Contact us to continue</a></p>
+        <p>@limitation <a href="/billing">Go to billing</a></p>
     </div>
 }
 else if (trialDays is { } days)
@@ -39,7 +43,7 @@ else if (trialDays is { } days)
         <i class="ph ph-hourglass-medium" aria-hidden="true"></i>
         <p lang="@language">
             @SignupText.TrialLeft(sw, days) @sw.TrialAfter
-            <a href="@contactUrl" target="_blank" rel="noopener">@sw.TrialContact</a>
+            <a href="/billing">@sw.TrialContact</a>
         </p>
     </div>
 }
@@ -56,7 +60,14 @@ else if (trialDays is { } days)
             }
             else
             {
-                <a href="@contactUrl" target="_blank" rel="noopener">Contact us</a>
+                if (User.IsInRole("OWNER"))
+                {
+                    <a href="/billing">Change your plan</a>
+                }
+                else
+                {
+                    <a href="@contactUrl" target="_blank" rel="noopener">Contact us</a>
+                }
             }
         </p>
     </div>

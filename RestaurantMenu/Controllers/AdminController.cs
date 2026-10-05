@@ -268,6 +268,92 @@ namespace RestaurantMenu.Controllers;
             return RedirectToAction("Index");
         }
 
+        // ---------------------------------------------------------------- billing
+
+        /// <summary>Invoices across the platform: mark bank transfers paid, void, resend, and run the billing checks.</summary>
+        [HttpGet]
+        public async Task<IActionResult> Billing(string show = "open")
+        {
+            var now = DateTime.UtcNow;
+            var q = _context.Invoices.AsNoTracking().Include(i => i.Owner).AsQueryable();
+            q = show switch
+            {
+                "overdue" => q.Where(i => i.Status == InvoiceStatus.Open && i.DueUtc < now),
+                "paid" => q.Where(i => i.Status == InvoiceStatus.Paid),
+                "void" => q.Where(i => i.Status == InvoiceStatus.Void),
+                "all" => q,
+                _ => q.Where(i => i.Status == InvoiceStatus.Open)
+            };
+            ViewBag.Show = show;
+            ViewBag.OpenTotal = await _context.Invoices.Where(i => i.Status == InvoiceStatus.Open).SumAsync(i => (int?)i.TotalCents) ?? 0;
+            ViewBag.Overdue = await _context.Invoices.CountAsync(i => i.Status == InvoiceStatus.Open && i.DueUtc < now);
+            ViewBag.Settings = await _plan.GetAsync();
+            ViewBag.FailedEvents = await _context.BillingEvents.AsNoTracking().Where(e => e.ProcessedUtc == null && e.Attempts > 0).ToListAsync();
+            return View(await q.OrderByDescending(i => i.IssuedUtc).Take(200).ToListAsync());
+        }
+
+        /// <summary>A bank transfer arrived: recorded in the billing inbox, then applied straight away.</summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> MarkPaid(int id, DateOnly? paidOn, string? note)
+        {
+            var billing = HttpContext.RequestServices.GetRequiredService<BillingService>();
+            var runner = HttpContext.RequestServices.GetRequiredService<BillingRunner>();
+            var paidUtc = paidOn is { } d && d <= DateOnly.FromDateTime(DateTime.UtcNow) ? d.ToDateTime(new TimeOnly(12, 0), DateTimeKind.Utc) : DateTime.UtcNow;
+            var note2 = string.IsNullOrWhiteSpace(note) ? null : note.Trim().Length > 300 ? note.Trim()[..300] : note.Trim();
+            if (!await billing.MarkPaidAsync(id, paidUtc, note2, _userManager.GetUserId(User)))
+            {
+                TempData["Error"] = "That invoice isn't open any more.";
+                return RedirectToAction(nameof(Billing));
+            }
+            await runner.ProcessEventsAsync(DateTime.UtcNow);
+            var inv = await _context.Invoices.AsNoTracking().Include(i => i.Owner).FirstAsync(i => i.Id == id);
+            TempData[inv.Status == InvoiceStatus.Paid ? "Success" : "Warning"] = inv.Status == InvoiceStatus.Paid
+                ? $"{inv.Number} is paid. {inv.Owner!.FullName}'s plan is active until {BillingText.LastDay(inv.PeriodEndUtc, "en")} and they've been thanked."
+                : $"{inv.Number}: the payment is recorded but couldn't be applied yet; it's retried automatically (see Problems below).";
+            return RedirectToAction(nameof(Billing));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> VoidInvoice(int id)
+        {
+            var billing = HttpContext.RequestServices.GetRequiredService<BillingService>();
+            var ok = await billing.VoidAsync(id, _userManager.GetUserId(User), DateTime.UtcNow);
+            TempData[ok ? "Success" : "Error"] = ok ? "Invoice voided. It stays in the list; its number is never reused." : "Only open invoices can be voided.";
+            return RedirectToAction(nameof(Billing));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ResendInvoice(int id)
+        {
+            var mailer = HttpContext.RequestServices.GetRequiredService<BillingMailer>();
+            var inv = await _context.Invoices.Include(i => i.Lines).Include(i => i.Owner).FirstOrDefaultAsync(i => i.Id == id);
+            if (inv == null) return NotFound();
+            var sent = await mailer.SendInvoiceAsync(inv.Owner!, inv, force: true);
+            TempData[sent ? "Success" : "Error"] = sent ? $"{inv.Number} sent again to {inv.BuyerEmail}." : "The email couldn't be sent. Is email set up?";
+            return RedirectToAction(nameof(Billing));
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> InvoicePdf(int id)
+        {
+            var inv = await _context.Invoices.AsNoTracking().Include(i => i.Lines).FirstOrDefaultAsync(i => i.Id == id);
+            return inv == null ? NotFound() : File(Services.InvoicePdf.Render(inv), "application/pdf", Services.InvoicePdf.FileName(inv));
+        }
+
+        /// <summary>Runs what the billing worker does every minute, now: payments, status changes, renewals, emails.</summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RunBilling()
+        {
+            var runner = HttpContext.RequestServices.GetRequiredService<BillingRunner>();
+            var result = await runner.RunAsync(DateTime.UtcNow);
+            TempData[result.Problems.Count == 0 ? "Success" : "Warning"] = $"Billing checks done: {result}.";
+            return RedirectToAction(nameof(Billing));
+        }
+
         // ---------------------------------------------------------------- plans & prices
 
         /// <summary>
@@ -292,6 +378,13 @@ namespace RestaurantMenu.Controllers;
             if (form.TrialDays is < 1 or > 365) errors.Add("The trial is between 1 and 365 days.");
             if (form.SeatsPerBranch is < 0 or > 100) errors.Add("Staff per branch is between 0 and 100.");
             if (form.GraceDays is < 0 or > 90) errors.Add("Grace days are between 0 and 90.");
+            if (!decimal.TryParse((form.VatPercent ?? "0").Replace(',', '.'), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var vat) || vat is < 0 or > 50)
+                errors.Add("VAT is a percentage between 0 and 50, e.g. 20 (or 0 while you're not VAT-registered).");
+            if (form.InvoiceDueDays is < 1 or > 90) errors.Add("Days to pay an invoice are between 1 and 90.");
+            if (form.RenewalLeadDays is < 0 or > 60) errors.Add("Renewal invoices go out 0 to 60 days before a period ends.");
+            var iban = (form.OperatorIban ?? "").Replace(" ", "").ToUpperInvariant();
+            if (iban.Length > 0 && !System.Text.RegularExpressions.Regex.IsMatch(iban, "^[A-Z]{2}[0-9]{2}[A-Z0-9]{8,30}$"))
+                errors.Add("The IBAN doesn't look right: two letters, two digits, then up to 30 letters and digits (e.g. AL47 2121 1009 0000 0002 3569 8741).");
 
             var wanted = new Dictionary<(BillingModule, BillingInterval), int?>();
             foreach (var m in EntitlementRules.AllModules.Where(m => m != BillingModule.Sms))
@@ -306,7 +399,9 @@ namespace RestaurantMenu.Controllers;
             var actor = _userManager.GetUserId(User);
             var now = DateTime.UtcNow;
             var problem = await _plan.SaveAsync(new PlanSettingsInput(form.Currency, form.TrialDays, form.SeatsPerBranch, form.GraceDays,
-                form.SignupEnabled, form.SignupRequireApproval), form.Version, actor, now);
+                form.SignupEnabled, form.SignupRequireApproval,
+                new InvoiceSettingsInput(form.OperatorName, form.OperatorNipt, form.OperatorAddress, form.OperatorEmail, form.OperatorIban,
+                    form.OperatorBank, form.OperatorSwift, vat, form.InvoiceDueDays, form.RenewalLeadDays)), form.Version, actor, now);
             if (problem != null)
             {
                 TempData["Error"] = problem;
