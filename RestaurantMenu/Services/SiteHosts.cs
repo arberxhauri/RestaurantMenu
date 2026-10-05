@@ -86,7 +86,8 @@ public class SiteHosts
             using var scope = _scopes.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             var sites = await db.Branches.AsNoTracking()
-                .Select(b => new { b.Id, b.Name, Published = db.BranchSites.Any(x => x.BranchId == b.Id && x.Enabled) })
+                .Where(b => b.Slug != null)
+                .Select(b => new { b.Id, b.Slug, Published = db.BranchSites.Any(x => x.BranchId == b.Id && x.Enabled) })
                 .ToListAsync();
             var byId = sites.ToDictionary(x => x.Id);
             var domains = await db.Domains.AsNoTracking().OrderBy(d => d.Id).ToListAsync();
@@ -96,16 +97,25 @@ public class SiteHosts
             foreach (var d in domains.Where(d => byId.ContainsKey(d.BranchId)))
             {
                 var b = byId[d.BranchId];
-                map[d.Host] = new SiteTarget(d.BranchId, SeoService.Slug(b.Name), d.Host, true, d.Verified, b.Published, d.Token);
+                map[d.Host] = new SiteTarget(d.BranchId, b.Slug, d.Host, true, d.Verified, b.Published, d.Token);
                 if (d.Verified && !primary.ContainsKey(d.BranchId)) primary[d.BranchId] = d.Host;
             }
             var labels = new Dictionary<string, SiteTarget>(StringComparer.OrdinalIgnoreCase);
             if (_wildcard != null)
             {
+                // Old links first, so they keep their subdomain (sent on to the current one by
+                // SiteHostMiddleware), and a current link always wins over another branch's old one.
+                var aliases = await db.BranchSlugAliases.AsNoTracking().Select(a => new { a.BranchId, a.Slug }).ToListAsync();
+                foreach (var a in aliases.Where(a => byId.ContainsKey(a.BranchId)))
+                {
+                    var b = byId[a.BranchId];
+                    if (Label(a.Slug) != null && Label(b.Slug) is { } current)
+                        labels[Label(a.Slug)!] = new SiteTarget(b.Id, b.Slug, $"{current}.{_wildcard}", false, true, b.Published, null);
+                }
                 foreach (var b in sites)
                 {
-                    var label = Label(SeoService.Slug(b.Name));
-                    if (label != null) labels[label] = new SiteTarget(b.Id, SeoService.Slug(b.Name), $"{label}.{_wildcard}", false, true, b.Published, null);
+                    var label = Label(b.Slug);
+                    if (label != null) labels[label] = new SiteTarget(b.Id, b.Slug, $"{label}.{_wildcard}", false, true, b.Published, null);
                 }
             }
             _snapshot = s = new Snapshot(DateTime.UtcNow, map, labels, primary);
@@ -117,7 +127,10 @@ public class SiteHosts
         }
     }
 
-    /// <summary>A branch slug as a DNS label ("çajtore" → "xn--ajtore-4ua"), or null if it can't be one.</summary>
+    /// <summary>
+    /// A branch slug as a DNS label, or null if it can't be one. Slugs are plain ASCII; old
+    /// name-based links may not be ("çajtore" → "xn--ajtore-4ua").
+    /// </summary>
     public static string? Label(string slug) => SiteRules.NormalizeHost(slug + ".x") is { } h ? h[..^2] : null;
 
     /// <summary>The website a request host leads to (verified or not), or null.</summary>

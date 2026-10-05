@@ -75,7 +75,7 @@ public class BookingService
     /// <summary>Whether guests can book online at all: switched on, and opening hours entered.</summary>
     public static bool IsBookable(Branch branch, ReservationSettings s) => s.Enabled && branch.HoursEnabled && branch.OpeningHours?.Any() == true;
 
-    public string GuestLink(Branch branch, Reservation r) => _seo.Url($"/book/{SeoService.Slug(branch.Name)}/r/{r.PublicId}");
+    public string GuestLink(Branch branch, Reservation r) => _seo.Url($"/book/{branch.Slug}/r/{r.PublicId}");
 
     // ---------------------------------------------------------------- guest booking
 

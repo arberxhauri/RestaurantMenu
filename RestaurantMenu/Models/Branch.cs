@@ -6,6 +6,13 @@ public class Branch : ISoftDeletable
 {
     public int Id { get; set; }
     public string Name { get; set; }
+
+    // The link segment for /menu/{slug}, /book/{slug}, /site/{slug} and the subdomain, set from
+    // the name (SlugRules) and unique across all branches, deleted ones included, so a closed
+    // restaurant's printed QR code never opens someone else's menu. Old links live in
+    // BranchSlugAlias. Filled for existing rows at startup (BranchSlugs.BackfillAsync).
+    public string Slug { get; set; } = string.Empty;
+    public ICollection<BranchSlugAlias>? SlugAliases { get; set; }
     public string? Logo { get; set; }
     public string? Banner { get; set; }
     public string Address { get; set; }
@@ -52,4 +59,19 @@ public class Branch : ISoftDeletable
     public bool FeedbackGoogleForAll { get; set; }
     public bool FeedbackEmailOwner { get; set; } = true;
     public ICollection<DiningTable>? Tables { get; set; }
+}
+
+/// <summary>
+/// A link a branch used to have: its slug before a rename, or the name-based link from before
+/// slugs were stored ("oliver'sitalian"). Requests for it are sent to the current link with a
+/// 301, so printed QR codes keep working. Never deleted, except when the branch takes the
+/// same link back.
+/// </summary>
+public class BranchSlugAlias
+{
+    public int Id { get; set; }
+    public string Slug { get; set; } = string.Empty;
+    public int BranchId { get; set; }
+    public Branch? Branch { get; set; }
+    public DateTime CreatedUtc { get; set; }
 }

@@ -15,9 +15,11 @@ public class MenuController : Controller
     private readonly MenuAnalytics _analytics;
     private readonly OrderService _orders;
     private readonly FeedbackService _feedback;
+    private readonly BranchSlugs _slugs;
 
-    public MenuController(ApplicationDbContext context, SeoService seo, MenuAnalytics analytics, OrderService orders, FeedbackService feedback)
+    public MenuController(ApplicationDbContext context, SeoService seo, MenuAnalytics analytics, OrderService orders, FeedbackService feedback, BranchSlugs slugs)
     {
+        _slugs = slugs;
         _context = context;
         _seo = seo;
         _analytics = analytics;
@@ -28,9 +30,13 @@ public class MenuController : Controller
     [Route("menu/{branchName}")]
     public async Task<IActionResult> Index(string branchName, string lang = "en", int? t = null, string? k = null)
     {
-        branchName = branchName.Trim();
-
-        var decodedName = Uri.UnescapeDataString(branchName);
+        // By the branch's link, or an old one (a rename, or the name-based link printed on
+        // QR codes before links were stored): those are redirected below.
+        var match = await _slugs.ResolveAsync(branchName);
+        if (match == null)
+        {
+            return NotFound();
+        }
 
         // Read-only: nothing is saved here, and HideSoldOut below trims the loaded dish lists.
         var branch = await _context.Branches
@@ -41,7 +47,7 @@ public class MenuController : Controller
             .Include(b => b.OpeningHours)
             // Two collections: separate queries instead of multiplying dish rows by hour rows.
             .AsSplitQuery()
-            .FirstOrDefaultAsync(b => b.Name.Replace(" ", "").ToLower() == decodedName.ToLower() && !b.IsDeleted);
+            .FirstOrDefaultAsync(b => b.Id == match.BranchId);
 
         if (branch == null)
         {
@@ -62,13 +68,13 @@ public class MenuController : Controller
         // so it can go back into links as is.
         var code = table == null || string.IsNullOrEmpty(k) || k.Length > 12 || !k.All(char.IsAsciiLetterOrDigit) ? null : k;
 
-        // The lookup above is case- and space-insensitive, so one menu is reachable at
-        // several spellings. Send every variant to the one canonical URL with a 301 so
+        // The lookup is case-insensitive and also accepts old links, so one menu is reachable
+        // at several addresses. Send every variant to the one canonical URL with a 301 so
         // links and ranking signals accumulate on a single address instead of scattering.
-        var canonicalSlug = SeoService.Slug(branch.Name);
-        if (!string.Equals(decodedName, canonicalSlug, StringComparison.Ordinal))
+        var canonicalSlug = branch.Slug;
+        if (!string.Equals(branchName, canonicalSlug, StringComparison.Ordinal))
         {
-            return RedirectPermanent(_seo.MenuUrl(branch.Name, lang, table, code));
+            return RedirectPermanent(_seo.MenuUrl(branch.Slug, lang, table, code));
         }
 
         // Collected before any are hidden: a guest may have saved a dish to their list
@@ -271,13 +277,14 @@ public class MenuController : Controller
     [HttpGet("menu/{branchName}/manifest.webmanifest")]
     public async Task<IActionResult> Manifest(string branchName, string? lang)
     {
-        var key = Uri.UnescapeDataString(branchName).Trim().ToLower();
-        var branch = await _context.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Name.Replace(" ", "").ToLower() == key);
+        var match = await _slugs.ResolveAsync(branchName);
+        if (match == null) return NotFound();
+        var branch = await _context.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == match.BranchId);
         if (branch == null) return NotFound();
         var languages = branch.SupportedLanguages.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         var language = lang != null && languages.Contains(lang) ? lang : null;
         var theme = BrandTheme.Parse(branch.ThemeColors);
-        var slug = SeoService.Slug(branch.Name);
+        var slug = branch.Slug;
         var icon = string.IsNullOrWhiteSpace(branch.Logo)
             ? new { src = "/logo.png", sizes = "774x774", type = "image/png", purpose = "any" }
             : new { src = branch.Logo, sizes = "any", type = branch.Logo.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ? "image/png" : branch.Logo.EndsWith(".webp", StringComparison.OrdinalIgnoreCase) ? "image/webp" : "image/jpeg", purpose = "any" };
@@ -318,14 +325,14 @@ public class MenuController : Controller
             .Select(l => l.Trim())
             .Where(l => l.Length > 0)
             .Distinct()
-            .Select(l => new SeoAlternate(l, _seo.MenuUrl(branch.Name, l)))
+            .Select(l => new SeoAlternate(l, _seo.MenuUrl(branch.Slug, l)))
             .ToList();
 
         return new SeoMetadata
         {
             Title = $"{branch.Name} — Menu",
             Description = description,
-            CanonicalUrl = _seo.MenuUrl(branch.Name, language),
+            CanonicalUrl = _seo.MenuUrl(branch.Slug, language),
             ImageUrl = string.IsNullOrWhiteSpace(image) ? null : _seo.Absolute(image),
             ImageAlt = $"{branch.Name} menu",
             OgType = "restaurant.menu",

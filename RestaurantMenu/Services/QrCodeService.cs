@@ -22,7 +22,7 @@ public class QrCodeService
 
     /// <summary>The link a code encodes. No language: guests choose theirs on the menu.</summary>
     /// <param name="code">The table's ordering code (Tables page), so the printed code can send orders.</param>
-    public string MenuLink(Branch branch, int? table, string? code = null) => _seo.MenuUrl(branch.Name, table: table, code: table == null ? null : code);
+    public string MenuLink(Branch branch, int? table, string? code = null) => _seo.MenuUrl(branch.Slug, table: table, code: table == null ? null : code);
 
     /// <summary>
     /// SVG with a viewBox and no fixed size, so CSS sizes it. Includes the white quiet

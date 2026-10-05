@@ -72,9 +72,10 @@ public class SeoService
     /// goes into canonical or hreflang URLs, which always call this without it.
     /// </summary>
     /// <paramref name="code"/> (&amp;k=) is the table's ordering code, only with a table.
-    public string MenuUrl(string branchName, string? language = null, int? table = null, string? code = null)
+    /// <paramref name="slug"/> is the branch's stored link (Branch.Slug).
+    public string MenuUrl(string slug, string? language = null, int? table = null, string? code = null)
     {
-        var url = $"{BaseUrl}/menu/{Uri.EscapeDataString(Slug(branchName))}";
+        var url = $"{BaseUrl}/menu/{Uri.EscapeDataString(slug)}";
         var query = new List<string>(2);
         if (!string.IsNullOrEmpty(language) && language != DefaultLanguage)
         {
@@ -98,12 +99,4 @@ public class SeoService
 
     /// <summary>The table number if it is one a QR code could carry, otherwise null.</summary>
     public static int? ValidTable(int? table) => table is >= 1 and <= MaxTable ? table : null;
-
-    /// <summary>
-    /// The branch's URL segment. MenuController compares names case-insensitively with
-    /// spaces stripped, so lowercasing here gives one canonical spelling per branch
-    /// instead of one per capitalisation.
-    /// </summary>
-    public static string Slug(string branchName) =>
-        branchName.Replace(" ", string.Empty).ToLowerInvariant();
 }

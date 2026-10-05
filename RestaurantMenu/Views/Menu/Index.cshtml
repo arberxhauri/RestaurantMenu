@@ -108,7 +108,7 @@
         <link rel="preload" as="image" href="@Model.Banner" fetchpriority="high" />
     }
     <partial name="_HeadAssets" />
-    <link rel="manifest" href="/menu/@SeoService.Slug(Model.Name)/manifest.webmanifest@(currentLang == "en" ? "" : $"?lang={currentLang}")" />
+    <link rel="manifest" href="/menu/@Model.Slug/manifest.webmanifest@(currentLang == "en" ? "" : $"?lang={currentLang}")" />
     <link rel="stylesheet" href="~/css/menu.css" asp-append-version="true" />
     <style>
         :root {

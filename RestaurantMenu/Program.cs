@@ -122,6 +122,7 @@ builder.Services.Configure<RouteOptions>(options => options.LowercaseUrls = true
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<SeoService>();
 builder.Services.AddScoped<QrCodeService>();
+builder.Services.AddScoped<BranchSlugs>();
 // Who may do what to a branch (owner, or staff member with a role). Used by every back-office controller.
 builder.Services.AddScoped<IBranchAccess, BranchAccess>();
 builder.Services.AddTransient<InviteMailer>();
@@ -210,6 +211,12 @@ builder.Services.AddRateLimiter(options =>
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = Math.Max(3, builder.Configuration.GetValue("Feedback:RateLimitPerIp", 10)), Window = TimeSpan.FromMinutes(10), QueueLimit = 0 }));
 
+    // Sign-in, per client address: plenty for a restaurant team sharing one Wi-Fi, too few
+    // for guessing passwords across many accounts (each account also locks after 5 misses).
+    options.AddPolicy("login", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = Math.Max(5, builder.Configuration.GetValue("Auth:LoginRateLimitPerIp", 20)), Window = TimeSpan.FromMinutes(10), QueueLimit = 0 }));
+
     // People get a page that explains, not a bare 429.
     options.OnRejected = (context, _) =>
     {
@@ -218,6 +225,11 @@ builder.Services.AddRateLimiter(options =>
         {
             http.Response.StatusCode = StatusCodes.Status303SeeOther;
             http.Response.Headers.Location = "/account/forgotpassword?busy=true";
+        }
+        else if (http.Request.Path.StartsWithSegments("/account/login", StringComparison.OrdinalIgnoreCase))
+        {
+            http.Response.StatusCode = StatusCodes.Status303SeeOther;
+            http.Response.Headers.Location = "/account/login?busy=true";
         }
         return ValueTask.CompletedTask;
     };
@@ -314,6 +326,10 @@ if (app.Configuration.GetValue("Database:AutoMigrate", true))
 {
     await DatabaseMigrator.MigrateAsync(app.Services, app.Logger);
 }
+
+// Branches made before links were stored get theirs now (once; a no-op afterwards). Not
+// caught either: without slugs no menu can be found.
+await BranchSlugs.BackfillAsync(app.Services, app.Logger);
 
 // Say in the deploy log whether emails will go out, and why not.
 using (var scope = app.Services.CreateScope())

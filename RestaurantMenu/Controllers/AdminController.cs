@@ -59,6 +59,23 @@ namespace RestaurantMenu.Controllers;
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateUser(CreateUserViewModel model)
         {
+            model.Email = model.Email?.Trim() ?? "";
+            if (ModelState.IsValid)
+            {
+                // Including removed accounts (hidden by the query filter, so Identity's own check
+                // misses them and the insert would hit the unique index): their email still
+                // belongs to them, as in TeamController.Invite.
+                var normalized = _userManager.NormalizeEmail(model.Email);
+                var existing = await _context.Users.IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(u => u.NormalizedEmail == normalized || u.NormalizedUserName == normalized);
+                if (existing != null)
+                {
+                    ModelState.AddModelError(nameof(model.Email), existing.IsDeleted
+                        ? $"This email belonged to an account that was removed{(existing.DeletedOnUtc is { } at ? $" on {at:d MMM yyyy}" : "")}. Removed accounts keep their email, so use another address."
+                        : "There's already an account with this email. To get them in, use the new invite link on the owners list, or a password reset link.");
+                    return View(model);
+                }
+            }
             if (ModelState.IsValid)
             {
                 // No password is created here. The owner sets their own through an invite link,
@@ -74,7 +91,17 @@ namespace RestaurantMenu.Controllers;
                     EmailConfirmed = false
                 };
 
-                var result = await _userManager.CreateAsync(user);
+                IdentityResult result;
+                try
+                {
+                    result = await _userManager.CreateAsync(user);
+                }
+                catch (DbUpdateException)
+                {
+                    // Someone took the email between the check above and the insert.
+                    ModelState.AddModelError(nameof(model.Email), "There's already an account with this email.");
+                    return View(model);
+                }
 
                 if (result.Succeeded)
                 {

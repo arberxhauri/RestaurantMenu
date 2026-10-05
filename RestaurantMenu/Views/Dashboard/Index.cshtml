@@ -97,7 +97,7 @@ else
     <div class="branch-grid">
         @foreach (var branch in branches)
         {
-            var slug = SeoService.Slug(branch.Name);
+            var slug = branch.Slug;
             var menuUrl = Url.Action("Index", "Menu", new { branchName = slug }, Context.Request.Scheme);
             var cats = branch.Categories?.Count ?? 0;
             var dishes = branch.Categories?.Sum(c => c.Products?.Count ?? 0) ?? 0;

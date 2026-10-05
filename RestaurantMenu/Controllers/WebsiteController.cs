@@ -55,7 +55,7 @@ public class WebsiteController : Controller
 
     private async Task<WebsitePage> PageAsync(Branch branch, BranchSite site, List<string>? errors)
     {
-        var slug = SeoService.Slug(branch.Name);
+        var slug = branch.Slug;
         var domains = await _context.Domains.AsNoTracking().Where(d => d.BranchId == branch.Id).OrderBy(d => d.Id).ToListAsync();
         var hasHours = branch.HoursEnabled && await _context.BranchHours.AnyAsync(h => h.BranchId == branch.Id);
         return new WebsitePage(branch, site, OtherLanguages(branch), domains,

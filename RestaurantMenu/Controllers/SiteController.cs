@@ -19,31 +19,35 @@ public class SiteController : Controller
     private readonly SeoService _seo;
     private readonly SiteHosts _hosts;
     private readonly IBranchAccess _access;
+    private readonly BranchSlugs _slugs;
 
-    public SiteController(ApplicationDbContext context, SeoService seo, SiteHosts hosts, IBranchAccess access)
+    public SiteController(ApplicationDbContext context, SeoService seo, SiteHosts hosts, IBranchAccess access, BranchSlugs slugs)
     {
+        _slugs = slugs;
         _context = context;
         _seo = seo;
         _hosts = hosts;
         _access = access;
     }
 
-    private Task<Branch?> BranchAsync(string slug)
+    /// <summary>The branch by its link or an old one; Index redirects old links to the current one.</summary>
+    private async Task<Branch?> BranchAsync(string slug)
     {
-        var key = Uri.UnescapeDataString(slug).Trim().ToLower();
-        return _context.Branches.AsNoTracking()
+        var match = await _slugs.ResolveAsync(slug);
+        if (match == null) return null;
+        return await _context.Branches.AsNoTracking()
             .Include(b => b.OpeningHours)
             .Include(b => b.Categories!).ThenInclude(c => c.Products)
             .AsSplitQuery()
-            .FirstOrDefaultAsync(b => b.Name.Replace(" ", "").ToLower() == key);
+            .FirstOrDefaultAsync(b => b.Id == match.BranchId);
     }
 
     /// <summary>The site's address for canonical links: its own domain, its subdomain, or /site/{slug}.</summary>
     private async Task<string> SiteUrlAsync(Branch b, string? lang)
     {
-        var host = await _hosts.PublicHostAsync(b.Id, SeoService.Slug(b.Name));
+        var host = await _hosts.PublicHostAsync(b.Id, b.Slug);
         var query = lang == null || lang == SeoService.DefaultLanguage ? "" : $"?lang={lang}";
-        return host != null ? $"https://{host}/{query}" : _seo.Url($"/site/{SeoService.Slug(b.Name)}") + query;
+        return host != null ? $"https://{host}/{query}" : _seo.Url($"/site/{b.Slug}") + query;
     }
 
     [HttpGet("site/{slug}")]
@@ -51,7 +55,7 @@ public class SiteController : Controller
     {
         var branch = await BranchAsync(slug);
         if (branch == null) return NotFound();
-        var canonicalSlug = SeoService.Slug(branch.Name);
+        var canonicalSlug = branch.Slug;
         if (!string.Equals(slug, canonicalSlug, StringComparison.Ordinal))
             return RedirectPermanent($"/site/{canonicalSlug}{Request.QueryString}");
 
@@ -90,7 +94,7 @@ public class SiteController : Controller
             FaviconUrl = string.IsNullOrWhiteSpace(branch.Logo) ? "/logo.png" : branch.Logo,
             NoIndex = preview,
             Alternates = languages.Length > 1 ? await Task.WhenAll(languages.Select(async l => new SeoAlternate(l, await SiteUrlAsync(branch, l)))) : Array.Empty<SeoAlternate>(),
-            JsonLd = StructuredData.ForBranchSite(branch, site, siteUrl, _seo.MenuUrl(branch.Name, language),
+            JsonLd = StructuredData.ForBranchSite(branch, site, siteUrl, _seo.MenuUrl(branch.Slug, language),
                 bookingSettings != null && BookingService.IsBookable(branch, bookingSettings), _seo)
         };
 

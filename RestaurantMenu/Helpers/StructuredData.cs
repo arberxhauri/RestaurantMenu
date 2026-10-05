@@ -81,7 +81,7 @@ public static class StructuredData
     /// </summary>
     public static string ForBranchMenu(Branch branch, string language, SeoService seo)
     {
-        var canonical = seo.MenuUrl(branch.Name, language);
+        var canonical = seo.MenuUrl(branch.Slug, language);
 
         var sections = new List<object>();
         foreach (var category in (branch.Categories ?? new List<Category>()).OrderBy(c => c.Priority))

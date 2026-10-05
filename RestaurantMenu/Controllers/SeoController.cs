@@ -93,7 +93,7 @@ public class SeoController : Controller
             // Google treats them as one page in several languages rather than duplicates.
             foreach (var language in languages)
             {
-                var entry = Url(ns, _seo.MenuUrl(branch.Name, language), "weekly", "0.8");
+                var entry = Url(ns, _seo.MenuUrl(branch.Slug, language), "weekly", "0.8");
 
                 if (languages.Count > 1)
                 {
@@ -102,7 +102,7 @@ public class SeoController : Controller
                         entry.Add(new XElement(xhtml + "link",
                             new XAttribute("rel", "alternate"),
                             new XAttribute("hreflang", alternate),
-                            new XAttribute("href", _seo.MenuUrl(branch.Name, alternate))));
+                            new XAttribute("href", _seo.MenuUrl(branch.Slug, alternate))));
                     }
                 }
 
@@ -111,13 +111,13 @@ public class SeoController : Controller
         }
 
         // Published websites without a domain of their own (those have their own sitemap).
-        var sites = await _context.BranchSites.Where(s => s.Enabled).Select(s => new { s.Branch!.Name, s.BranchId }).ToListAsync();
+        var sites = await _context.BranchSites.Where(s => s.Enabled).Select(s => new { s.Branch!.Slug, s.BranchId }).ToListAsync();
         var withDomain = await _context.Domains.Where(d => d.Verified).Select(d => d.BranchId).Distinct().ToListAsync();
         foreach (var site in sites.Where(s => !withDomain.Contains(s.BranchId)))
         {
             // The address the site's canonical uses: its subdomain of the wildcard domain, or /site/{slug}.
-            var host = await _hosts.PublicHostAsync(site.BranchId, SeoService.Slug(site.Name));
-            root.Add(Url(ns, host != null ? $"https://{host}/" : _seo.Url($"/site/{SeoService.Slug(site.Name)}"), "weekly", "0.9"));
+            var host = await _hosts.PublicHostAsync(site.BranchId, site.Slug);
+            root.Add(Url(ns, host != null ? $"https://{host}/" : _seo.Url($"/site/{site.Slug}"), "weekly", "0.9"));
         }
 
         var document = new XDocument(new XDeclaration("1.0", "utf-8", null), root);

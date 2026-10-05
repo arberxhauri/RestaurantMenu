@@ -25,6 +25,8 @@ namespace RestaurantMenu.Controllers;
         private readonly QrCodeService _qr;
         private readonly IBranchAccess _access;
         private readonly FeedbackService _feedback;
+        private readonly BranchSlugs _slugs;
+        private readonly SiteHosts _hosts;
         
         public BranchController(
             ApplicationDbContext context,
@@ -34,8 +36,12 @@ namespace RestaurantMenu.Controllers;
             IConfiguration config,
             QrCodeService qr,
             IBranchAccess access,
-            FeedbackService feedback)
+            FeedbackService feedback,
+            BranchSlugs slugs,
+            SiteHosts hosts)
         {
+            _slugs = slugs;
+            _hosts = hosts;
             _feedback = feedback;
             _context = context;
             _userManager = userManager;
@@ -84,12 +90,11 @@ public async Task<IActionResult> Create(Branch branch, IFormFile? logo, IFormFil
         return RedirectToAction("Index", "Dashboard");
     }
 
-    var nameExists = await _context.Branches
-        .AnyAsync(b => b.Name.ToLower() == branch.Name.ToLower() && !b.IsDeleted);
-
-    if (nameExists)
+    // Names are free across the platform (two "Oliva" in different cities each get their own
+    // link); one owner just can't have two live branches called the same.
+    if (await OwnerHasNameAsync(user.Id, branch.Name, null))
     {
-        ModelState.AddModelError("Name", "This branch name is already taken.");
+        ModelState.AddModelError("Name", "You already have a branch with this name. Add the area, e.g. \"Oliva Blloku\".");
     }
 
     branch.UserId = user.Id;
@@ -110,6 +115,8 @@ public async Task<IActionResult> Create(Branch branch, IFormFile? logo, IFormFil
     
     ModelState.Remove("UserId");
     ModelState.Remove("User");
+    // The link is set from the name on the server, never posted.
+    ModelState.Remove("Slug");
 
     if (ModelState.IsValid)
     {
@@ -126,10 +133,12 @@ public async Task<IActionResult> Create(Branch branch, IFormFile? logo, IFormFil
         }
 
         branch.OpeningHours = hours;
+        await _slugs.AssignAsync(branch);
         _context.Branches.Add(branch);
-        await _context.SaveChangesAsync();
+        await _slugs.SaveAsync(branch);
+        _hosts.Invalidate();
 
-        TempData["Success"] = "Branch created successfully!";
+        TempData["Success"] = $"Branch created. Its menu link is /menu/{branch.Slug}.";
         return RedirectToAction("Index", "Dashboard");
     }
 
@@ -233,16 +242,15 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
         return NotFound();
     }
 
-    var nameExists = await _context.Branches
-        .AnyAsync(b => b.Name.ToLower() == branch.Name.ToLower() && b.Id != branch.Id && !b.IsDeleted);
-
-    if (nameExists)
+    if (await OwnerHasNameAsync(existingBranch.UserId, branch.Name, existingBranch.Id))
     {
-        ModelState.AddModelError("Name", "This branch name is already taken.");
+        ModelState.AddModelError("Name", "This owner already has a branch with this name. Add the area, e.g. \"Oliva Blloku\".");
     }
 
     ModelState.Remove("UserId");
     ModelState.Remove("User");
+    // The link is set from the name on the server, never posted.
+    ModelState.Remove("Slug");
 
     var hoursForm = OpeningHours.FromForm(form);
     var hours = ApplyHours(branch, hoursForm);
@@ -250,6 +258,7 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
 
     if (ModelState.IsValid)
     {
+        var oldName = existingBranch.Name;
         existingBranch.Name = branch.Name;
         existingBranch.Address = branch.Address;
         existingBranch.PhoneNumber = branch.PhoneNumber;
@@ -297,9 +306,14 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
             existingBranch.Banner = await SaveImage(banner, "banners");
         }
 
-        await _context.SaveChangesAsync();
+        // A new name may mean a new link; the old one keeps working (QR codes already printed).
+        var oldSlug = await _slugs.RenameAsync(existingBranch, oldName);
+        await _slugs.SaveAsync(existingBranch);
+        if (oldSlug != null) _hosts.Invalidate();
 
-        TempData["Success"] = "Branch updated successfully!";
+        TempData["Success"] = oldSlug == null
+            ? "Branch updated successfully!"
+            : $"Branch updated. Its menu link is now /menu/{existingBranch.Slug}; the old link /menu/{oldSlug} and QR codes already printed still open it.";
         return RedirectToAction("Details", new { id = existingBranch.Id });
     }
 
@@ -413,7 +427,7 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
             var code = table == null ? null
                 : await _context.Tables.Where(t => t.BranchId == branch.Id && t.Number == table).Select(t => t.Code).FirstOrDefaultAsync();
             var link = _qr.MenuLink(branch, table, code);
-            var fileName = $"{SeoService.Slug(branch.Name)}-{(table == null ? "menu" : $"table-{table}")}-qr.{format}";
+            var fileName = $"{branch.Slug}-{(table == null ? "menu" : $"table-{table}")}-qr.{format}";
 
             // Changes when the branch is renamed or the table gets a new ordering code.
             Response.Headers.CacheControl = "private, no-cache";
@@ -588,10 +602,10 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
                 return RedirectToAction("Index", "Dashboard");
             }
 
-            var nameTaken = await _context.Branches.AnyAsync(b => b.Name.ToLower() == branch.Name.ToLower());
-            if (nameTaken)
+            // Its link was kept while it was deleted (slugs stay reserved), so it comes back as it was.
+            if (await OwnerHasNameAsync(user.Id, branch.Name, branch.Id))
             {
-                TempData["Error"] = $"{branch.Name} can't be restored because another branch now uses that name.";
+                TempData["Error"] = $"{branch.Name} can't be restored because another of your branches now has that name. Rename that one first.";
                 return RedirectToAction("Index", "Dashboard");
             }
 
@@ -601,6 +615,13 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
 
             TempData["Success"] = $"{branch.Name} is back and its menu is online again.";
             return RedirectToAction("Index", "Dashboard");
+        }
+
+        /// <summary>Whether this owner already has a live branch with this name (any capitalisation).</summary>
+        private Task<bool> OwnerHasNameAsync(string ownerId, string? name, int? exceptId)
+        {
+            var n = (name ?? "").Trim().ToLower();
+            return _context.Branches.AnyAsync(b => b.UserId == ownerId && b.Id != exceptId && b.Name.Trim().ToLower() == n);
         }
 
         /// <summary>

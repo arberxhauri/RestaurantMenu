@@ -372,6 +372,28 @@ Housekeeping after item 19, so what the site says matches what the app does.
 - **Translation review:** `docs/translations/review-{sq,it,de,fr,es,tr}.csv`, one sheet per language with all 186 guest phrases and columns for the reviewer. Instructions in `docs/translations/README.md`.
 - **Also fixed:** `Program.cs` no longer builds a second service provider to get the soft-delete interceptor (warning ASP0000).
 
+### 21. Stored menu links (slugs): done
+First items of phase 0 in `docs/PLAN-signup-payments.md`. Before this, a branch's link was its name with spaces removed and was looked up by scanning names, so "Oliva Kitchen" and "OlivaKitchen" shared /menu/olivakitchen (either could open), and "Oliver's Italian" was /menu/oliver%27sitalian.
+
+- **Data:** `Branch.Slug` (unique across all branches, deleted ones included, so a closed restaurant's QR code never opens someone else's menu) and `BranchSlugAlias` (old links, unique). Migration `AddBranchSlugs`, additive. `Slug` stays nullable in the database for this deploy; **next deploy:** a migration that fills any NULL (`'branch-' || "Id"`) and makes it NOT NULL.
+- **Rules** (`Helpers/SlugRules.cs`, tested in `SlugRulesTests`): lowercase ASCII, accents dropped (ë→e, ç→c), apostrophes removed, everything else to single hyphens, 3 to 60 characters, a reserved list (`order`, `admin`, `www`, `billing`…), and `-2`, `-3` when taken. "Oliver's Italian" → `olivers-italian`.
+- **Lookup** (`Services/BranchSlugs.cs`): by indexed slug, then by old link. `/menu`, `/menu/{slug}/manifest.webmanifest`, `/book`, `/site`, subdomains and own domains all go through it. Any other spelling (old link, other capitalisation, `%27`) gets a 301 to the current link, keeping `?lang`, `?t` and `?k`, so printed QR codes keep working. Old subdomains send a 301 to the current subdomain.
+- **Backfill at startup** (`BranchSlugs.BackfillAsync`, after migrations, advisory lock, a no-op once done): live branches first, then the oldest first, so the restaurant that had a link longest keeps the plain one. Each branch's name-based link becomes an old link. Every decision is logged as `Branch links: …`, with a warning for suffixes and for old links two branches shared. **On the first production deploy, read those lines** and check `BranchSlugAliases`.
+- **Create and rename:** a new branch gets the first free slug. A rename changes the link only when the name asks for a different one ("Oliva" → "OLIVA" keeps it). The old slug becomes an old link, and renaming back takes it back. The success message and the form say so. A clash at save time (two creates at once) retries with the next suffix.
+- **Names are no longer unique across the platform** (migration `BranchNamesNotUnique` drops `IX_Branches_Name`, `IF EXISTS`). Two restaurants called "Oliva" each get their own link (`oliva`, `oliva-2`). One owner still can't have two live branches with the same name (create, rename and restore check it), so their dashboard stays readable. A deleted branch comes back with its own link, because its link stays reserved.
+
+### 22. Account safety before signup: done
+Rest of phase 0 in `docs/PLAN-signup-payments.md`.
+
+- **Admin → New owner** checks every account, removed ones included (`IgnoreQueryFilters`, as Team invite does). A removed account's email gets "This email belonged to an account that was removed on …", and an existing one gets a pointer to the invite or reset link. Before, both ended in a database error (500). A race at insert time gets the same message.
+- **Sign-in:**
+  - **Lockout:** 5 wrong passwords in a row lock the account for 5 minutes, with a message saying so. Resetting the password lifts the lock. The migration switches lockout on for any account that had it off.
+  - **Rate limit:** the `login` policy allows 20 attempts per 10 minutes per client address (`Auth__LoginRateLimitPerIp`). Past that, a "Too many sign-in attempts" message.
+  - **Antiforgery:** the form needs its antiforgery token, like the other account forms.
+- **Trade-offs to know:**
+  - The lock message tells someone guessing that the email has an account. The rate limit keeps that slow.
+  - Anyone who knows an email can keep that account locked by guessing wrong. The owner can still get in by resetting the password. The admin needs email set up for that, or another admin's reset link.
+
 ---
 
 ## Suggested order

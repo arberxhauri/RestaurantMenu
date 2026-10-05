@@ -1,3 +1,4 @@
+using RestaurantMenu.Helpers;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,6 +12,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     }
 
     public DbSet<Branch> Branches { get; set; }
+    public DbSet<BranchSlugAlias> BranchSlugAliases { get; set; }
     public DbSet<Category> Categories { get; set; }
     public DbSet<Product> Products { get; set; }
     public DbSet<MenuEvent> MenuEvents { get; set; }
@@ -70,13 +72,6 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<Product>()
             .HasQueryFilter(p => !p.IsDeleted);
 
-        // Unique among live branches only: a deleted branch must not block its name,
-        // since the name is also the menu URL.
-        builder.Entity<Branch>()
-            .HasIndex(b => b.Name)
-            .IsUnique()
-            .HasFilter("\"IsDeleted\" = false");
-
         // Analytics: every report reads one branch over a date range. No foreign keys on
         // purpose: events outlive soft-deleted dishes, and an insert must never fail
         // because of the state of the menu.
@@ -96,6 +91,23 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.HasIndex(h => new { h.BranchId, h.DayOfWeek });
             // Matches the Branch filter: a deleted branch's hours are never read on their own.
             e.HasQueryFilter(h => !h.Branch!.IsDeleted);
+        });
+
+        // Menu links. Unique across every branch, deleted ones included (see Branch.Slug).
+        // Nullable in the database for one deploy: rows are filled at startup, and a later
+        // migration makes it NOT NULL.
+        builder.Entity<Branch>(e =>
+        {
+            e.Property(b => b.Slug).HasMaxLength(SlugRules.MaxLength).IsRequired(false);
+            e.HasIndex(b => b.Slug).IsUnique();
+        });
+        builder.Entity<BranchSlugAlias>(e =>
+        {
+            e.Property(a => a.Slug).HasMaxLength(200);
+            e.HasIndex(a => a.Slug).IsUnique();
+            e.HasIndex(a => a.BranchId);
+            e.HasOne(a => a.Branch).WithMany(b => b.SlugAliases).HasForeignKey(a => a.BranchId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(a => !a.Branch!.IsDeleted);
         });
 
         builder.Entity<Branch>()

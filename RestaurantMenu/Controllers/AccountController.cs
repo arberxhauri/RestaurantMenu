@@ -37,12 +37,22 @@ public class AccountController : Controller
     }
 
     [HttpGet]
-    public IActionResult Login()
+    public IActionResult Login(bool busy = false)
     {
+        // Sent here by the "login" rate limit (Program.cs).
+        if (busy)
+        {
+            ModelState.AddModelError("", "Too many sign-in attempts from this connection. Wait a few minutes and try again.");
+        }
         return View();
     }
 
+    // Two guards against password guessing: the "login" rate limit per client address, and
+    // Identity's lockout per account (5 wrong passwords in a row lock it for 5 minutes, see
+    // Program.cs). Resetting the password lifts the lock (ResetPassword).
     [HttpPost]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting("login")]
     public async Task<IActionResult> Login(LoginViewModel model)
     {
         if (ModelState.IsValid)
@@ -51,7 +61,15 @@ public class AccountController : Controller
             if (user != null)
             {
                 var result = await _signInManager.PasswordSignInAsync(
-                    user.UserName, model.Password, model.RememberMe, false);
+                    user.UserName!, model.Password, model.RememberMe, lockoutOnFailure: true);
+
+                if (result.IsLockedOut)
+                {
+                    var end = await _userManager.GetLockoutEndDateAsync(user);
+                    var minutes = end == null ? 5 : Math.Max(1, (int)Math.Ceiling((end.Value - DateTimeOffset.UtcNow).TotalMinutes));
+                    ModelState.AddModelError("", $"Too many wrong passwords, so this account is locked for {minutes} minute{(minutes == 1 ? "" : "s")}. Try again then, or reset your password to get in now.");
+                    return View(model);
+                }
 
                 if (result.Succeeded)
                 {

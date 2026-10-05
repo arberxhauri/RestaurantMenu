@@ -45,7 +45,7 @@ public class BookingsController : Controller
     private IActionResult BackToDay(int id, DateOnly date, string? anchor = null) =>
         Redirect(Url.Action(nameof(Index), new { id, date = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) }) + (anchor == null ? "" : "#" + anchor));
 
-    public string BookingUrl(Branch b) => _seo.Url("/book/" + SeoService.Slug(b.Name));
+    public string BookingUrl(Branch b) => _seo.Url("/book/" + b.Slug);
 
     // ---------------------------------------------------------------- day view
 
@@ -275,7 +275,7 @@ public class BookingsController : Controller
     {
         var branch = await BranchAsync(id, BranchPermission.EditBranch);
         if (branch == null) return NotFound();
-        return File(_qr.Png(BookingUrl(branch)), "image/png", $"{SeoService.Slug(branch.Name)}-booking-qr.png");
+        return File(_qr.Png(BookingUrl(branch)), "image/png", $"{branch.Slug}-booking-qr.png");
     }
 }
 

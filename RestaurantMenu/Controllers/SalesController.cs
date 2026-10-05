@@ -114,7 +114,7 @@ public class SalesController : Controller
         foreach (var d in list)
             sb.Append($"{d.Date:yyyy-MM-dd},{d.Orders},{d.Items},{d.Revenue.ToString("0.00", inv)},{d.Cancelled},{d.Cash?.ToString("0.00", inv)},{d.Card?.ToString("0.00", inv)},{Q(d.ClosedBy)},{Q(d.CloseNote)}\r\n");
         return File(Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(sb.ToString())).ToArray(), "text/csv; charset=utf-8",
-            $"{SeoService.Slug(branch.Name)}-sales-{today:yyyy-MM-dd}.csv");
+            $"{branch.Slug}-sales-{today:yyyy-MM-dd}.csv");
     }
 }
 

@@ -8,7 +8,7 @@
     var dishCount = categories.Sum(c => c.Products?.Count ?? 0);
     var soldOutCount = categories.Sum(c => c.Products?.Count(p => !p.IsAvailable) ?? 0);
     var undeclaredCount = categories.Sum(c => c.Products?.Count(p => p.Allergens == null) ?? 0);
-    var menuUrl = Url.Action("Index", "Menu", new { branchName = SeoService.Slug(Model.Name) }, Context.Request.Scheme);
+    var menuUrl = Url.Action("Index", "Menu", new { branchName = Model.Slug }, Context.Request.Scheme);
     var languages = Model.SupportedLanguages.Split(',', StringSplitOptions.RemoveEmptyEntries);
     // Only what this person may do is shown; every action checks again on the server.
     var role = ViewBag.Role is BranchRole r ? r : BranchRole.None;

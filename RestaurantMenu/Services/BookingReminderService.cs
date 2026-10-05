@@ -71,7 +71,7 @@ public class BookingReminderService : BackgroundService
             if (!claimed) continue;
             var branch = await db.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == r.BranchId, ct);
             if (branch == null) continue;
-            var link = _baseUrl != null ? $"{_baseUrl}/book/{SeoService.Slug(branch.Name)}/r/{r.PublicId}" : branch.PhoneNumber;
+            var link = _baseUrl != null ? $"{_baseUrl}/book/{branch.Slug}/r/{r.PublicId}" : branch.PhoneNumber;
             bookings.NotifyGuest(branch, r, BookingService.MessageKind.Reminder, link);
             sent++;
         }

@@ -10,7 +10,7 @@
     var r = Model.Reservation;
     var lang = Model.Language;
     var w = BookingText.For(lang);
-    var slug = SeoService.Slug(b.Name);
+    var slug = b.Slug;
     var theme = BrandTheme.Parse(b.ThemeColors);
     var themeClass = theme.Appearance switch { "light" => "theme-light", "dark" => "theme-dark", _ => "" };
     var active = !Model.IsPast && r.Status is ReservationStatus.Pending or ReservationStatus.Confirmed;

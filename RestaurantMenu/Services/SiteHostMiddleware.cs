@@ -76,6 +76,14 @@ public class SiteHostMiddleware
             return;
         }
 
+        // An old subdomain (the branch was renamed, or had a name-based link before links were
+        // stored): on to the current one.
+        if (!target.IsCustomDomain && !string.Equals(host, target.Host, StringComparison.OrdinalIgnoreCase))
+        {
+            context.Response.Redirect($"https://{target.Host}{context.Request.PathBase}{path}{context.Request.QueryString}", permanent: true);
+            return;
+        }
+
         var slug = target.Slug;
         string? rewrite = path switch
         {

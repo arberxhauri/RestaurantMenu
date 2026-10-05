@@ -208,7 +208,7 @@
                         {
                             <li>
                                 <a class="partner-logo" asp-controller="Menu" asp-action="Index"
-                                   asp-route-branchName="@SeoService.Slug(branch.Name)"
+                                   asp-route-branchName="@branch.Slug"
                                    target="_blank" rel="noopener" title="@branch.Name menu">
                                     <img src="@branch.Logo" alt="@branch.Name" width="140" height="64" loading="lazy" />
                                 </a>

@@ -23,19 +23,23 @@ public class BookController : Controller
     private readonly ApplicationDbContext _context;
     private readonly BookingService _bookings;
     private readonly SeoService _seo;
+    private readonly BranchSlugs _slugs;
 
-    public BookController(ApplicationDbContext context, BookingService bookings, SeoService seo)
+    public BookController(ApplicationDbContext context, BookingService bookings, SeoService seo, BranchSlugs slugs)
     {
+        _slugs = slugs;
         _context = context;
         _bookings = bookings;
         _seo = seo;
     }
 
-    private Task<Branch?> BranchAsync(string slug)
+    /// <summary>The branch by its link or an old one; Index redirects old links to the current one.</summary>
+    private async Task<Branch?> BranchAsync(string slug)
     {
-        var key = Uri.UnescapeDataString(slug).Trim().ToLower();
-        return _context.Branches.AsNoTracking().Include(b => b.OpeningHours)
-            .FirstOrDefaultAsync(b => b.Name.Replace(" ", "").ToLower() == key);
+        var match = await _slugs.ResolveAsync(slug);
+        if (match == null) return null;
+        return await _context.Branches.AsNoTracking().Include(b => b.OpeningHours)
+            .FirstOrDefaultAsync(b => b.Id == match.BranchId);
     }
 
     private static string Language(Branch b, string? lang)
@@ -49,7 +53,7 @@ public class BookController : Controller
     {
         var branch = await BranchAsync(slug);
         if (branch == null) return NotFound();
-        var canonical = SeoService.Slug(branch.Name);
+        var canonical = branch.Slug;
         if (!string.Equals(slug, canonical, StringComparison.Ordinal))
         {
             return RedirectPermanent($"/book/{canonical}{Request.QueryString}");
@@ -132,7 +136,7 @@ public class BookController : Controller
         var result = await _bookings.BookAsync(branch, form, DateTime.UtcNow);
         if (result.Reservation != null)
         {
-            var url = $"/book/{SeoService.Slug(branch.Name)}/r/{result.Reservation.PublicId}";
+            var url = $"/book/{branch.Slug}/r/{result.Reservation.PublicId}";
             if (!wantsJson) TempData["JustBooked"] = true;
             return wantsJson ? Ok(new { ok = true, url }) : Redirect(url);
         }
@@ -169,7 +173,7 @@ public class BookController : Controller
         if (branch == null || r == null) return NotFound();
         Response.Headers.CacheControl = "no-store";
         ViewBag.JustBooked = TempData["JustBooked"] is true;
-        return View(new ReservationPage(branch, r, r.Language, r.StartsAtUtc <= DateTime.UtcNow, _seo.MenuUrl(branch.Name, r.Language == "en" ? null : r.Language)));
+        return View(new ReservationPage(branch, r, r.Language, r.StartsAtUtc <= DateTime.UtcNow, _seo.MenuUrl(branch.Slug, r.Language == "en" ? null : r.Language)));
     }
 
     [HttpGet("book/{slug}/r/{id:guid}/calendar.ics")]
@@ -178,7 +182,7 @@ public class BookController : Controller
         var (branch, r) = await ReservationAsync(slug, id);
         if (branch == null || r == null) return NotFound();
         var ics = BookingRules.Ics(r, branch.Name, branch.Address, _bookings.GuestLink(branch, r));
-        return File(System.Text.Encoding.UTF8.GetBytes(ics), "text/calendar; charset=utf-8", $"{SeoService.Slug(branch.Name)}-booking.ics");
+        return File(System.Text.Encoding.UTF8.GetBytes(ics), "text/calendar; charset=utf-8", $"{branch.Slug}-booking.ics");
     }
 
     [HttpPost("book/{slug}/r/{id:guid}/cancel")]
@@ -189,7 +193,7 @@ public class BookController : Controller
         var (branch, r) = await ReservationAsync(slug, id);
         if (branch == null || r == null) return NotFound();
         await _bookings.CancelByGuestAsync(branch, r, DateTime.UtcNow);
-        return Redirect($"/book/{SeoService.Slug(branch.Name)}/r/{id}");
+        return Redirect($"/book/{branch.Slug}/r/{id}");
     }
 }
 
