@@ -492,6 +492,25 @@ Phase 2 of `docs/PLAN-signup-payments.md`. A restaurant picks modules, signs up,
   3. Optionally set `Signup__NotifyEmail`.
 - **Not yet:** paying. "Contact us" links stand in for checkout until phase 3.
 
+### 25. Plans and prices in the database: done
+The plan settings, signup switches and prices were env vars (`Billing__…`, `Signup__…`). Now they live in the database and are edited in **Admin → Plans & prices** (sidebar), applying on the next click with no deploy.
+
+- **Data** (migration `PlanSettingsInDatabase`, additive):
+  - `PlanSettings`, one row: currency, trial days, staff per branch, grace days, signup on/off, approval on/off, who saved it and when, and an xmin token so two admins can't overwrite each other.
+  - `PriceBook` gains `Withdrawn` and `ChangedById`.
+- **One reader** (`Services/PlanSettingsService.cs`): settings and current prices, loaded once per request and never cached across requests, so every instance agrees. Entitlements (seats, grace), subscriptions (currency, trial length), signup (open, approval, trial) and the pricing page all go through it.
+- **Prices:**
+  - Typed per module, monthly and yearly ("15", "15.50", "15,50"; `MoneyInput`, tested). An empty box means "price on request".
+  - A change adds a dated row with who made it; the old price stays as history, listed on the page. Existing subscriptions keep the price they were sold at.
+  - The page shows the yearly saving ("2 months free") as you type in values.
+- **Environment variables only seed the first start:** the settings row comes from `Billing__…`/`Signup__…`, and prices from `Billing__Prices__…` only while the price book is empty. After that they're ignored, and the log says so.
+- **Checked end to end** with no signup or price env vars:
+  - The settings row is created at startup and signup is off (`/pricing` 404).
+  - Switched on in the admin: `/pricing` opens with the new trial length and prices. Bad amounts are refused, a cleared price shows "price on request", and unticking approval saves.
+  - Restarting with conflicting env vars changes nothing.
+  - A new signup gets the database's 21-day trial without approval.
+- **On Render:** nothing to set for plans or prices. Email (`Email__…`) and `Seo__BaseUrl` are still env vars, since they're secrets and infrastructure.
+
 ---
 
 ## Suggested order

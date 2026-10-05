@@ -5,7 +5,11 @@ using RestaurantMenu.Models;
 
 namespace RestaurantMenu.Services;
 
-/// <summary>Plan settings, bound from "Billing" (env vars Billing__SeatsPerBranch, Billing__Prices__Menu__Month, ...).</summary>
+/// <summary>
+/// The seed for the plan settings and prices on the very first start, bound from "Billing"
+/// (env vars Billing__SeatsPerBranch, Billing__Prices__Menu__Month, ...). After that the database
+/// is the source (PlanSettingsService, Admin → Plans &amp; prices) and these are not read.
+/// </summary>
 public class BillingOptions
 {
     /// <summary>Staff accounts included per branch on plans that aren't legacy.</summary>
@@ -20,8 +24,6 @@ public class BillingOptions
     /// the PriceBook table at startup when they change (BillingSetup); unset modules have no price.
     /// </summary>
     public Dictionary<string, Dictionary<string, int>> Prices { get; set; } = new();
-
-    public BillingDefaults Defaults => new(Math.Max(0, SeatsPerBranch), Math.Max(0, GraceDays));
 }
 
 /// <summary>
@@ -44,22 +46,22 @@ public interface IEntitlementService
 public class EntitlementService : IEntitlementService
 {
     private readonly ApplicationDbContext _db;
-    private readonly BillingDefaults _defaults;
+    private readonly PlanSettingsService _settings;
     private readonly Dictionary<string, Entitlements> _owners = new();
     private readonly Dictionary<string, IReadOnlySet<int>> _paused = new();
     private readonly Dictionary<int, BranchEntitlements?> _branches = new();
 
-    public EntitlementService(ApplicationDbContext db, IOptions<BillingOptions> options)
+    public EntitlementService(ApplicationDbContext db, PlanSettingsService settings)
     {
         _db = db;
-        _defaults = options.Value.Defaults;
+        _settings = settings;
     }
 
     public async Task<Entitlements> ForOwnerAsync(string ownerId)
     {
         if (_owners.TryGetValue(ownerId, out var cached)) return cached;
         var snapshot = await SnapshotAsync(_db, ownerId);
-        var e = EntitlementRules.Compute(snapshot, DateTime.UtcNow, _defaults);
+        var e = EntitlementRules.Compute(snapshot, DateTime.UtcNow, await _settings.DefaultsAsync());
         _owners[ownerId] = e;
         return e;
     }

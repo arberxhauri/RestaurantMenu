@@ -1,0 +1,141 @@
+@using RestaurantMenu.Helpers
+@using RestaurantMenu.ViewModels
+@model RestaurantMenu.ViewModels.PricesPage
+@{
+    ViewData["Title"] = "Plans & prices";
+    var f = Model.Form;
+    var modules = EntitlementRules.AllModules.Where(m => m != BillingModule.Sms).ToList();
+    string Money(int cents, string currency) => PricingRules.Money(cents, currency);
+}
+
+<header class="page-head">
+    <div>
+        <h1>Plans &amp; prices</h1>
+        <p>Everything here is kept in the database and applies on the next click, no deploy needed. Last saved @Model.UpdatedUtc.ToString("d MMM yyyy HH:mm") UTC@(Model.UpdatedBy == null ? "" : " by " + Model.UpdatedBy).</p>
+    </div>
+    @if (f.SignupEnabled && Model.EmailWorks)
+    {
+        <div class="page-actions"><a class="btn btn-outline-secondary" href="/pricing" target="_blank" rel="noopener"><i class="ph ph-arrow-square-out" aria-hidden="true"></i>Open the pricing page</a></div>
+    }
+</header>
+
+<form asp-action="Prices" method="post" class="form-layout">
+    <input type="hidden" name="Version" value="@f.Version" />
+    <div class="panel">
+        @if (Model.Errors is { Count: > 0 })
+        {
+            <div class="flash flash--danger m-4 mb-0" role="alert"><i class="ph ph-warning-octagon" aria-hidden="true"></i><p>@string.Join(" ", Model.Errors)</p></div>
+        }
+
+        <section class="form-section">
+            <h2>Signup</h2>
+            <p>Self-serve signup at /pricing and /signup. Restaurants start with a free trial of the modules they pick.</p>
+            @if (!Model.EmailWorks)
+            {
+                <div class="flash flash--warn mb-3" role="status"><i class="ph ph-warning" aria-hidden="true"></i><p>Email isn't set up, so signup stays closed even when switched on (new accounts confirm their email to get in). @Model.EmailProblem</p></div>
+            }
+            <div class="d-grid gap-2">
+                <label class="form-check">
+                    <input class="form-check-input" type="checkbox" name="SignupEnabled" value="true" @(f.SignupEnabled ? "checked" : "") />
+                    <span class="form-check-label"><strong>Signup open</strong> <span class="text-muted">Off: /pricing doesn't exist, /signup says "contact us", the landing keeps "Get in touch".</span></span>
+                </label>
+                <label class="form-check">
+                    <input class="form-check-input" type="checkbox" name="SignupRequireApproval" value="true" @(f.SignupRequireApproval ? "checked" : "") />
+                    <span class="form-check-label"><strong>I approve each new account</strong> <span class="text-muted">After confirming their email they wait in User management → Waiting for approval.</span></span>
+                </label>
+            </div>
+        </section>
+
+        <section class="form-section">
+            <h2>Plan settings</h2>
+            <div class="fields">
+                <div>
+                    <label for="Currency" class="form-label">Currency</label>
+                    <input id="Currency" name="Currency" value="@f.Currency" class="form-control mono" maxlength="3" autocomplete="off" spellcheck="false" />
+                    <span class="hint">3 letters, e.g. EUR or ALL. Prices below are in this currency; changing it starts a new price list.</span>
+                </div>
+                <div>
+                    <label for="TrialDays" class="form-label">Free trial (days)</label>
+                    <input id="TrialDays" name="TrialDays" type="number" min="1" max="365" value="@f.TrialDays" class="form-control tabular" inputmode="numeric" />
+                    <span class="hint">From when the account opens. Trials already running keep their end date.</span>
+                </div>
+                <div>
+                    <label for="SeatsPerBranch" class="form-label">Team members per branch</label>
+                    <input id="SeatsPerBranch" name="SeatsPerBranch" type="number" min="0" max="100" value="@f.SeatsPerBranch" class="form-control tabular" inputmode="numeric" />
+                    <span class="hint">Included in every plan except legacy. Can be changed per owner on their Plan page.</span>
+                </div>
+                <div>
+                    <label for="GraceDays" class="form-label">Grace days after a missed payment</label>
+                    <input id="GraceDays" name="GraceDays" type="number" min="0" max="90" value="@f.GraceDays" class="form-control tabular" inputmode="numeric" />
+                    <span class="hint">Then the back office becomes read-only. Menus always stay online.</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="form-section">
+            <h2>Prices</h2>
+            <p>Without VAT, per branch unless noted. Leave a box empty for "price on request". A change applies to new subscriptions and renewals; existing ones keep the price they were sold at.</p>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr><th scope="col">Module</th><th scope="col">Monthly (@f.Currency)</th><th scope="col">Yearly (@f.Currency)</th><th scope="col">Yearly saving</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var m in modules)
+                        {
+                            var monthKey = PlanSettingsForm.Key(m, BillingInterval.Month);
+                            var yearKey = PlanSettingsForm.Key(m, BillingInterval.Year);
+                            var month = f.Prices.GetValueOrDefault(monthKey);
+                            var year = f.Prices.GetValueOrDefault(yearKey);
+                            string? saving = null;
+                            if (MoneyInput.TryParseCents(month, out var mc) && MoneyInput.TryParseCents(year, out var yc) && mc is > 0 && yc is { } y && mc * 12 > y)
+                            {
+                                saving = $"{Money(mc.Value * 12 - y, f.Currency)} ({Math.Round((mc.Value * 12 - y) / (decimal)mc.Value, 1).ToString(System.Globalization.CultureInfo.InvariantCulture)} months free)";
+                            }
+                            <tr>
+                                <th scope="row">
+                                    @EntitlementRules.Name(m)
+                                    <small class="d-block text-muted">@(m == BillingModule.Menu ? "always included" : m == BillingModule.OwnDomain ? "per domain, needs Website" : "per branch")</small>
+                                </th>
+                                <td><input name="Prices[@monthKey]" value="@month" class="form-control tabular" inputmode="decimal" placeholder="—" aria-label="@EntitlementRules.Name(m) monthly" /></td>
+                                <td><input name="Prices[@yearKey]" value="@year" class="form-control tabular" inputmode="decimal" placeholder="—" aria-label="@EntitlementRules.Name(m) yearly" /></td>
+                                <td class="text-muted small">@saving</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary"><i class="ph ph-check" aria-hidden="true"></i>Save</button>
+    </div>
+</form>
+
+<section class="mt-4" aria-labelledby="price-history">
+    <h2 id="price-history" class="section-head">Price history</h2>
+    @if (Model.History.Count == 0)
+    {
+        <p class="text-muted">No prices yet.</p>
+    }
+    else
+    {
+        <div class="table-responsive panel">
+            <table class="data-table">
+                <thead><tr><th scope="col">From (UTC)</th><th scope="col">Module</th><th scope="col">Billing</th><th scope="col">Price</th><th scope="col">By</th></tr></thead>
+                <tbody>
+                    @foreach (var p in Model.History)
+                    {
+                        <tr>
+                            <td class="text-nowrap tabular">@p.ValidFromUtc.ToString("d MMM yyyy HH:mm")</td>
+                            <td>@EntitlementRules.Name(p.Module)</td>
+                            <td>@(p.Interval == BillingInterval.Year ? "Yearly" : "Monthly")</td>
+                            <td class="tabular">@(p.Withdrawn ? "No price (on request)" : Money(p.UnitAmountCents, p.Currency))</td>
+                            <td>@(p.ChangedById == null ? "Configuration (first start)" : Model.Actors.GetValueOrDefault(p.ChangedById, "Removed account"))</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>

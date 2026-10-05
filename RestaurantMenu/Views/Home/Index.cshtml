@@ -2,7 +2,7 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IConfiguration Configuration
 @inject RestaurantMenu.Services.SignupService Signup
-@inject RestaurantMenu.Services.SubscriptionService Subscriptions
+@inject RestaurantMenu.Services.PlanSettingsService PlanSettings
 @using RestaurantMenu.Helpers
 @{
     ViewData["Title"] = "Menus, websites & bookings for restaurants";
@@ -17,16 +17,18 @@
     // pricing page; otherwise accounts are created by an admin, so they're sent to whoever
     // sets them up (Landing__ContactUrl: a mailto:, a form or a WhatsApp link).
     var contactUrl = Configuration["Landing:ContactUrl"] is { Length: > 0 } configured ? configured : "https://4cs.al/";
-    var signupOpen = !isSignedIn && Signup.IsOpen;
+    var signupOpen = !isSignedIn && await Signup.IsOpenAsync();
+    var trialDays = signupOpen ? await Signup.TrialDaysAsync() : 0;
     var ctaLabel = isSignedIn ? "Go to dashboard" : signupOpen ? "Start free trial" : "Get in touch";
     var ctaHref = isSignedIn ? Url.Action("Index", "Dashboard") : signupOpen ? "/pricing" : contactUrl;
     var trialWords = SignupText.For("en");
     var presetQuotes = new List<(string Key, Quote Quote)>();
     if (signupOpen)
     {
-        var prices = await Subscriptions.PriceTableAsync(DateTime.UtcNow);
+        var prices = await PlanSettings.PriceTableAsync(DateTime.UtcNow);
+        var currency = (await PlanSettings.GetAsync()).Currency;
         foreach (var p in PricingRules.Presets)
-            presetQuotes.Add((p.Key, PricingRules.Quote(PricingRules.Parse(null, "1", "Month", p.Key), prices, Subscriptions.Currency)));
+            presetQuotes.Add((p.Key, PricingRules.Quote(PricingRules.Parse(null, "1", "Month", p.Key), prices, currency)));
     }
     var showPartners = partners.Any();
     // A marquee only reads as "lots of restaurants" when there are lots of them.
@@ -397,7 +399,7 @@
                 <div class="shell">
                     <header class="section-head" data-reveal>
                         <h2 id="pricing-title">Pay for what you use</h2>
-                        <p>Every plan starts with the menu. Add the rest per branch, switch it off when you don't need it. @Signup.TrialDays days free, no card needed.</p>
+                        <p>Every plan starts with the menu. Add the rest per branch, switch it off when you don't need it. @trialDays days free, no card needed.</p>
                     </header>
                     <div class="teaser-grid">
                         @foreach (var (key, quote) in presetQuotes)
@@ -420,7 +422,7 @@
             <img class="cta-photo" src="~/img/evening-room.webp" width="1200" height="1812" alt="" aria-hidden="true" loading="lazy" />
             <div class="cta-inner" data-reveal>
                 <h2 id="cta-title">Run the whole room from one place</h2>
-                <p>Menus, website, bookings and back office. Start with one, add the rest whenever. @(signupOpen ? $"Try it free for {Signup.TrialDays} days, no card needed." : "Tell us about your restaurant and we'll set up your account.")</p>
+                <p>Menus, website, bookings and back office. Start with one, add the rest whenever. @(signupOpen ? $"Try it free for {trialDays} days, no card needed." : "Tell us about your restaurant and we'll set up your account.")</p>
                 <a class="btn btn-primary btn-lg" href="@ctaHref">
                     @ctaLabel <i class="ph ph-arrow-right" aria-hidden="true"></i>
                 </a>

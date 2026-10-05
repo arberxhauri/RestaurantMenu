@@ -14,6 +14,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Branch> Branches { get; set; }
     public DbSet<BranchSlugAlias> BranchSlugAliases { get; set; }
     public DbSet<PriceBook> PriceBook { get; set; }
+    public DbSet<PlanSettings> PlanSettings { get; set; }
     public DbSet<Subscription> Subscriptions { get; set; }
     public DbSet<SubscriptionItem> SubscriptionItems { get; set; }
     public DbSet<BillingProfile> BillingProfiles { get; set; }
@@ -134,7 +135,15 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.Property(p => p.Interval).HasConversion<string>().HasMaxLength(10);
             e.Property(p => p.Currency).HasMaxLength(3);
             e.Property(p => p.PaddlePriceId).HasMaxLength(64);
+            e.Property(p => p.ChangedById).HasMaxLength(450);
             e.HasIndex(p => new { p.Module, p.Interval, p.Currency, p.ValidFromUtc }).IsUnique();
+        });
+        builder.Entity<PlanSettings>(e =>
+        {
+            e.Property(p => p.Id).ValueGeneratedNever();
+            e.Property(p => p.Currency).HasMaxLength(3);
+            e.Property(p => p.UpdatedById).HasMaxLength(450);
+            e.Property(p => p.Version).IsRowVersion();
         });
         builder.Entity<Subscription>(e =>
         {

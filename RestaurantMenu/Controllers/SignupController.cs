@@ -27,6 +27,7 @@ public class SignupController : Controller
 
     private readonly SignupService _signup;
     private readonly SubscriptionService _subscriptions;
+    private readonly PlanSettingsService _plan;
     private readonly BranchSlugs _slugs;
     private readonly SignInManager<ApplicationUser> _signIn;
     private readonly UserManager<ApplicationUser> _users;
@@ -34,11 +35,12 @@ public class SignupController : Controller
     private readonly IMemoryCache _cache;
     private readonly IDataProtector _formTime;
 
-    public SignupController(SignupService signup, SubscriptionService subscriptions, BranchSlugs slugs, SignInManager<ApplicationUser> signIn,
+    public SignupController(SignupService signup, SubscriptionService subscriptions, PlanSettingsService plan, BranchSlugs slugs, SignInManager<ApplicationUser> signIn,
         UserManager<ApplicationUser> users, SeoService seo, IMemoryCache cache, IDataProtectionProvider protection)
     {
         _signup = signup;
         _subscriptions = subscriptions;
+        _plan = plan;
         _slugs = slugs;
         _signIn = signIn;
         _users = users;
@@ -54,11 +56,11 @@ public class SignupController : Controller
     [HttpGet("pricing")]
     public async Task<IActionResult> Pricing(List<string>? m, string? b, string? i, string? preset, string? lang)
     {
-        if (!_signup.IsOpen) return NotFound();
+        if (!await _signup.IsOpenAsync()) return NotFound();
         var language = Lang(lang);
         var w = SignupText.For(language);
-        var prices = await _subscriptions.PriceTableAsync(DateTime.UtcNow);
-        var currency = _subscriptions.Currency;
+        var prices = await _plan.PriceTableAsync(DateTime.UtcNow);
+        var currency = (await _plan.GetAsync()).Currency;
         var selection = PricingRules.Parse(m, b, i, preset);
         var presets = PricingRules.Presets
             .Select(p =>
@@ -67,9 +69,9 @@ public class SignupController : Controller
                 return (p.Key, s, PricingRules.Quote(s, prices, currency));
             }).ToList();
 
-        ViewData["Seo"] = Seo(w.PricingTitle, string.Format(w.PricingIntro, _signup.TrialDays), language, "/pricing");
+        ViewData["Seo"] = Seo(w.PricingTitle, string.Format(w.PricingIntro, await _signup.TrialDaysAsync()), language, "/pricing");
         ViewData["SignInLabel"] = w.SignIn;
-        return View(new PricingPage(w, language, selection, PricingRules.Quote(selection, prices, currency), presets, prices, currency, _signup.TrialDays));
+        return View(new PricingPage(w, language, selection, PricingRules.Quote(selection, prices, currency), presets, prices, currency, await _signup.TrialDaysAsync()));
     }
 
     // ---------------------------------------------------------------- signup
@@ -80,7 +82,7 @@ public class SignupController : Controller
     {
         if (User.Identity?.IsAuthenticated == true) return RedirectToAction("Index", "Dashboard");
         var language = Lang(lang);
-        if (!_signup.IsOpen) return StatusPage(new SignupStatusPage(SignupText.For(language), language, "closed"));
+        if (!await _signup.IsOpenAsync()) return StatusPage(new SignupStatusPage(SignupText.For(language), language, "closed"));
         var form = new SignupForm { Lang = language, Country = language == "sq" ? "AL" : null, M = m, B = b, I = i };
         return await FormAsync(form, new Dictionary<string, string>(), null, busy);
     }
@@ -95,7 +97,7 @@ public class SignupController : Controller
         var language = Lang(form.Lang);
         form.Lang = language;
         var w = SignupText.For(language);
-        if (!_signup.IsOpen) return StatusPage(new SignupStatusPage(w, language, "closed"));
+        if (!await _signup.IsOpenAsync()) return StatusPage(new SignupStatusPage(w, language, "closed"));
 
         var name = SignupRules.Clean(form.FullName);
         var email = (form.Email ?? "").Trim();
@@ -151,7 +153,7 @@ public class SignupController : Controller
     [EnableRateLimiting("signup-check")]
     public async Task<IActionResult> Link(string? name)
     {
-        if (!_signup.IsOpen) return NotFound();
+        if (!await _signup.IsOpenAsync()) return NotFound();
         var clean = SignupRules.Clean(name);
         if (!SignupRules.IsRestaurant(clean)) return Ok(new { ok = false });
         var (slug, taken) = await _slugs.SuggestAsync(clean);
@@ -163,9 +165,9 @@ public class SignupController : Controller
 
     [HttpGet("signup/check")]
     [NoIndex]
-    public IActionResult Check(string? e, string? lang, bool sent = false, bool failed = false, bool busy = false)
+    public async Task<IActionResult> Check(string? e, string? lang, bool sent = false, bool failed = false, bool busy = false)
     {
-        if (!_signup.IsOpen) return NotFound();
+        if (!await _signup.IsOpenAsync()) return NotFound();
         var language = Lang(lang);
         return StatusPage(new SignupStatusPage(SignupText.For(language), language, "check", Email: e, Sent: sent, Failed: failed, Busy: busy));
     }
@@ -180,7 +182,7 @@ public class SignupController : Controller
     [EnableRateLimiting("signup")]
     public async Task<IActionResult> Resend(string? email, string? lang)
     {
-        if (!_signup.IsOpen) return NotFound();
+        if (!await _signup.IsOpenAsync()) return NotFound();
         var language = Lang(lang);
         email = (email ?? "").Trim();
         var failed = false;
@@ -244,14 +246,14 @@ public class SignupController : Controller
         var language = form.Lang ?? "en";
         var w = SignupText.For(language);
         var plan = PricingRules.Parse(form.M, form.B, form.I);
-        var quote = PricingRules.Quote(plan, await _subscriptions.PriceTableAsync(DateTime.UtcNow), _subscriptions.Currency);
+        var quote = PricingRules.Quote(plan, await _plan.PriceTableAsync(DateTime.UtcNow), (await _plan.GetAsync()).Currency);
         var restaurant = SignupRules.Clean(form.Restaurant);
         (string, bool)? link = SignupRules.IsRestaurant(restaurant) ? await _slugs.SuggestAsync(restaurant) : null;
 
         ViewData["Lang"] = language;
         ViewData["PhotoAlt"] = w.Photo;
         ViewData["Title"] = w.SignupTitle;
-        return View("Index", new SignupPage(w, language, form, plan, quote, _signup.TrialDays,
+        return View("Index", new SignupPage(w, language, form, plan, quote, await _signup.TrialDaysAsync(),
             _formTime.Protect(DateTime.UtcNow.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture)),
             MenuBase(), link, errors, problem ?? (busy ? w.ErrBusy : null), busy));
     }

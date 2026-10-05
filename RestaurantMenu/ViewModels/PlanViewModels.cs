@@ -59,3 +59,45 @@ public class PlanForm
     public static DateTime? EndOf(DateOnly? lastDay) =>
         lastDay is { } d ? d.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc) : null;
 }
+
+/// <summary>Admin → Plans &amp; prices: the plan settings, the price grid and the price history.</summary>
+public record PricesPage(
+    PlanSettingsForm Form,
+    IReadOnlyDictionary<(BillingModule, BillingInterval), int> CurrentPrices,
+    IReadOnlyList<PriceBook> History,
+    IReadOnlyDictionary<string, string> Actors,
+    DateTime UpdatedUtc,
+    string? UpdatedBy,
+    bool EmailWorks,
+    string? EmailProblem,
+    IReadOnlyList<string>? Errors = null);
+
+/// <summary>The Plans &amp; prices form. Prices are typed as text (15, 15.50, 15,50); empty = no price.</summary>
+public class PlanSettingsForm
+{
+    public string Currency { get; set; } = "EUR";
+    public int TrialDays { get; set; } = 14;
+    public int SeatsPerBranch { get; set; } = 5;
+    public int GraceDays { get; set; } = 14;
+    // Checkboxes: an unticked box posts nothing, so both must default to false here (the page
+    // is always filled from the saved settings by From).
+    public bool SignupEnabled { get; set; }
+    public bool SignupRequireApproval { get; set; }
+    public uint? Version { get; set; }
+    /// <summary>"Ordering_Month" → "9.00".</summary>
+    public Dictionary<string, string?> Prices { get; set; } = new();
+
+    public static string Key(BillingModule m, BillingInterval i) => $"{m}_{i}";
+
+    public static PlanSettingsForm From(PlanSettings s, IReadOnlyDictionary<(BillingModule, BillingInterval), int> prices) => new()
+    {
+        Currency = s.Currency,
+        TrialDays = s.TrialDays,
+        SeatsPerBranch = s.SeatsPerBranch,
+        GraceDays = s.GraceDays,
+        SignupEnabled = s.SignupEnabled,
+        SignupRequireApproval = s.SignupRequireApproval,
+        Version = s.Version == 0 ? null : s.Version,
+        Prices = prices.ToDictionary(p => Key(p.Key.Item1, p.Key.Item2), p => (string?)Helpers.MoneyInput.Format(p.Value))
+    };
+}

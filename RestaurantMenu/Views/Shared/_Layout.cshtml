@@ -64,8 +64,12 @@
                     }
                     @if (User.IsInRole("ADMIN"))
                     {
-                        <a asp-controller="Admin" asp-action="Index" aria-current="@Current("Admin")">
+                        var adminAction = ViewContext.RouteData.Values["action"]?.ToString();
+                        <a asp-controller="Admin" asp-action="Index" aria-current="@(Current("Admin") != null && adminAction != "Prices" ? "page" : null)">
                             <i class="ph ph-users-three" aria-hidden="true"></i>User management
+                        </a>
+                        <a asp-controller="Admin" asp-action="Prices" aria-current="@(Current("Admin") != null && adminAction == "Prices" ? "page" : null)">
+                            <i class="ph ph-currency-eur" aria-hidden="true"></i>Plans &amp; prices
                         </a>
                     }
                     <a asp-controller="Account" asp-action="ChangePassword" aria-current="@Current("Account")">

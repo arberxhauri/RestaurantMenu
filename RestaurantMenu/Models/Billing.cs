@@ -33,7 +33,11 @@ public enum SubscriptionStatus { Trialing = 0, Active = 1, PastDue = 2, ReadOnly
 
 public enum BillingProvider { None = 0, BankTransfer = 1, Paddle = 2 }
 
-/// <summary>A price for one module, valid from a date. Never edited: a new price is a new row.</summary>
+/// <summary>
+/// A price for one module, valid from a date. Never edited: a new price is a new row, so the
+/// history stays (Admin → Plans &amp; prices). <see cref="Withdrawn"/>: from this date the module
+/// has no price ("price on request").
+/// </summary>
 public class PriceBook
 {
     public int Id { get; set; }
@@ -42,7 +46,37 @@ public class PriceBook
     public string Currency { get; set; } = "EUR";
     public int UnitAmountCents { get; set; }
     public DateTime ValidFromUtc { get; set; }
+    public bool Withdrawn { get; set; }
+    /// <summary>The admin who set it; null for the first-start seed.</summary>
+    public string? ChangedById { get; set; }
     public string? PaddlePriceId { get; set; }
+}
+
+/// <summary>
+/// The platform's plan settings, one row (Id 1), edited in Admin → Plans &amp; prices. On the very
+/// first start it is created from configuration (Billing__…, Signup__…); after that the database
+/// is the only source, so changes need no deploy.
+/// </summary>
+public class PlanSettings
+{
+    public const int SingletonId = 1;
+
+    public int Id { get; set; } = SingletonId;
+    /// <summary>ISO code of the price book in use, e.g. EUR.</summary>
+    public string Currency { get; set; } = "EUR";
+    /// <summary>Length of a free trial, from when the account opens.</summary>
+    public int TrialDays { get; set; } = 14;
+    /// <summary>Staff accounts included per branch on plans that aren't legacy (one can override it per owner).</summary>
+    public int SeatsPerBranch { get; set; } = 5;
+    /// <summary>Days a past-due account keeps working before it becomes read-only.</summary>
+    public int GraceDays { get; set; } = 14;
+    /// <summary>/pricing and /signup are open (they also need working email).</summary>
+    public bool SignupEnabled { get; set; }
+    /// <summary>New self-serve accounts wait for the admin after confirming their email.</summary>
+    public bool SignupRequireApproval { get; set; } = true;
+    public DateTime UpdatedUtc { get; set; }
+    public string? UpdatedById { get; set; }
+    public uint Version { get; set; }
 }
 
 public class Subscription

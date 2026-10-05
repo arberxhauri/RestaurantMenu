@@ -29,12 +29,12 @@ public record SubscriptionChange(
 public class SubscriptionService
 {
     private readonly ApplicationDbContext _db;
-    private readonly BillingOptions _options;
+    private readonly PlanSettingsService _settings;
 
-    public SubscriptionService(ApplicationDbContext db, IOptions<BillingOptions> options)
+    public SubscriptionService(ApplicationDbContext db, PlanSettingsService settings)
     {
         _db = db;
-        _options = options.Value;
+        _settings = settings;
     }
 
     public Task<Subscription?> FindAsync(string ownerId) =>
@@ -63,9 +63,9 @@ public class SubscriptionService
     }
 
     /// <summary>For a new owner made by the admin: legacy terms, as owners always had until plans are priced.</summary>
-    public void AddLegacy(ApplicationUser owner, DateTime utcNow)
+    public async Task AddLegacyAsync(ApplicationUser owner, DateTime utcNow)
     {
-        var s = NewLegacy(owner.Id, owner.NumberOfBranches, _options.Currency, utcNow);
+        var s = NewLegacy(owner.Id, owner.NumberOfBranches, (await _settings.GetAsync()).Currency, utcNow);
         _db.Subscriptions.Add(s);
     }
 
@@ -74,14 +74,14 @@ public class SubscriptionService
     /// picked. The clock doesn't run yet (no end date): it starts when the account opens, see
     /// <see cref="StartTrialAsync"/>. Added to the context, not saved.
     /// </summary>
-    public Subscription AddTrial(ApplicationUser owner, PlanSelection plan, DateTime utcNow)
+    public async Task<Subscription> AddTrialAsync(ApplicationUser owner, PlanSelection plan, DateTime utcNow)
     {
         var s = new Subscription
         {
             OwnerId = owner.Id,
             Status = SubscriptionStatus.Trialing,
             Interval = plan.Interval,
-            Currency = _options.Currency,
+            Currency = (await _settings.GetAsync()).Currency,
             BranchQuantity = plan.Branches,
             CreatedUtc = utcNow,
             UpdatedUtc = utcNow
@@ -93,7 +93,7 @@ public class SubscriptionService
     }
 
     /// <summary>
-    /// Starts a signup's trial clock (Billing__TrialDays from now) when the account opens: on email
+    /// Starts a signup's trial clock (the settings' trial days from now) when the account opens: on email
     /// confirmation, or on the admin's approval. Does nothing to a trial that already runs or to
     /// any other plan. Saved, with an audit row.
     /// </summary>
@@ -102,7 +102,7 @@ public class SubscriptionService
         var s = await FindAsync(ownerId);
         if (s == null || s.IsLegacy || s.Status != SubscriptionStatus.Trialing || s.TrialEndsUtc != null) return;
         var before = Describe(s);
-        s.TrialEndsUtc = utcNow.AddDays(Math.Max(1, _options.TrialDays));
+        s.TrialEndsUtc = utcNow.AddDays(Math.Max(1, (await _settings.GetAsync()).TrialDays));
         s.UpdatedUtc = utcNow;
         await _db.SaveChangesAsync();
         _db.SubscriptionAudits.Add(new SubscriptionAudit
@@ -126,7 +126,7 @@ public class SubscriptionService
         if (s == null)
         {
             var live = await _db.Branches.CountAsync(b => b.UserId == ownerId);
-            s = NewLegacy(ownerId, Math.Max(owner.NumberOfBranches, live), _options.Currency, utcNow);
+            s = NewLegacy(ownerId, Math.Max(owner.NumberOfBranches, live), (await _settings.GetAsync()).Currency, utcNow);
             _db.Subscriptions.Add(s);
         }
         var before = created ? null : Describe(s);
@@ -142,7 +142,7 @@ public class SubscriptionService
         s.Interval = change.Interval;
         s.BranchQuantity = Math.Clamp(change.Branches, 1, 100);
         s.SeatsPerBranch = change.Kind == PlanKind.Legacy ? null : change.SeatsPerBranch is { } seats ? Math.Clamp(seats, 0, 100) : null;
-        s.TrialEndsUtc = change.Kind == PlanKind.Trial ? change.TrialEndsUtc ?? utcNow.AddDays(_options.TrialDays) : null;
+        s.TrialEndsUtc = change.Kind == PlanKind.Trial ? change.TrialEndsUtc ?? utcNow.AddDays((await _settings.GetAsync()).TrialDays) : null;
         s.CurrentPeriodStartUtc = change.Kind == PlanKind.Active ? s.CurrentPeriodStartUtc ?? utcNow : null;
         s.CurrentPeriodEndUtc = change.Kind == PlanKind.Active ? change.PeriodEndUtc : null;
         s.GraceEndsUtc = null;
@@ -156,7 +156,7 @@ public class SubscriptionService
         modules.RemoveWhere(m => EntitlementRules.Requires(m) is { } needed && !modules.Contains(needed));
         if (change.Kind != PlanKind.Legacy && change.OwnDomains <= 0) modules.Remove(BillingModule.OwnDomain);
 
-        var prices = await CurrentPricesAsync(s.Currency, s.Interval, utcNow);
+        var prices = await _settings.CurrentPricesAsync(s.Currency, s.Interval, utcNow);
         foreach (var gone in s.Items.Where(i => !modules.Contains(i.Module)).ToList()) s.Items.Remove(gone);
         foreach (var m in modules)
         {
@@ -197,28 +197,6 @@ public class SubscriptionService
         return null;
     }
 
-    /// <summary>The price per unit that applies now for each module, in cents.</summary>
-    public async Task<Dictionary<BillingModule, int>> CurrentPricesAsync(string currency, BillingInterval interval, DateTime utcNow)
-    {
-        var rows = await _db.PriceBook.AsNoTracking()
-            .Where(p => p.Currency == currency && p.Interval == interval && p.ValidFromUtc <= utcNow)
-            .ToListAsync();
-        return rows.GroupBy(p => p.Module)
-            .ToDictionary(g => g.Key, g => g.OrderByDescending(p => p.ValidFromUtc).First().UnitAmountCents);
-    }
-
-    /// <summary>Current unit prices for both intervals, for quotes (PricingRules).</summary>
-    public async Task<Dictionary<(BillingModule, BillingInterval), int>> PriceTableAsync(DateTime utcNow)
-    {
-        var table = new Dictionary<(BillingModule, BillingInterval), int>();
-        foreach (var interval in Enum.GetValues<BillingInterval>())
-            foreach (var (module, cents) in await CurrentPricesAsync(_options.Currency, interval, utcNow))
-                table[(module, interval)] = cents;
-        return table;
-    }
-
-    public string Currency => _options.Currency;
-
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = false };
 
     /// <summary>A subscription as JSON for the audit log: what someone reading the history needs.</summary>
@@ -238,16 +216,21 @@ public class SubscriptionService
     private const long SetupLockKey = 0x4D514D_42494C4C; // "MQM BILL"
 
     /// <summary>
-    /// Startup, after migrations: copies configured prices into the price book when they changed,
-    /// and gives every owner without a subscription a legacy one (every module, their branch
-    /// allowance or their live branch count if higher, no charge), so nobody loses anything the
-    /// day plans arrive. Logged; a no-op once done; safe with several instances.
+    /// Startup, after migrations:
+    /// - creates the plan settings row on the very first start, from configuration (Billing__…,
+    ///   Signup__…); after that the database (Admin → Plans &amp; prices) is the only source;
+    /// - seeds the price book from Billing__Prices__… only while it is still empty, so prices set
+    ///   in the admin are never overwritten by configuration;
+    /// - gives every owner without a subscription a legacy one (every module, their branch
+    ///   allowance or their live branch count if higher, no charge), so nobody loses anything.
+    /// Logged; a no-op once done; safe with several instances.
     /// </summary>
     public static async Task SetupAsync(IServiceProvider services, ILogger logger)
     {
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var options = scope.ServiceProvider.GetRequiredService<IOptions<BillingOptions>>().Value;
+        var signupSeed = scope.ServiceProvider.GetRequiredService<IOptions<SignupOptions>>().Value;
         var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var now = DateTime.UtcNow;
 
@@ -261,9 +244,22 @@ public class SubscriptionService
             await using var tx = await db.Database.BeginTransactionAsync();
             await db.Database.ExecuteSqlRawAsync($"SELECT pg_advisory_xact_lock({SetupLockKey})");
 
-            // Prices from configuration.
-            var book = await db.PriceBook.ToListAsync();
-            foreach (var (moduleName, intervals) in options.Prices)
+            // Plan settings: created once from configuration.
+            var settings = await db.PlanSettings.FirstOrDefaultAsync(x => x.Id == PlanSettings.SingletonId);
+            if (settings == null)
+            {
+                settings = PlanSettingsService.Seed(options, signupSeed, now);
+                db.PlanSettings.Add(settings);
+                lines.Add($"Billing: plan settings created from configuration ({settings.Currency}, {settings.TrialDays}-day trial, " +
+                          $"{settings.SeatsPerBranch} staff per branch, {settings.GraceDays} grace days, signup {(settings.SignupEnabled ? "on" : "off")}); " +
+                          "change them in Admin → Plans & prices");
+            }
+
+            // Prices from configuration: only into an empty price book (the first start).
+            var bookIsEmpty = !await db.PriceBook.AnyAsync();
+            if (!bookIsEmpty && options.Prices.Count > 0)
+                lines.Add("Billing: Billing__Prices__… ignored: prices are kept in the database (Admin → Plans & prices)");
+            foreach (var (moduleName, intervals) in bookIsEmpty ? options.Prices : new Dictionary<string, Dictionary<string, int>>())
             {
                 if (!Enum.TryParse<BillingModule>(moduleName, true, out var module))
                 {
@@ -277,12 +273,8 @@ public class SubscriptionService
                         lines.Add($"Billing: price {moduleName}/{intervalName} = {cents} ignored (interval is Month or Year, amount in cents ≥ 0)");
                         continue;
                     }
-                    var current = book.Where(p => p.Module == module && p.Interval == interval && p.Currency == options.Currency)
-                        .OrderByDescending(p => p.ValidFromUtc).FirstOrDefault();
-                    if (current?.UnitAmountCents == cents) continue;
-                    db.PriceBook.Add(new PriceBook { Module = module, Interval = interval, Currency = options.Currency, UnitAmountCents = cents, ValidFromUtc = now });
-                    lines.Add(FormattableString.Invariant($"Billing: price {module}/{interval} is now {cents / 100m:0.00} {options.Currency}") +
-                              (current == null ? "" : FormattableString.Invariant($" (was {current.UnitAmountCents / 100m:0.00})")));
+                    db.PriceBook.Add(new PriceBook { Module = module, Interval = interval, Currency = settings.Currency, UnitAmountCents = cents, ValidFromUtc = now });
+                    lines.Add(FormattableString.Invariant($"Billing: first price {module}/{interval} = {cents / 100m:0.00} {settings.Currency} (from configuration)"));
                 }
             }
 
@@ -297,7 +289,7 @@ public class SubscriptionService
                 foreach (var id in missing)
                 {
                     var branches = Math.Max(allowance.GetValueOrDefault(id), live.GetValueOrDefault(id));
-                    db.Subscriptions.Add(NewLegacy(id, branches, options.Currency, now));
+                    db.Subscriptions.Add(NewLegacy(id, branches, settings.Currency, now));
                 }
                 await db.SaveChangesAsync();
                 var created = await db.Subscriptions.Include(s => s.Items).Where(s => missing.Contains(s.OwnerId)).ToListAsync();

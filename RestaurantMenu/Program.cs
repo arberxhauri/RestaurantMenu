@@ -131,6 +131,7 @@ builder.Services.AddScoped<QrCodeService>();
 builder.Services.AddScoped<BranchSlugs>();
 // Plans and subscriptions: what each account may do (docs/PLAN-signup-payments.md).
 builder.Services.Configure<BillingOptions>(builder.Configuration.GetSection("Billing"));
+builder.Services.AddScoped<PlanSettingsService>();
 builder.Services.AddScoped<IEntitlementService, EntitlementService>();
 builder.Services.AddScoped<SubscriptionService>();
 // Self-serve signup (/pricing, /signup), off until Signup__Enabled=true and email works.
@@ -372,12 +373,13 @@ using (var scope = app.Services.CreateScope())
         app.Logger.LogInformation("Email: sending through {Provider} from {From}", email.ProviderName, email.Sender!.Formatted);
     else
         app.Logger.LogWarning("Email: off. {Problem} Invite links are shown on screen and password reset by email is unavailable.", email.Problem);
-    var signup = scope.ServiceProvider.GetRequiredService<SignupService>();
-    var signupOptions = scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<SignupOptions>>().Value;
-    if (signup.IsOpen)
-        app.Logger.LogInformation("Signup: open at /signup ({Mode})", signupOptions.RequireApproval ? "the admin approves each new account" : "accounts open on email confirmation");
-    else if (signupOptions.Enabled)
-        app.Logger.LogWarning("Signup: Signup__Enabled is on but email isn't working, so signup stays closed (confirmation links need email). {Problem}", email.Problem);
+    var planSettings = await scope.ServiceProvider.GetRequiredService<PlanSettingsService>().GetAsync();
+    if (planSettings.SignupEnabled && email.IsConfigured)
+        app.Logger.LogInformation("Signup: open at /signup ({Mode})", planSettings.SignupRequireApproval ? "the admin approves each new account" : "accounts open on email confirmation");
+    else if (planSettings.SignupEnabled)
+        app.Logger.LogWarning("Signup: switched on in Admin → Plans & prices, but email isn't working, so signup stays closed (confirmation links need email). {Problem}", email.Problem);
+    else
+        app.Logger.LogInformation("Signup: off (switch it on in Admin → Plans & prices)");
     var sms = scope.ServiceProvider.GetRequiredService<SmsService>();
     app.Logger.LogInformation(sms.IsConfigured ? "SMS: sending through {Provider}" : "SMS: off (booking confirmations by email and on screen){Provider}", sms.ProviderName ?? "");
 }

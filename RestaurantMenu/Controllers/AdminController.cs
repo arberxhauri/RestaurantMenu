@@ -22,7 +22,7 @@ namespace RestaurantMenu.Controllers;
         private readonly SeoService _seo;
         private readonly SubscriptionService _subscriptions;
         private readonly IEntitlementService _entitlements;
-        private readonly BillingOptions _billing;
+        private readonly PlanSettingsService _plan;
         private readonly SiteHosts _hosts;
 
         public AdminController(
@@ -33,12 +33,12 @@ namespace RestaurantMenu.Controllers;
             SeoService seo,
             SubscriptionService subscriptions,
             IEntitlementService entitlements,
-            IOptions<BillingOptions> billing,
+            PlanSettingsService plan,
             SiteHosts hosts)
         {
             _subscriptions = subscriptions;
             _entitlements = entitlements;
-            _billing = billing.Value;
+            _plan = plan;
             _hosts = hosts;
             _userManager = userManager;
             _context = context;
@@ -124,7 +124,7 @@ namespace RestaurantMenu.Controllers;
                 {
                     await _userManager.AddToRoleAsync(user, "OWNER");
                     // Legacy terms, as every owner had before plans; change them on the Plan page.
-                    _subscriptions.AddLegacy(user, DateTime.UtcNow);
+                    await _subscriptions.AddLegacyAsync(user, DateTime.UtcNow);
                     await _context.SaveChangesAsync();
                     await DeliverInvite(user);
                     return RedirectToAction("Index");
@@ -268,6 +268,68 @@ namespace RestaurantMenu.Controllers;
             return RedirectToAction("Index");
         }
 
+        // ---------------------------------------------------------------- plans & prices
+
+        /// <summary>
+        /// The platform's plan settings and price book, all in the database: currency, trial
+        /// length, staff per branch, grace days, the signup switches, and a price per module per
+        /// month and year. A changed price is a new dated row; the old one stays as history.
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> Prices()
+        {
+            var settings = await _plan.GetAsync();
+            return View(await PricesPageAsync(PlanSettingsForm.From(settings, await _plan.PriceTableAsync(DateTime.UtcNow)), null));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Prices(PlanSettingsForm form)
+        {
+            var errors = new List<string>();
+            form.Currency = (form.Currency ?? "").Trim().ToUpperInvariant();
+            if (form.Currency.Length != 3 || !form.Currency.All(char.IsAsciiLetterUpper)) errors.Add("The currency is a 3-letter code, e.g. EUR or ALL.");
+            if (form.TrialDays is < 1 or > 365) errors.Add("The trial is between 1 and 365 days.");
+            if (form.SeatsPerBranch is < 0 or > 100) errors.Add("Staff per branch is between 0 and 100.");
+            if (form.GraceDays is < 0 or > 90) errors.Add("Grace days are between 0 and 90.");
+
+            var wanted = new Dictionary<(BillingModule, BillingInterval), int?>();
+            foreach (var m in EntitlementRules.AllModules.Where(m => m != BillingModule.Sms))
+            foreach (var i in Enum.GetValues<BillingInterval>())
+            {
+                var raw = form.Prices.GetValueOrDefault(PlanSettingsForm.Key(m, i));
+                if (MoneyInput.TryParseCents(raw, out var cents)) wanted[(m, i)] = cents;
+                else errors.Add($"{EntitlementRules.Name(m)} ({(i == BillingInterval.Year ? "yearly" : "monthly")}): \"{raw}\" isn't an amount. Write it like 15 or 15.50.");
+            }
+            if (errors.Count > 0) return View(await PricesPageAsync(form, errors));
+
+            var actor = _userManager.GetUserId(User);
+            var now = DateTime.UtcNow;
+            var problem = await _plan.SaveAsync(new PlanSettingsInput(form.Currency, form.TrialDays, form.SeatsPerBranch, form.GraceDays,
+                form.SignupEnabled, form.SignupRequireApproval), form.Version, actor, now);
+            if (problem != null)
+            {
+                TempData["Error"] = problem;
+                return RedirectToAction(nameof(Prices));
+            }
+            // Prices go in the (possibly new) currency.
+            var changed = await _plan.SetPricesAsync(wanted, actor, now);
+            var signupNote = form.SignupEnabled && !_email.IsConfigured ? " Signup is switched on but stays closed until email is set up." : "";
+            TempData[signupNote.Length > 0 ? "Warning" : "Success"] =
+                $"Saved. {(changed == 0 ? "No prices changed." : $"{changed} price{(changed == 1 ? "" : "s")} changed; existing subscriptions keep theirs.")}{signupNote}";
+            return RedirectToAction(nameof(Prices));
+        }
+
+        private async Task<PricesPage> PricesPageAsync(PlanSettingsForm form, List<string>? errors)
+        {
+            var settings = await _plan.GetAsync();
+            var history = await _plan.HistoryAsync(40);
+            var ids = history.Select(h => h.ChangedById).Append(settings.UpdatedById).Where(id => id != null).Select(id => id!).Distinct().ToList();
+            var actors = await _context.Users.IgnoreQueryFilters().Where(u => ids.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.Email ?? u.FullName);
+            return new PricesPage(form, await _plan.PriceTableAsync(DateTime.UtcNow), history, actors, settings.UpdatedUtc,
+                settings.UpdatedById == null ? null : actors.GetValueOrDefault(settings.UpdatedById), _email.IsConfigured, _email.Problem, errors);
+        }
+
         // ---------------------------------------------------------------- plans
 
         /// <summary>An owner's plan: modules, branches, trial or paid period, and its history.</summary>
@@ -347,17 +409,15 @@ namespace RestaurantMenu.Controllers;
             var now = await _entitlements.ForOwnerAsync(id);
             var live = await _context.Branches.CountAsync(b => b.UserId == id);
             var domains = await _context.Domains.CountAsync(d => d.Branch!.UserId == id);
-            var prices = new Dictionary<(BillingModule, BillingInterval), int>();
-            foreach (var interval in Enum.GetValues<BillingInterval>())
-                foreach (var (module, cents) in await _subscriptions.CurrentPricesAsync(_billing.Currency, interval, DateTime.UtcNow))
-                    prices[(module, interval)] = cents;
+            var prices = await _plan.PriceTableAsync(DateTime.UtcNow);
+            var settings = await _plan.GetAsync();
             var history = sub == null ? new List<SubscriptionAudit>()
                 : await _context.SubscriptionAudits.AsNoTracking().Where(a => a.SubscriptionId == sub.Id)
                     .OrderByDescending(a => a.AtUtc).Take(30).ToListAsync();
             var actorIds = history.Where(a => a.ActorId != null).Select(a => a.ActorId!).Distinct().ToList();
             var actors = await _context.Users.IgnoreQueryFilters().Where(u => actorIds.Contains(u.Id))
                 .ToDictionaryAsync(u => u.Id, u => u.Email ?? u.FullName);
-            return new PlanPage(owner, sub, now, live, domains, _billing.SeatsPerBranch,
-                form ?? PlanForm.From(sub, now, live), prices, _billing.Currency, history, actors, errors);
+            return new PlanPage(owner, sub, now, live, domains, settings.SeatsPerBranch,
+                form ?? PlanForm.From(sub, now, live), prices, settings.Currency, history, actors, errors);
         }
     }

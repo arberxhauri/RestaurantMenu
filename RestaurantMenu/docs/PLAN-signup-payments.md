@@ -284,10 +284,7 @@ New settings on Render (environment variables, double underscore for sections):
 
 | Setting | Example | Needed from |
 |---|---|---|
-| `Signup__Enabled` | `false`, then `true` | Phase 2 |
-| `Signup__RequireApproval` | `true` at first | Phase 2 |
-| `Signup__TrialDays` | `14` | Phase 2 |
-| `Billing__GraceDays` | `14` | Phase 3 |
+| Signup on/off, approval, trial days, staff per branch, grace days, currency, prices | **In the database, Admin → Plans & prices** (decided 5 Oct 2026). The `Signup__…`/`Billing__…` env vars only seed the first start | Phases 1–2 |
 | `Billing__InvoiceDueDays` | `14` | Phase 3 |
 | `Billing__Operator__LegalName`, `__Nipt`, `__Address`, `__Iban`, `__Bank` | the operator's details | Phase 3 |
 | `Billing__Paddle__Environment` | `sandbox` or `production` | Phase 4 |

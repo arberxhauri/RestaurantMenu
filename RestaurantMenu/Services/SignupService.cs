@@ -6,12 +6,16 @@ using RestaurantMenu.Models;
 
 namespace RestaurantMenu.Services;
 
-/// <summary>Self-serve signup settings, bound from "Signup" (env vars Signup__Enabled, ...).</summary>
+/// <summary>
+/// Signup settings, bound from "Signup" (env vars Signup__NotifyEmail, ...). Enabled and
+/// RequireApproval only seed the plan settings on the very first start; after that they are
+/// switched in Admin → Plans &amp; prices (PlanSettings).
+/// </summary>
 public class SignupOptions
 {
-    /// <summary>Off by default: /pricing and /signup don't exist, and the landing keeps "Get in touch".</summary>
+    /// <summary>First-start seed for PlanSettings.SignupEnabled.</summary>
     public bool Enabled { get; set; }
-    /// <summary>On: confirmed accounts wait for the admin (Admin → Waiting for approval) before they open.</summary>
+    /// <summary>First-start seed for PlanSettings.SignupRequireApproval.</summary>
     public bool RequireApproval { get; set; } = true;
     /// <summary>Where "someone is waiting for approval" emails go (optional).</summary>
     public string? NotifyEmail { get; set; }
@@ -30,8 +34,9 @@ public enum ConfirmOutcome { Invalid, AlreadyConfirmed, WaitingForApproval, Open
 /// Self-serve accounts, start to finish: create the owner (unconfirmed) with a trial of the
 /// modules they picked, email a confirmation link, confirm it, and open the account, either at
 /// once or after the admin's approval (Signup__RequireApproval, or a second trial on the same
-/// company domain). The trial clock starts when the account opens. Signup is open only with
-/// Signup__Enabled and working email (<see cref="IsOpen"/>), since the link is the only way in.
+/// company domain). The trial clock starts when the account opens. Signup is open only when it
+/// is switched on in Admin → Plans &amp; prices and email works (<see cref="IsOpenAsync"/>), since
+/// the link is the only way in.
 /// </summary>
 public class SignupService
 {
@@ -41,11 +46,11 @@ public class SignupService
     private readonly EmailService _email;
     private readonly SeoService _seo;
     private readonly SignupOptions _options;
-    private readonly BillingOptions _billing;
+    private readonly PlanSettingsService _settings;
     private readonly ILogger<SignupService> _logger;
 
     public SignupService(ApplicationDbContext db, UserManager<ApplicationUser> users, SubscriptionService subscriptions,
-        EmailService email, SeoService seo, IOptions<SignupOptions> options, IOptions<BillingOptions> billing, ILogger<SignupService> logger)
+        EmailService email, SeoService seo, IOptions<SignupOptions> options, PlanSettingsService settings, ILogger<SignupService> logger)
     {
         _db = db;
         _users = users;
@@ -53,12 +58,14 @@ public class SignupService
         _email = email;
         _seo = seo;
         _options = options.Value;
-        _billing = billing.Value;
+        _settings = settings;
         _logger = logger;
     }
 
-    public bool IsOpen => _options.Enabled && _email.IsConfigured;
-    public int TrialDays => Math.Max(1, _billing.TrialDays);
+    /// <summary>Switched on in the plan settings, and email works.</summary>
+    public async Task<bool> IsOpenAsync() => _email.IsConfigured && (await _settings.GetAsync()).SignupEnabled;
+    public bool EmailWorks => _email.IsConfigured;
+    public async Task<int> TrialDaysAsync() => Math.Max(1, (await _settings.GetAsync()).TrialDays);
 
     /// <summary>
     /// Creates the owner: unconfirmed, role OWNER, a trial of <paramref name="plan"/> that hasn't
@@ -102,7 +109,7 @@ public class SignupService
                 var created = await _users.CreateAsync(user, input.Password);
                 if (!created.Succeeded) return (SignupOutcome.EmailTaken, (ApplicationUser?)null, created.Errors.Select(e => e.Description));
                 await _users.AddToRoleAsync(user, "OWNER");
-                _subscriptions.AddTrial(user, plan, utcNow);
+                await _subscriptions.AddTrialAsync(user, plan, utcNow);
                 await _db.SaveChangesAsync();
                 await tx.CommitAsync();
                 return (SignupOutcome.Created, user, Enumerable.Empty<string>());
@@ -151,7 +158,7 @@ public class SignupService
         if (!result.Succeeded) return (ConfirmOutcome.Invalid, null);
 
         var note = await ApprovalNoteAsync(user);
-        if (_options.RequireApproval || note != null)
+        if ((await _settings.GetAsync()).SignupRequireApproval || note != null)
         {
             user.ApprovalNote = note;
             await _users.UpdateAsync(user);
@@ -176,7 +183,7 @@ public class SignupService
         if (_email.IsConfigured)
         {
             var (html, text) = EmailTemplate.Render(user.FullName, w.ApprovedSubject,
-                new[] { string.Format(w.ApprovedText, TrialDays) }, w.ApprovedButton, _seo.Url("/Account/Login"));
+                new[] { string.Format(w.ApprovedText, await TrialDaysAsync()) }, w.ApprovedButton, _seo.Url("/Account/Login"));
             try { await _email.SendAsync(new EmailMessage(user.Email!, user.FullName, w.ApprovedSubject, html, text)); }
             catch (Exception ex) { _logger.LogWarning(ex, "Signup: approval email to {Email} could not be sent", user.Email); }
         }

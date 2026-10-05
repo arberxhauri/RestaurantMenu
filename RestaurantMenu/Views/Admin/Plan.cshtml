@@ -91,7 +91,7 @@
 
         <section class="form-section">
             <h2>Modules</h2>
-            <p>The menu is always included. Legacy ignores these and includes everything.@(Model.Prices.Count == 0 ? " No prices are set yet (Billing__Prices__…)." : "")</p>
+            <p>The menu is always included. Legacy ignores these and includes everything.@if (Model.Prices.Count == 0) { <text> No prices are set yet: <a asp-action="Prices">Plans &amp; prices</a>.</text> }</p>
             <div class="d-grid gap-2">
                 @foreach (var m in optional)
                 {
@@ -137,7 +137,7 @@
                 <div>
                     <label for="TrialEnds" class="form-label">Trial's last day</label>
                     <input id="TrialEnds" name="TrialEnds" type="date" value="@f.TrialEnds?.ToString("yyyy-MM-dd")" class="form-control" />
-                    <span class="hint">Trial only. Empty: @(DateTime.UtcNow.Date.AddDays(13).ToString("d MMM")) (14 days).</span>
+                    <span class="hint">Trial only. Empty: the trial length from <a asp-action="Prices">Plans &amp; prices</a>.</span>
                 </div>
                 <div>
                     <label for="PeriodEnds" class="form-label">Paid until (last day)</label>
