@@ -39,7 +39,7 @@
             slotGroup.querySelectorAll('.slot[aria-pressed]').forEach(function (b) {
                 b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
             });
-            if (slotNote) slotNote.textContent = 'Table for 4 held at ' + btn.textContent.trim() + '. Confirmation goes out by SMS.';
+            if (slotNote) slotNote.textContent = 'Table for 4 held at ' + btn.textContent.trim() + '. Confirmation goes out by SMS or email.';
         });
     }
 

@@ -1,5 +1,6 @@
 @using Microsoft.AspNetCore.Identity
 @inject SignInManager<ApplicationUser> SignInManager
+@inject IConfiguration Configuration
 @{
     ViewData["Title"] = "Menus, websites & bookings for restaurants";
     Layout = null;
@@ -8,10 +9,13 @@
     var partners = branches.Where(b => !string.IsNullOrEmpty(b.Logo)).ToList();
 
     var isSignedIn = SignInManager.IsSignedIn(User);
-    // One label per intent, used in the nav, the hero and the closing CTA.
-    var ctaLabel = isSignedIn ? "Go to dashboard" : "Get started free";
-    var ctaController = isSignedIn ? "Dashboard" : "Account";
-    var ctaAction = isSignedIn ? "Index" : "Login";
+    // One label per intent, used in the nav, the hero and the closing CTA. There is no
+    // self-serve signup (accounts are created by an admin and get an invite link), so
+    // visitors are sent to whoever sets up accounts, not to a sign-in form they can't use.
+    // Landing__ContactUrl can be a mailto:, a form or a WhatsApp link.
+    var contactUrl = Configuration["Landing:ContactUrl"] is { Length: > 0 } configured ? configured : "https://4cs.al/";
+    var ctaLabel = isSignedIn ? "Go to dashboard" : "Get in touch";
+    var ctaHref = isSignedIn ? Url.Action("Index", "Dashboard") : contactUrl;
     var showPartners = partners.Any();
     // A marquee only reads as "lots of restaurants" when there are lots of them.
     var partnersAsMarquee = partners.Count >= 6;
@@ -54,7 +58,7 @@
                 {
                     <a asp-controller="Account" asp-action="Login">Sign in</a>
                 }
-                <a class="btn btn-primary" asp-controller="@ctaController" asp-action="@ctaAction">@ctaLabel</a>
+                <a class="btn btn-primary" href="@ctaHref">@ctaLabel</a>
             </nav>
 
             <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="primaryNav" aria-label="Open menu">
@@ -92,7 +96,7 @@
                             Change a price once and it lands everywhere.
                         </p>
                         <div class="hero-actions">
-                            <a class="btn btn-primary btn-lg" asp-controller="@ctaController" asp-action="@ctaAction">
+                            <a class="btn btn-primary btn-lg" href="@ctaHref">
                                 @ctaLabel <i class="ph ph-arrow-right" aria-hidden="true"></i>
                             </a>
                             <a class="btn btn-glass btn-lg" href="#how-it-works">See how it works</a>
@@ -172,7 +176,7 @@
                             <i class="ph ph-tag" aria-hidden="true"></i>
                             <div>
                                 <strong>Price changed in the dashboard</strong>
-                                <span>Every table sees the new price a second later.</span>
+                                <span>The next guest to open the menu sees the new price.</span>
                             </div>
                         </li>
                         <li class="callout" data-callout>
@@ -186,7 +190,7 @@
                             <i class="ph ph-prohibit" aria-hidden="true"></i>
                             <div>
                                 <strong>Marked as sold out</strong>
-                                <span>Flagged before the next order lands.</span>
+                                <span>Guests can no longer order it from the table.</span>
                             </div>
                         </li>
                     </ol>
@@ -241,9 +245,9 @@
                              alt="A guest enjoying dinner in a warmly lit restaurant" loading="lazy" />
                         <div class="tile-body tile-body--overlay">
                             <h3><i class="ph ph-qr-code" aria-hidden="true"></i>Digital menus</h3>
-                            <p>QR menus guests scan at the table. Multilingual, photo-rich, allergen-aware, and editable mid-service.</p>
+                            <p>QR menus guests scan at the table. Multilingual, photo-rich, allergen-aware and editable mid-service, with orders sent straight to the kitchen.</p>
                             <ul class="tags">
-                                <li>QR &amp; table tents</li><li>Allergens</li><li>Live pricing</li>
+                                <li>QR &amp; table tents</li><li>Table ordering</li><li>Allergens</li>
                             </ul>
                         </div>
                     </article>
@@ -251,9 +255,9 @@
                     <article class="tile tile--ops" data-reveal>
                         <div class="tile-body">
                             <h3><i class="ph ph-squares-four" aria-hidden="true"></i>Management system</h3>
-                            <p>Orders, tables, staff and stock in one dashboard. Multi-branch from day one, with the numbers rolled up nightly.</p>
+                            <p>Kitchen display, stock, staff shifts and end-of-day sales in one dashboard. Multi-branch from day one, with every branch on one overview.</p>
                             <ul class="tags">
-                                <li>Orders &amp; tables</li><li>Stock</li><li>Staff roles</li>
+                                <li>Kitchen display</li><li>Stock &amp; recipes</li><li>Shifts &amp; sales</li>
                             </ul>
                         </div>
                         <img class="tile-photo tile-photo--inset" src="~/img/chef-plating.webp" width="900" height="1385"
@@ -265,9 +269,9 @@
                              alt="A bright café dining room with wooden tables" loading="lazy" />
                         <div class="tile-body">
                             <h3><i class="ph ph-globe-simple" aria-hidden="true"></i>Restaurant websites</h3>
-                            <p>A fast, own-domain site that pulls its menu and hours straight from your dashboard, so it's never out of date.</p>
+                            <p>A fast site on a free subdomain or your own domain. It pulls its dishes, photos and hours straight from your dashboard, so it's never out of date.</p>
                             <ul class="tags">
-                                <li>Own domain</li><li>SEO ready</li><li>Templates</li>
+                                <li>Free subdomain</li><li>Own domain</li><li>SEO ready</li>
                             </ul>
                         </div>
                     </article>
@@ -275,7 +279,7 @@
                     <article class="tile tile--book" data-reveal>
                         <div class="tile-body">
                             <h3><i class="ph ph-calendar-check" aria-hidden="true"></i>Bookings</h3>
-                            <p>Take reservations from the site, the menu QR or your Instagram link. Confirmations by SMS, no-shows tracked.</p>
+                            <p>Take reservations from the site, the menu QR or your Instagram link. Confirmations and reminders by SMS or email, no-shows tracked.</p>
                             <div class="slots" role="group" aria-label="Try it: pick a time for Friday">
                                 <button type="button" class="slot" disabled>18:00</button>
                                 <button type="button" class="slot" aria-pressed="false">18:30</button>
@@ -284,7 +288,7 @@
                                 <button type="button" class="slot" disabled>20:00</button>
                                 <button type="button" class="slot" aria-pressed="false">20:30</button>
                             </div>
-                            <p class="slot-note" aria-live="polite" data-slot-note>Table for 4 held at 19:00. Confirmation goes out by SMS.</p>
+                            <p class="slot-note" aria-live="polite" data-slot-note>Table for 4 held at 19:00. Confirmation goes out by SMS or email.</p>
                         </div>
                         <img class="tile-photo tile-photo--side" src="~/img/terrace.webp" width="1200" height="900"
                              alt="A seaside restaurant terrace set for dinner" loading="lazy" />
@@ -297,7 +301,7 @@
             <div class="shell features-grid">
                 <header class="features-head">
                     <h2 id="features-title">Shared across every product</h2>
-                    <p>Built for the way restaurants actually work: mid-service edits, seasonal swaps, and guests who speak four languages.</p>
+                    <p>Built for the way restaurants actually work: mid-service edits, seasonal swaps, and guests who don't all speak your language.</p>
                 </header>
                 <ul class="feature-list">
                     <li data-reveal>
@@ -308,12 +312,12 @@
                     <li data-reveal>
                         <i class="ph ph-device-mobile" aria-hidden="true"></i>
                         <h3>Mobile optimised</h3>
-                        <p>Menus built phone-first: legible in low light, thumb-reachable, and fast on café wifi.</p>
+                        <p>Menus built phone-first: legible in low light, thumb-reachable, and once opened they keep working when the Wi-Fi drops.</p>
                     </li>
                     <li data-reveal>
                         <i class="ph ph-lightning" aria-hidden="true"></i>
-                        <h3>Real-time updates</h3>
-                        <p>Sold out at 19:40? Hide it. The change is on every table before the next order lands.</p>
+                        <h3>Instant updates</h3>
+                        <p>Sold out at 19:40? One tap. The next guest to open the menu sees it, and table orders for it are refused.</p>
                     </li>
                     <li data-reveal>
                         <i class="ph ph-palette" aria-hidden="true"></i>
@@ -354,7 +358,7 @@
                     <div class="stack-inner">
                         <div class="stack-copy">
                             <h3>Add your menu</h3>
-                            <p>Categories, dishes, prices, photos and nutrition notes. Translate each dish once and every guest reads it in their language.</p>
+                            <p>Categories, dishes, prices, photos and allergens. Translate each dish once and every guest reads it in their language.</p>
                         </div>
                         <img src="~/img/chef-prep.webp" width="900" height="1350" alt="A chef chopping herbs on a board" loading="lazy" />
                     </div>
@@ -375,8 +379,8 @@
             <img class="cta-photo" src="~/img/evening-room.webp" width="1200" height="1812" alt="" aria-hidden="true" loading="lazy" />
             <div class="cta-inner" data-reveal>
                 <h2 id="cta-title">Run the whole room from one place</h2>
-                <p>Menus, website, bookings and back office. Start with one, add the rest whenever. Free while you build it.</p>
-                <a class="btn btn-primary btn-lg" asp-controller="@ctaController" asp-action="@ctaAction">
+                <p>Menus, website, bookings and back office. Start with one, add the rest whenever. Tell us about your restaurant and we'll set up your account.</p>
+                <a class="btn btn-primary btn-lg" href="@ctaHref">
                     @ctaLabel <i class="ph ph-arrow-right" aria-hidden="true"></i>
                 </a>
             </div>
@@ -398,7 +402,6 @@
                     <a href="#partners">Partners</a>
                 }
                 <a asp-controller="Home" asp-action="Privacy">Privacy</a>
-                <a asp-controller="Home" asp-action="Privacy">Terms</a>
             </nav>
             <div class="footer-end">
                 <partial name="_FourCsCredit" />
