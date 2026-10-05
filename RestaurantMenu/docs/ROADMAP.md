@@ -30,6 +30,7 @@ Also fixed while doing this: admins were sent to the owner dashboard (access den
    - optional `ADMIN_INITIAL_PASSWORD` (only used if the admin account doesn't exist yet)
    - optional email (see item 13): `Email__From` (an address on your verified domain) plus `Email__ResendApiKey` (or `Email__BrevoApiKey`), and `Seo__BaseUrl` (e.g. `https://myquickmenu.al`) so emailed links always point at your real address. SMTP (`Smtp__Host`, `Smtp__Port`, `Smtp__User`, `Smtp__Password`) still works on hosts that allow it, but not on Render's free plan.
    - optional translate-assist: `Translation__GeminiApiKey` (free key from https://aistudio.google.com/apikey)
+   - optional `Landing__ContactUrl`: where the landing page's "Get in touch" buttons go (a `mailto:`, form or WhatsApp link; default https://4cs.al/)
 3. **Before deploying**, run `psql "<external connection string>" -v ON_ERROR_STOP=1 -f docs/migrations/prod-upgrade.sql`.
 4. Deploy. If the admin still used `Admin@123`, find the replacement password in the Render logs ("The admin still used the old default password"), sign in, and choose a new one.
 
@@ -358,6 +359,18 @@ The menu still opens on weak restaurant Wi-Fi, or with no connection, once a gue
   - `/sw.js` is served with `Cache-Control: no-cache` and a JavaScript type, so a new version is picked up on the next visit. It is also served on restaurants' own domains and subdomains.
   - `/menu/{slug}/manifest.webmanifest` (per language): name, the brand colour, the restaurant's logo (or ours), start URL and scope `/menu`, `display: standalone`, cached for an hour. Guests can "Add to Home Screen" and open the menu like an app.
 - **Later:** a saved copy of the order list while offline (sent when back online), and update prompts for guests who keep the menu open for hours.
+
+### 20. Legal pages, tests, translation review: done
+Housekeeping after item 19, so what the site says matches what the app does.
+
+- **Landing page:** the claims now match the product. "Get in touch" replaces "Get started free" (there is no self-serve signup; `Landing__ContactUrl`, default 4cs.al). No more "every table a second later" (open menus don't refresh themselves), "four languages", a "Templates" tag or SMS-only confirmations. Table ordering, the kitchen display, shifts and sales, and the offline menu are mentioned.
+- **Privacy page** (`Views/Home/Privacy.cshtml`) rewritten: who is responsible (the restaurant for its guests' data, 4CS for accounts), the menu and what stays on the phone, table orders, bookings, feedback, abuse protection, owners and teams, every outside service (Render, Resend/Brevo, Twilio or the restaurant's SMS gateway, Google Gemini, Google Fonts, unpkg, Google Maps), retention periods and guests' rights.
+- **Terms of use** (`/home/terms`, in the sitemap and the landing footer): for restaurants (accounts, their content and allergen information, their guests, fees agreed in writing, ending), for guests, fair use, availability, liability, Albanian law. **Have a lawyer review both pages** before charging restaurants.
+- **Booking page:** "{Restaurant} uses your details only for this booking. Privacy" under the form, in the 7 languages (`BookingText.PrivacyNote`).
+- **Booking retention:** bookings are deleted `Bookings__RetentionDays` (default 400) days after their date, by the daily cleanup. Before this, guests' names and phones were kept forever.
+- **Tests** (`RestaurantMenu.Tests`, xUnit, 125 tests): opening hours (overnight, merged midnight, 24 h, week wrap, daylight saving), serving times, booking slots (notice, capacity, closed days, the skipped hour in March), phones, order pricing and limits, option validation, table codes, colour contrast over 4,096 colours, stock amounts, Google review links, domains and socials, and `TranslationCoverageTests` (every word table has all 7 languages, no blanks, the same `{0}` placeholders). Run `dotnet test RestaurantMenu.Tests/RestaurantMenu.Tests.csproj`. The Dockerfile now restores the app's `.csproj` (not the solution), so the tests never enter the image.
+- **Translation review:** `docs/translations/review-{sq,it,de,fr,es,tr}.csv`, one sheet per language with all 186 guest phrases and columns for the reviewer. Instructions in `docs/translations/README.md`.
+- **Also fixed:** `Program.cs` no longer builds a second service provider to get the soft-delete interceptor (warning ASP0000).
 
 ---
 

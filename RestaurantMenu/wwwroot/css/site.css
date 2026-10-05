@@ -690,10 +690,12 @@ a.chip--link:hover { background: var(--accent-soft); color: var(--accent); }
     .auth-photo { display: none; }
 }
 
-/* ---------- Prose (privacy) & error ---------- */
+/* ---------- Prose (privacy, terms) & error ---------- */
 .prose { max-width: 70ch; }
 .prose h1 { font-size: clamp(32px, 4vw, 48px); margin: 8px 0 12px; }
 .prose h2 { font-size: 22px; margin: 36px 0 10px; }
+.prose h3 { font-size: 17px; margin: 22px 0 6px; }
+.prose h2[id], .prose h3[id] { scroll-margin-top: 24px; }
 .prose p, .prose li { color: var(--ink-2); }
 .prose .lead { font-size: 18px; color: var(--ink-2); }
 .error-page { max-width: 560px; margin: 8vh auto; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 14px; }

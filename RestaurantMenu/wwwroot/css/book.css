@@ -40,6 +40,8 @@
 .b-label { margin: 0; font: 700 13px/1.2 var(--font-body); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); }
 .b-label span { text-transform: none; letter-spacing: 0; color: var(--ink); font-size: 15px; }
 .b-hint { margin: 0; font-size: 13px; color: var(--ink-3); }
+.b-privacy { margin-top: 10px; text-align: center; }
+.b-privacy a { color: var(--ink-2); text-decoration: underline; }
 .b-error { margin: 0; padding: 8px 12px; border-radius: 10px; font-size: 14px; font-weight: 600;
     background: color-mix(in oklab, #d4421f 14%, var(--surface)); color: color-mix(in oklab, #d4421f 80%, var(--ink)); }
 .b-error[hidden], .b-empty[hidden] { display: none; }

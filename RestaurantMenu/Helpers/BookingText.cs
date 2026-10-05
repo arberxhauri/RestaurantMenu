@@ -165,6 +165,25 @@ public static class BookingText
 
     public static Words For(string? language) => All.TryGetValue(language ?? "en", out var w) ? w : All["en"];
 
+    // Shown under the booking form, where the guest's details are collected, with a link to
+    // the privacy page. {0} = branch. Kept apart from Words so it doesn't renumber that record.
+    private static readonly Dictionary<string, (string Text, string Link)> PrivacyNotes = new()
+    {
+        ["en"] = ("{0} uses your details only for this booking.", "Privacy"),
+        ["sq"] = ("{0} i përdor të dhënat tuaja vetëm për këtë rezervim.", "Privatësia"),
+        ["it"] = ("{0} usa i tuoi dati solo per questa prenotazione.", "Privacy"),
+        ["de"] = ("{0} nutzt deine Angaben nur für diese Reservierung.", "Datenschutz"),
+        ["fr"] = ("{0} utilise vos coordonnées uniquement pour cette réservation.", "Confidentialité"),
+        ["es"] = ("{0} usa tus datos solo para esta reserva.", "Privacidad"),
+        ["tr"] = ("{0} bilgilerinizi yalnızca bu rezervasyon için kullanır.", "Gizlilik")
+    };
+
+    public static (string Text, string Link) PrivacyNote(string branch, string? language)
+    {
+        var n = PrivacyNotes.TryGetValue(language ?? "en", out var x) ? x : PrivacyNotes["en"];
+        return (string.Format(n.Text, branch), n.Link);
+    }
+
     public static string GuestCount(int n, string? language) =>
         n == 1 ? For(language).OneGuest : string.Format(For(language).ManyGuests, n);
 

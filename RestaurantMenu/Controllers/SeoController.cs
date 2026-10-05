@@ -70,6 +70,7 @@ public class SeoController : Controller
 
         root.Add(Url(ns, _seo.Url("/"), "weekly", "1.0"));
         root.Add(Url(ns, _seo.Url("/home/privacy"), "yearly", "0.3"));
+        root.Add(Url(ns, _seo.Url("/home/terms"), "yearly", "0.3"));
 
         var branches = await _context.Branches
             .Where(b => !b.IsDeleted)

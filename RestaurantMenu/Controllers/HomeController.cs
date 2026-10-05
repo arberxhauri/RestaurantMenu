@@ -65,6 +65,21 @@ public class HomeController : Controller
         return View();
     }
 
+    public IActionResult Terms()
+    {
+        ViewData["Title"] = "Terms of use";
+        ViewData["Seo"] = new SeoMetadata
+        {
+            Title = "Terms of use — My Quick Menu",
+            Description = "The terms for restaurants using My Quick Menu and for guests using their menus, bookings and ordering.",
+            CanonicalUrl = _seo.Url("/home/terms"),
+            OgType = "article",
+            ThemeColor = "#D55C13"
+        };
+
+        return View();
+    }
+
     // Re-executed by UseStatusCodePagesWithReExecute for 404s and other error statuses.
     [NoIndex]
     [Route("home/status/{code:int}")]

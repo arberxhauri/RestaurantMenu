@@ -11,7 +11,7 @@ public static class SiteRules
     private static readonly Regex Label = new("^(?!-)[a-z0-9-]{1,63}(?<!-)$", RegexOptions.Compiled);
 
     /// <summary>
-    /// "https://WWW.Example.al/menu" → "www.example.al"; "çajtore.al" → "xn--ajtore-4ua.al".
+    /// "https://WWW.Example.al/menu" → "www.example.al"; "çajtore.al" → "xn--ajtore-vua.al".
     /// Null when it isn't a public domain name (an IP address, "localhost", one label, bad characters).
     /// </summary>
     public static string? NormalizeHost(string? input)
@@ -34,7 +34,7 @@ public static class SiteRules
         return h;
     }
 
-    /// <summary>For display: punycode back to letters (xn--ajtore-4ua.al → çajtore.al).</summary>
+    /// <summary>For display: punycode back to letters (xn--ajtore-vua.al → çajtore.al).</summary>
     public static string DisplayHost(string host)
     {
         try { return new IdnMapping().GetUnicode(host); }

@@ -40,13 +40,15 @@ if (string.IsNullOrEmpty(connectionString))
 builder.Services.AddScoped<SoftDeleteInterceptor>();
 
 // 3. DbContext with RETRY POLICY
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
+// The interceptor comes from the context's own scope (not a second, throwaway service
+// provider built here), so it shares the app's singletons.
+builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
     options.UseNpgsql(connectionString, sqlOptions =>
         sqlOptions.EnableRetryOnFailure(
             maxRetryCount: 5,
             maxRetryDelay: TimeSpan.FromSeconds(30),
             errorCodesToAdd: null))
-    .AddInterceptors(builder.Services.BuildServiceProvider().GetRequiredService<SoftDeleteInterceptor>()));
+    .AddInterceptors(sp.GetRequiredService<SoftDeleteInterceptor>()));
 
 builder.Services.AddScoped<ColorExtractionService>();
 

@@ -153,6 +153,8 @@
                 <button type="submit" class="m-btn m-btn--brand m-btn--block" data-book-submit>
                     <i class="ph ph-calendar-check" aria-hidden="true"></i><span data-book-submit-label>@w.Book</span>
                 </button>
+                @{ var privacy = BookingText.PrivacyNote(b.Name, lang); }
+                <p class="b-hint b-privacy">@privacy.Text <a href="@Seo.Url("/home/privacy")#bookings" target="_blank" rel="noopener">@privacy.Link</a></p>
             </form>
 
             <p class="b-foot"><a href="@Url.Content($"~/menu/{slug}")@(lang == "en" ? "" : $"?lang={lang}")"><i class="ph ph-book-open-text" aria-hidden="true"></i>@w.SeeMenu</a> · <a href="tel:@b.PhoneNumber">@b.PhoneNumber</a></p>

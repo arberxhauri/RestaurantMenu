@@ -4,18 +4,51 @@
 
 <article class="prose">
     <h1>Privacy</h1>
-    <p class="lead">What My Quick Menu stores, and why. Plain language, short.</p>
+    <p class="lead">What My Quick Menu stores, why, for how long, and who else sees it. Plain language.</p>
+    <p><small>Last updated 5 October 2026.</small></p>
 
-    <h2>Guests reading a menu</h2>
+    <h2 id="who">Who is responsible</h2>
+    <p>My Quick Menu is built and run by <a href="https://4cs.al/" target="_blank" rel="noopener noreferrer">4CS</a>. Each restaurant using it decides what happens with its own guests' orders, bookings and feedback. We store and process that data for the restaurant, and only to run these features. For your account as a restaurant owner or team member, we are responsible ourselves.</p>
+    <p>Questions about a booking, order or feedback you gave a restaurant: ask the restaurant first. Anything else: contact 4CS (see <a href="#questions">Questions</a>).</p>
+
+    <h2 id="menu">Guests reading a menu</h2>
     <p>You don't need an account to read a menu. We don't ask for your name, email or location.</p>
-    <p>If you add dishes to “Your list”, or choose dietary and allergen filters, they are saved only in your own browser on your device. The list itself never reaches us or the restaurant, and clearing your browser data removes it.</p>
-    <p>So restaurants can see how their menu is used, we count anonymous events: that the menu was opened, that a dish was opened or added to a list, and which language was chosen, with the time. We don't use cookies for this and store nothing about you: no IP address, device, browser or identifier. To stop anyone from faking these counts, your connection's address is used briefly in memory to limit how many events can be sent, and is never stored. Search engines, link previews and signed-in owners aren't counted. Counts older than about 13 months are deleted.</p>
+    <p>"Your list", your dietary and allergen filters, and the orders you sent from your table in the last 12 hours are kept only in your own browser on your device. Your phone also keeps a copy of menus you opened and their photos, so they still open when the Wi-Fi drops. Clearing your browser data removes all of it.</p>
+    <p>So restaurants can see how their menu is used, we count anonymous events: that the menu was opened, that a dish was opened or added to a list, and which language was chosen, with the time. We don't use cookies for this and store nothing about you: no IP address, device, browser or identifier. Search engines, link previews and signed-in staff aren't counted. Counts are deleted after about 13 months.</p>
 
-    <h2>Restaurant owners</h2>
-    <p>To run your account we store your name, email, company tax number (NIPT), and the content you publish: branch details, logos, banners, dishes, prices, photos and translations.</p>
-    <p>A sign-in cookie keeps you logged in. We don't use advertising or tracking cookies.</p>
-    <p>When you delete a branch, category or dish it is hidden right away rather than erased, so a mistake can be undone. The same applies when an administrator removes an account.</p>
+    <h2 id="orders">Ordering from your table</h2>
+    <p>If the restaurant lets you order from the table, sending your list creates an order with the dishes and choices, the table number, the language and your note, if you wrote one. It appears on the restaurant's kitchen screen and in its sales figures. Orders contain no name or contact details, and they are deleted after about 13 months.</p>
 
-    <h2>Questions</h2>
-    <p>Contact the team that runs your account, or <a href="https://4cs.al/" target="_blank" rel="noopener noreferrer">4CS</a>, who build and operate My Quick Menu.</p>
+    <h2 id="bookings">Booking a table</h2>
+    <p>To book, you give your name, phone number, the party size, date and time, and optionally an email address and a request. The restaurant uses these to hold your table, confirm or cancel it and remind you shortly before. Its staff can add their own note to the booking. To spot repeat guests, the restaurant sees how many times your phone number has booked with them before, and whether you came. It never sees bookings you made with other restaurants.</p>
+    <p>Confirmations and reminders are sent by text message and, if you gave one, by email (see <a href="#services">Services we use</a>). The link in those messages lets you see or cancel the booking. Bookings are deleted about 13 months after their date.</p>
+
+    <h2 id="feedback">Rating your visit</h2>
+    <p>If you rate your visit from the menu, we store the stars, your comment, the language and the table number if you came from a table code. With 1 to 3 stars you can leave a way to reach you; only the restaurant sees it, and the restaurant may be emailed about it. That contact detail is removed after a year; the rating and comment stay. If you choose to review the restaurant on Google, that happens on Google's site, under Google's terms.</p>
+
+    <h2 id="abuse">Protecting against abuse</h2>
+    <p>To stop anyone from flooding a restaurant with fake orders, bookings, ratings or statistics, your connection's address is used briefly in the server's memory to limit how many can be sent. It is never written to the database. Our hosting provider keeps short-lived technical logs of requests, as every website host does.</p>
+
+    <h2 id="owners">Restaurant owners and their teams</h2>
+    <p>To run your account we store your name, email, password (scrambled, never readable), your role and, for owners, the company tax number (NIPT). We also store what you publish (branch details, logos, banners, dishes, prices, photos, translations and the restaurant website) and what you enter to run the restaurant: tables, stock, recipes, shift rotas (including the names of people on them), end-of-day sales and who recorded each change.</p>
+    <p>A sign-in cookie keeps you logged in, and a security cookie protects forms from being sent by other sites. We don't use advertising or tracking cookies.</p>
+    <p>When you delete a branch, category or dish it is hidden right away rather than erased, so a mistake can be undone. The same applies when an administrator removes an account. Ask us if you want your account and data erased for good.</p>
+
+    <h2 id="services">Services we use</h2>
+    <p>We don't sell data or use it for advertising. These providers handle data only to deliver their part of the service:</p>
+    <ul>
+        <li><strong>Render</strong> hosts the app and its database.</li>
+        <li><strong>Resend</strong> or <strong>Brevo</strong> deliver email: booking messages to guests who gave an email, new-booking and low-rating notices to restaurants, and invites and password resets to staff.</li>
+        <li><strong>Twilio</strong>, or an SMS provider the restaurant chooses, delivers booking text messages to the guest's phone.</li>
+        <li><strong>Google Gemini</strong> suggests translations when a restaurant asks for them. Only dish and category text that will appear on the public menu is sent, never anything about guests or staff. On Google's free tier, Google may use that text to improve its products.</li>
+        <li><strong>Google Fonts</strong> and <strong>unpkg</strong> serve the typefaces and icons. Like any website, they receive your device's address when your browser loads them.</li>
+        <li><strong>Google Maps</strong> loads on a restaurant's website only when you tap the map. Until then, no request is made to Google.</li>
+    </ul>
+
+    <h2 id="rights">Your rights</h2>
+    <p>You can ask to see, correct or delete the data held about you, or object to how it is used. For guest data, the restaurant can do most of this directly; we help when needed. You can also complain to the data protection authority in your country (in Albania, the Commissioner for the Right to Information and Protection of Personal Data).</p>
+
+    <h2 id="questions">Questions</h2>
+    <p>Contact the restaurant or the team that runs your account, or <a href="https://4cs.al/" target="_blank" rel="noopener noreferrer">4CS</a>, who build and operate My Quick Menu.</p>
+    <p>See also the <a asp-controller="Home" asp-action="Terms">Terms of use</a>.</p>
 </article>
