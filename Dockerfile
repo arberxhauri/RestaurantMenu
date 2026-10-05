@@ -2,14 +2,12 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /app
 
-# Copy the solution file
-COPY RestaurantMenu.sln ./
-
-# Copy the project folder
+# Copy the app project only. The solution also lists RestaurantMenu.Tests, which isn't
+# copied into the image, so restore the app's .csproj rather than the solution.
 COPY RestaurantMenu/ ./RestaurantMenu/
 
-# Restore dependencies for the solution
-RUN dotnet restore RestaurantMenu.sln
+# Restore dependencies for the app
+RUN dotnet restore RestaurantMenu/RestaurantMenu.csproj
 
 # Copy the rest of the code (if any additional files)
 # (optional if everything is already copied)
