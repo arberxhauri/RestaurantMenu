@@ -5,6 +5,15 @@
 
     /* ---------- Lightweight toast ---------- */
     var toastEl = null, toastTimer = null;
+    /* A 409 with { message }: the plan refused the change (read-only account, paused branch). */
+    function refused(r) {
+        return r.json().catch(function () { return {}; }).then(function (j) {
+            var err = new Error(j.message || "This can't be changed right now.");
+            err.refused = true;
+            throw err;
+        });
+    }
+
     function toast(message) {
         if (!toastEl) {
             toastEl = document.createElement('div');
@@ -584,6 +593,7 @@
                 body: data,
                 credentials: 'same-origin'
             }).then(function (r) {
+                if (r.status === 409) return refused(r);
                 // A signed-out session is redirected to the login page, which is not JSON.
                 if (!r.ok || r.redirected) throw new Error(r.status);
                 return r.json();
@@ -592,10 +602,10 @@
                 if (mine !== seq) return;
                 showAvailability(form, confirmed);
                 toast(confirmed ? name + ' is available again' : name + ' is sold out');
-            }).catch(function () {
+            }).catch(function (err) {
                 if (mine !== seq) return;
                 showAvailability(form, confirmed);
-                toast('Could not update ' + name + '. Reload the page and try again.');
+                toast(err && err.refused ? err.message : 'Could not update ' + name + '. Reload the page and try again.');
             }).then(function () {
                 if (mine === seq) btn.removeAttribute('aria-busy');
             });
@@ -627,6 +637,7 @@
             btn.setAttribute('aria-busy', 'true');
             fetch(form.action, { method: 'POST', headers: { 'Accept': 'application/json' }, body: data, credentials: 'same-origin' })
                 .then(function (r) {
+                    if (r.status === 409) return refused(r);
                     if (!r.ok || r.redirected) throw new Error(r.status);
                     return r.json();
                 }).then(function (res) {
@@ -634,10 +645,10 @@
                     if (mine !== seq) return;
                     show(confirmed);
                     toast(confirmed ? name + ' is recommended at the top of the menu' : name + ' is no longer recommended');
-                }).catch(function () {
+                }).catch(function (err) {
                     if (mine !== seq) return;
                     show(confirmed);
-                    toast('Could not update ' + name + '. Reload the page and try again.');
+                    toast(err && err.refused ? err.message : 'Could not update ' + name + '. Reload the page and try again.');
                 }).then(function () {
                     if (mine === seq) btn.removeAttribute('aria-busy');
                 });

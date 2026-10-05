@@ -19,6 +19,8 @@
         new(week.Values.Sum(w => pick(w).Views), week.Values.Sum(w => pick(w).DishOpens), week.Values.Sum(w => pick(w).Adds));
     var weekNow = Sum(w => w.Current);
     var weekBefore = Sum(w => w.Previous);
+    var paused = ViewBag.Paused as HashSet<int> ?? new();
+    bool overLimit = ViewBag.OverLimit == true;
 }
 
 <header class="page-head">
@@ -37,7 +39,7 @@
             }
             else
             {
-                <span class="chip chip--warn"><i class="ph ph-info" aria-hidden="true"></i>All @maxBranches branch slots in use</span>
+                <span class="chip chip--warn"><i class="ph ph-info" aria-hidden="true"></i>Your plan includes @maxBranches branch@(maxBranches == 1 ? "" : "es")</span>
             }
         </div>
     }
@@ -66,6 +68,26 @@
             <partial name="_Kpi" model="@(new KpiModel("Added to lists", weekNow.Adds, weekBefore.Adds, "previous 7 days"))" />
         </div>
     </section>
+}
+
+@if (overLimit)
+{
+    <section class="panel mb-4" aria-labelledby="keep-title"><div class="panel-body">
+        <h2 id="keep-title" class="h5 mb-1">Choose which branches stay active</h2>
+        <p class="text-muted mb-3">Your plan includes @maxBranches branch@(maxBranches == 1 ? "" : "es") and you have @ownedCount. The others are paused: their menus stay online, but nothing in them can be changed and ordering and bookings are off. Nothing is deleted.</p>
+        <form method="post" asp-action="ChooseActive">
+            <div class="d-grid gap-2 mb-3">
+                @foreach (var b in branches.Where(b => RoleOf(b) == BranchRole.Owner).OrderBy(b => b.Name))
+                {
+                    <label class="form-check">
+                        <input class="form-check-input" type="checkbox" name="keep" value="@b.Id" @(paused.Contains(b.Id) ? "" : "checked") />
+                        <span class="form-check-label">@b.Name @if (paused.Contains(b.Id)) { <span class="chip chip--later">Paused</span> }</span>
+                    </label>
+                }
+            </div>
+            <button type="submit" class="btn btn-primary">Keep these active</button>
+        </form>
+    </div></section>
 }
 
 @if (!branches.Any())
@@ -124,6 +146,10 @@ else
 
                 <div class="branch-body">
                     <h2><a asp-controller="Branch" asp-action="Details" asp-route-id="@branch.Id">@branch.Name</a></h2>
+                    @if (paused.Contains(branch.Id))
+                    {
+                        <span class="chip chip--later branch-role" title="Over the plan's branch count: menu online, changes paused"><i class="ph ph-pause" aria-hidden="true"></i>Paused</span>
+                    }
                     @if (RoleOf(branch) is BranchRole.Manager or BranchRole.Editor)
                     {
                         <span class="chip chip--accent branch-role"><i class="ph ph-user-circle" aria-hidden="true"></i>@(RoleOf(branch) == BranchRole.Manager ? "Manager" : "Editor")</span>

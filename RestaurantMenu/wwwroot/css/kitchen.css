@@ -229,3 +229,8 @@
     .k-btn { flex: 1; }
     .k-actions { width: 100%; }
 }
+
+/* Plan notice (ordering not in the plan, branch paused) above the board. */
+.k-plan:empty { display: none; }
+.k-plan { padding: 12px 16px 0; }
+.k-plan .flash { margin: 0; }

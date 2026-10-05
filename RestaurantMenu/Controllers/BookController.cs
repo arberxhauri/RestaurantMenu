@@ -75,7 +75,7 @@ public class BookController : Controller
         guests = Math.Clamp(guests, 1, Math.Max(1, settings.MaxPartySize));
         var selected = DateOnly.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d0) && d0 >= today && d0 <= last ? d0 : today;
 
-        var bookable = BookingService.IsBookable(branch, settings);
+        var bookable = BookingService.IsBookable(branch, settings, await _bookings.PlanIncludesBookingsAsync(branch.Id));
         var slots = bookable ? await _bookings.SlotsAsync(branch, settings, selected, now) : new List<BookingSlot>();
         // Nothing left today (late evening): start on the next day that has a free time.
         if (bookable && date == null && !slots.Any(s => s.Open && s.Remaining >= guests))
@@ -103,7 +103,7 @@ public class BookController : Controller
         var branch = await BranchAsync(slug);
         if (branch == null) return NotFound();
         var settings = await _bookings.SettingsAsync(branch.Id);
-        if (!BookingService.IsBookable(branch, settings)) return Ok(new { date, closed = true, slots = Array.Empty<object>() });
+        if (!BookingService.IsBookable(branch, settings, await _bookings.PlanIncludesBookingsAsync(branch.Id))) return Ok(new { date, closed = true, slots = Array.Empty<object>() });
         if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day)) return BadRequest();
         guests = Math.Clamp(guests, 1, Math.Max(1, settings.MaxPartySize));
         var slots = await _bookings.SlotsAsync(branch, settings, day, DateTime.UtcNow);

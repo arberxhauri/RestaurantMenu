@@ -18,6 +18,7 @@ namespace RestaurantMenu.Controllers;
 [Authorize(Roles = "OWNER,STAFF")]
 [NoIndex]
 [Route("branch/{id:int}/sales")]
+[RequireModule(BillingModule.Management)]
 public class SalesController : Controller
 {
     public static readonly int[] Ranges = { 7, 30, 90 };

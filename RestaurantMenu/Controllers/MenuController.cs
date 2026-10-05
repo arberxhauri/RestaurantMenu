@@ -16,9 +16,11 @@ public class MenuController : Controller
     private readonly OrderService _orders;
     private readonly FeedbackService _feedback;
     private readonly BranchSlugs _slugs;
+    private readonly IEntitlementService _entitlements;
 
-    public MenuController(ApplicationDbContext context, SeoService seo, MenuAnalytics analytics, OrderService orders, FeedbackService feedback, BranchSlugs slugs)
+    public MenuController(ApplicationDbContext context, SeoService seo, MenuAnalytics analytics, OrderService orders, FeedbackService feedback, BranchSlugs slugs, IEntitlementService entitlements)
     {
+        _entitlements = entitlements;
         _slugs = slugs;
         _context = context;
         _seo = seo;
@@ -100,10 +102,12 @@ public class MenuController : Controller
         ViewBag.CurrentLanguage = lang;
         ViewBag.Table = table;
         ViewBag.TableCode = code;
-        ViewBag.Ordering = await OrderingStateAsync(branch, table, code);
+        // The menu itself is never limited by the plan; ordering and the booking button are.
+        var plan = await _entitlements.ForBranchAsync(branch.Id);
+        ViewBag.Ordering = plan?.Has(BillingModule.Ordering) == true ? await OrderingStateAsync(branch, table, code) : null;
         // "Book a table" in the header while online booking is on (not at a table: they're already here).
         var booking = await _context.ReservationSettings.AsNoTracking().FirstOrDefaultAsync(s => s.BranchId == branch.Id);
-        if (table == null && booking != null && BookingService.IsBookable(branch, booking))
+        if (table == null && booking != null && BookingService.IsBookable(branch, booking, plan?.Has(BillingModule.Bookings) == true))
         {
             ViewBag.BookUrl = $"/book/{canonicalSlug}" + (lang == SeoService.DefaultLanguage ? "" : $"?lang={lang}");
         }

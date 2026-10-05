@@ -225,6 +225,8 @@
                 if (r.status === 404) { delete orders[o.id]; render(); return; }
                 if (!r.ok && r.status !== 409) throw new Error('HTTP ' + r.status);
                 return r.json().then(function (data) {
+                    // 409 without an order: refused by the plan (read-only account, paused branch).
+                    if (r.status === 409 && !data.order) { toast(data.message || "This can't be changed right now."); render(); return; }
                     if (r.status === 409) toast('Another screen already moved order #' + data.order.number + '.');
                     delete fresh[data.order.id];
                     orders[data.order.id] = data.order;
@@ -252,7 +254,11 @@
         if (paused && !window.confirm('Pause new orders? Guests will be asked to order with their server until you resume.')) return;
         pauseBtn.disabled = true;
         post(PAUSE_URL, { paused: paused })
-            .then(function (r) { if (!r.ok) throw new Error(); setPaused(paused, true); toast(paused ? 'New orders paused.' : 'Orders resumed.'); })
+            .then(function (r) {
+                if (r.status === 409) return r.json().then(function (data) { toast(data.message || "This can't be changed right now."); });
+                if (!r.ok) throw new Error();
+                setPaused(paused, true); toast(paused ? 'New orders paused.' : 'Orders resumed.');
+            })
             .catch(function () { toast("Couldn't save. Check the connection and try again."); })
             .then(function () { pauseBtn.disabled = false; });
     });

@@ -13,6 +13,11 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<Branch> Branches { get; set; }
     public DbSet<BranchSlugAlias> BranchSlugAliases { get; set; }
+    public DbSet<PriceBook> PriceBook { get; set; }
+    public DbSet<Subscription> Subscriptions { get; set; }
+    public DbSet<SubscriptionItem> SubscriptionItems { get; set; }
+    public DbSet<BillingProfile> BillingProfiles { get; set; }
+    public DbSet<SubscriptionAudit> SubscriptionAudits { get; set; }
     public DbSet<Category> Categories { get; set; }
     public DbSet<Product> Products { get; set; }
     public DbSet<MenuEvent> MenuEvents { get; set; }
@@ -108,6 +113,56 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.HasIndex(a => a.BranchId);
             e.HasOne(a => a.Branch).WithMany(b => b.SlugAliases).HasForeignKey(a => a.BranchId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(a => !a.Branch!.IsDeleted);
+        });
+
+        // Plans and subscriptions (Models/Billing.cs). Enums stored as text so the rows read
+        // plainly in the database and new values never renumber old ones.
+        builder.Entity<PriceBook>(e =>
+        {
+            e.Property(p => p.Module).HasConversion<string>().HasMaxLength(20);
+            e.Property(p => p.Interval).HasConversion<string>().HasMaxLength(10);
+            e.Property(p => p.Currency).HasMaxLength(3);
+            e.Property(p => p.PaddlePriceId).HasMaxLength(64);
+            e.HasIndex(p => new { p.Module, p.Interval, p.Currency, p.ValidFromUtc }).IsUnique();
+        });
+        builder.Entity<Subscription>(e =>
+        {
+            e.HasIndex(s => s.OwnerId).IsUnique();
+            e.HasOne(s => s.Owner).WithMany().HasForeignKey(s => s.OwnerId).OnDelete(DeleteBehavior.Restrict);
+            e.Property(s => s.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(s => s.Interval).HasConversion<string>().HasMaxLength(10);
+            e.Property(s => s.Provider).HasConversion<string>().HasMaxLength(20);
+            e.Property(s => s.Currency).HasMaxLength(3);
+            e.Property(s => s.ProviderCustomerId).HasMaxLength(100);
+            e.Property(s => s.ProviderSubscriptionId).HasMaxLength(100);
+            e.Property(s => s.Version).IsRowVersion();
+            // Matches the user filter: a removed owner's subscription is never read on its own.
+            e.HasQueryFilter(s => !s.Owner!.IsDeleted);
+        });
+        builder.Entity<SubscriptionItem>(e =>
+        {
+            e.HasIndex(i => new { i.SubscriptionId, i.Module }).IsUnique();
+            e.HasOne(i => i.Subscription).WithMany(s => s.Items).HasForeignKey(i => i.SubscriptionId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(i => i.Module).HasConversion<string>().HasMaxLength(20);
+            e.HasQueryFilter(i => !i.Subscription!.Owner!.IsDeleted);
+        });
+        builder.Entity<BillingProfile>(e =>
+        {
+            e.HasIndex(p => p.OwnerId).IsUnique();
+            e.HasOne(p => p.Owner).WithMany().HasForeignKey(p => p.OwnerId).OnDelete(DeleteBehavior.Restrict);
+            e.Property(p => p.LegalName).HasMaxLength(200);
+            e.Property(p => p.Nipt).HasMaxLength(20);
+            e.Property(p => p.Address).HasMaxLength(300);
+            e.Property(p => p.City).HasMaxLength(100);
+            e.Property(p => p.Country).HasMaxLength(2);
+            e.Property(p => p.BillingEmail).HasMaxLength(256);
+            e.HasQueryFilter(p => !p.Owner!.IsDeleted);
+        });
+        builder.Entity<SubscriptionAudit>(e =>
+        {
+            e.HasIndex(a => new { a.SubscriptionId, a.AtUtc });
+            e.Property(a => a.Action).HasMaxLength(60);
+            e.Property(a => a.ActorId).HasMaxLength(450);
         });
 
         builder.Entity<Branch>()

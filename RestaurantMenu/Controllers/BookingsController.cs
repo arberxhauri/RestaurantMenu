@@ -16,6 +16,7 @@ namespace RestaurantMenu.Controllers;
 [Authorize(Roles = "OWNER,STAFF")]
 [NoIndex]
 [Route("branch/{id:int}/bookings")]
+[RequireModule(BillingModule.Bookings)]
 public class BookingsController : Controller
 {
     private readonly ApplicationDbContext _context;
@@ -79,7 +80,7 @@ public class BookingsController : Controller
         ViewBag.CanSettings = await _access.CanAsync(id, BranchPermission.EditBranch);
         ViewBag.BookingUrl = BookingUrl(branch);
         return View(new BookingDay(branch, settings, day, today, list, slots, BookingRules.ClosedDates(settings.ClosedDates).Contains(day),
-            BookingService.IsBookable(branch, settings), await StampAsync(id, day)));
+            BookingService.IsBookable(branch, settings, await _access.HasModuleAsync(id, BillingModule.Bookings)), await StampAsync(id, day)));
     }
 
     /// <summary>Changes the day view polls for: when it differs, the page offers to refresh.</summary>
@@ -104,6 +105,7 @@ public class BookingsController : Controller
     }
 
     [HttpPost("{reservationId:int}/status")]
+    [AllowWhenModuleOff] // bookings already made can still be confirmed, seated or cancelled
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Status(int id, int reservationId, string from, string to, string? date)
     {

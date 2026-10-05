@@ -59,6 +59,12 @@ public class SiteController : Controller
         if (!string.Equals(slug, canonicalSlug, StringComparison.Ordinal))
             return RedirectPermanent($"/site/{canonicalSlug}{Request.QueryString}");
 
+        // Not in the plan (or a paused branch, or a read-only account): the menu instead, for
+        // now (302), so the address comes back as soon as the website does.
+        if (!await _access.HasModuleAsync(branch.Id, BillingModule.Website))
+            return Redirect($"/menu/{canonicalSlug}{Request.QueryString}");
+        var bookingsOn = await _access.HasModuleAsync(branch.Id, BillingModule.Bookings);
+
         var site = await _context.BranchSites.AsNoTracking().FirstOrDefaultAsync(s => s.BranchId == branch.Id) ?? new BranchSite { BranchId = branch.Id };
         var preview = !site.Enabled;
         if (preview && !(User.Identity?.IsAuthenticated == true && await _access.CanAsync(branch.Id, BranchPermission.EditBranch)))
@@ -95,12 +101,12 @@ public class SiteController : Controller
             NoIndex = preview,
             Alternates = languages.Length > 1 ? await Task.WhenAll(languages.Select(async l => new SeoAlternate(l, await SiteUrlAsync(branch, l)))) : Array.Empty<SeoAlternate>(),
             JsonLd = StructuredData.ForBranchSite(branch, site, siteUrl, _seo.MenuUrl(branch.Slug, language),
-                bookingSettings != null && BookingService.IsBookable(branch, bookingSettings), _seo)
+                bookingSettings != null && BookingService.IsBookable(branch, bookingSettings, bookingsOn), _seo)
         };
 
         return View(new SitePage(branch, site, language, languages, preview, highlights,
             MenuUrl: (onOwnHost ? "/menu" : $"/menu/{canonicalSlug}") + langQuery,
-            BookUrl: bookingSettings != null && BookingService.IsBookable(branch, bookingSettings) ? (onOwnHost ? "/book" : $"/book/{canonicalSlug}") + langQuery : null,
+            BookUrl: bookingSettings != null && BookingService.IsBookable(branch, bookingSettings, bookingsOn) ? (onOwnHost ? "/book" : $"/book/{canonicalSlug}") + langQuery : null,
             Status: branch.HoursEnabled && branch.OpeningHours?.Any() == true ? OpeningHours.GetStatus(branch.OpeningHours, zone, now) : null,
             Currency: CurrencyHelper.GetCurrencySymbol(branch.Currency)));
     }
@@ -129,7 +135,8 @@ public class SiteController : Controller
     public async Task<IActionResult> Sitemap(string slug)
     {
         var branch = await BranchAsync(slug);
-        if (branch == null || !await _context.BranchSites.AnyAsync(s => s.BranchId == branch.Id && s.Enabled)) return NotFound();
+        if (branch == null || !await _context.BranchSites.AnyAsync(s => s.BranchId == branch.Id && s.Enabled)
+            || !await _access.HasModuleAsync(branch.Id, BillingModule.Website)) return NotFound();
         var languages = branch.SupportedLanguages.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         var sb = new StringBuilder("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n");
         foreach (var l in languages.DefaultIfEmpty("en"))

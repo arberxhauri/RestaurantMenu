@@ -27,6 +27,7 @@ namespace RestaurantMenu.Controllers;
         private readonly FeedbackService _feedback;
         private readonly BranchSlugs _slugs;
         private readonly SiteHosts _hosts;
+        private readonly IEntitlementService _entitlements;
         
         public BranchController(
             ApplicationDbContext context,
@@ -38,8 +39,10 @@ namespace RestaurantMenu.Controllers;
             IBranchAccess access,
             FeedbackService feedback,
             BranchSlugs slugs,
-            SiteHosts hosts)
+            SiteHosts hosts,
+            IEntitlementService entitlements)
         {
+            _entitlements = entitlements;
             _slugs = slugs;
             _hosts = hosts;
             _feedback = feedback;
@@ -61,12 +64,9 @@ namespace RestaurantMenu.Controllers;
         public async Task<IActionResult> Create()
         {
             var user = await _userManager.GetUserAsync(User);
-            var branchCount = await _context.Branches
-                .CountAsync(b => b.UserId == user.Id && !b.IsDeleted);
-
-            if (branchCount >= user.NumberOfBranches)
+            if (await QuotaProblemAsync(user!.Id) is { } problem)
             {
-                TempData["Error"] = "You have reached your branch limit.";
+                TempData["Error"] = problem;
                 return RedirectToAction("Index", "Dashboard");
             }
 
@@ -81,12 +81,10 @@ public async Task<IActionResult> Create(Branch branch, IFormFile? logo, IFormFil
 {
     var user = await _userManager.GetUserAsync(User);
     
-    var branchCount = await _context.Branches
-        .CountAsync(b => b.UserId == user.Id && !b.IsDeleted);
-
-    if (branchCount >= user.NumberOfBranches)
+    // Checked again under the lock when saving (two quick submits can't both get in).
+    if (await QuotaProblemAsync(user!.Id) is { } problem)
     {
-        TempData["Error"] = "You have reached your branch limit.";
+        TempData["Error"] = problem;
         return RedirectToAction("Index", "Dashboard");
     }
 
@@ -134,8 +132,17 @@ public async Task<IActionResult> Create(Branch branch, IFormFile? logo, IFormFil
 
         branch.OpeningHours = hours;
         await _slugs.AssignAsync(branch);
-        _context.Branches.Add(branch);
-        await _slugs.SaveAsync(branch);
+        var added = await WithinQuotaAsync(user.Id, async () =>
+        {
+            _context.Branches.Add(branch);
+            await _slugs.SaveAsync(branch);
+        });
+        if (!added)
+        {
+            _context.Entry(branch).State = EntityState.Detached;
+            TempData["Error"] = await QuotaProblemAsync(user.Id) ?? "All your branches are in use.";
+            return RedirectToAction("Index", "Dashboard");
+        }
         _hosts.Invalidate();
 
         TempData["Success"] = $"Branch created. Its menu link is /menu/{branch.Slug}.";
@@ -595,13 +602,6 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
                 return NotFound();
             }
 
-            var liveCount = await _context.Branches.CountAsync(b => b.UserId == user.Id);
-            if (liveCount >= user.NumberOfBranches)
-            {
-                TempData["Error"] = $"{branch.Name} can't be restored: all your branch slots are in use.";
-                return RedirectToAction("Index", "Dashboard");
-            }
-
             // Its link was kept while it was deleted (slugs stay reserved), so it comes back as it was.
             if (await OwnerHasNameAsync(user.Id, branch.Name, branch.Id))
             {
@@ -609,12 +609,53 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
                 return RedirectToAction("Index", "Dashboard");
             }
 
-            branch.IsDeleted = false;
-            branch.DeletedOnUtc = null;
-            await _context.SaveChangesAsync();
+            var restored = await WithinQuotaAsync(user.Id, async () =>
+            {
+                branch.IsDeleted = false;
+                branch.DeletedOnUtc = null;
+                await _context.SaveChangesAsync();
+            });
+            if (!restored)
+            {
+                var max = (await _entitlements.ForOwnerAsync(user.Id)).MaxBranches;
+                TempData["Error"] = $"{branch.Name} can't be restored: your plan includes {max} branch{(max == 1 ? "" : "es")}, and they're all in use.";
+                return RedirectToAction("Index", "Dashboard");
+            }
+            _hosts.Invalidate();
 
             TempData["Success"] = $"{branch.Name} is back and its menu is online again.";
             return RedirectToAction("Index", "Dashboard");
+        }
+
+        /// <summary>Why this owner can't add a branch right now, or null if they can.</summary>
+        private async Task<string?> QuotaProblemAsync(string ownerId)
+        {
+            var plan = await _entitlements.ForOwnerAsync(ownerId);
+            if (!plan.CanWrite) return "New branches can't be added while the back office is read-only.";
+            var live = await _context.Branches.CountAsync(b => b.UserId == ownerId);
+            return live < plan.MaxBranches ? null
+                : $"Your plan includes {plan.MaxBranches} branch{(plan.MaxBranches == 1 ? "" : "es")}, and they're all in use. Contact us to add more.";
+        }
+
+        /// <summary>
+        /// Adds (or brings back) a branch only while the owner is under their plan's branch count,
+        /// safe against two at once: a transaction holding a per-owner advisory lock counts the
+        /// live branches, then saves. False (nothing saved) when the count is reached.
+        /// </summary>
+        private async Task<bool> WithinQuotaAsync(string ownerId, Func<Task> save)
+        {
+            var max = (await _entitlements.ForOwnerAsync(ownerId)).MaxBranches;
+            var strategy = _context.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync(async () =>
+            {
+                await using var tx = await _context.Database.BeginTransactionAsync();
+                var key = "branches:" + ownerId;
+                await _context.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtext({key}))");
+                if (await _context.Branches.CountAsync(b => b.UserId == ownerId) >= max) return false;
+                await save();
+                await tx.CommitAsync();
+                return true;
+            });
         }
 
         /// <summary>Whether this owner already has a live branch with this name (any capitalisation).</summary>

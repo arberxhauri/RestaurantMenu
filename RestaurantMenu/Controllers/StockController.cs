@@ -17,6 +17,7 @@ namespace RestaurantMenu.Controllers;
 [Authorize(Roles = "OWNER,STAFF")]
 [NoIndex]
 [Route("branch/{id:int}/stock")]
+[RequireModule(BillingModule.Management)]
 public class StockController : Controller
 {
     private readonly ApplicationDbContext _context;

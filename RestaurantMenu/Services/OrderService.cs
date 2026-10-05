@@ -39,9 +39,11 @@ public class OrderService
     private readonly IHubContext<KitchenHub> _hub;
     private readonly ILogger<OrderService> _logger;
     private readonly StockService _stock;
+    private readonly IEntitlementService _entitlements;
 
-    public OrderService(ApplicationDbContext db, IHubContext<KitchenHub> hub, ILogger<OrderService> logger, StockService stock)
+    public OrderService(ApplicationDbContext db, IHubContext<KitchenHub> hub, ILogger<OrderService> logger, StockService stock, IEntitlementService entitlements)
     {
+        _entitlements = entitlements;
         _db = db;
         _hub = hub;
         _logger = logger;
@@ -60,6 +62,8 @@ public class OrderService
         var branch = await _db.Branches.AsNoTracking().Include(b => b.OpeningHours)
             .FirstOrDefaultAsync(b => b.Id == req.Branch);
         if (branch == null || !branch.OrderingEnabled || branch.OrdersPaused) return Fail(OrderProblem.Unavailable, lang);
+        // The plan: without table ordering (or a paused branch, or a read-only account) nothing reaches the kitchen.
+        if ((await _entitlements.ForBranchAsync(branch.Id))?.Has(BillingModule.Ordering) != true) return Fail(OrderProblem.Unavailable, lang);
 
         var languages = branch.SupportedLanguages.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         lang = lang != null && languages.Contains(lang) ? lang : languages.FirstOrDefault() ?? "en";

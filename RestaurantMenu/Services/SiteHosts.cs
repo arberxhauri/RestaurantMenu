@@ -32,7 +32,12 @@ public class SiteOptions
 }
 
 /// <summary>A request host that leads to a restaurant's website.</summary>
-public record SiteTarget(int BranchId, string Slug, string Host, bool IsCustomDomain, bool Verified, bool Published, string? Token);
+/// <summary>
+/// <paramref name="WebsiteOn"/> and <paramref name="DomainOn"/>: whether the branch's plan includes the
+/// website and own domains (SiteHostMiddleware sends guests to the menu when it doesn't).
+/// </summary>
+public record SiteTarget(int BranchId, string Slug, string Host, bool IsCustomDomain, bool Verified, bool Published, string? Token,
+    bool WebsiteOn = true, bool DomainOn = true);
 
 /// <summary>
 /// Which host belongs to which website. Keeps a snapshot of all custom domains and of the
@@ -87,9 +92,20 @@ public class SiteHosts
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             var sites = await db.Branches.AsNoTracking()
                 .Where(b => b.Slug != null)
-                .Select(b => new { b.Id, b.Slug, Published = db.BranchSites.Any(x => x.BranchId == b.Id && x.Enabled) })
+                .Select(b => new { b.Id, b.Slug, b.UserId, Published = db.BranchSites.Any(x => x.BranchId == b.Id && x.Enabled) })
                 .ToListAsync();
             var byId = sites.ToDictionary(x => x.Id);
+
+            // What each branch's plan includes (one load per owner).
+            var plans = scope.ServiceProvider.GetRequiredService<IEntitlementService>();
+            var website = new Dictionary<int, bool>();
+            var ownDomain = new Dictionary<int, bool>();
+            foreach (var b in sites)
+            {
+                var e = await plans.ForBranchAsync(b.Id);
+                website[b.Id] = e?.Has(BillingModule.Website) == true;
+                ownDomain[b.Id] = e?.Has(BillingModule.OwnDomain) == true;
+            }
             var domains = await db.Domains.AsNoTracking().OrderBy(d => d.Id).ToListAsync();
 
             var map = new Dictionary<string, SiteTarget>(StringComparer.OrdinalIgnoreCase);
@@ -97,7 +113,7 @@ public class SiteHosts
             foreach (var d in domains.Where(d => byId.ContainsKey(d.BranchId)))
             {
                 var b = byId[d.BranchId];
-                map[d.Host] = new SiteTarget(d.BranchId, b.Slug, d.Host, true, d.Verified, b.Published, d.Token);
+                map[d.Host] = new SiteTarget(d.BranchId, b.Slug, d.Host, true, d.Verified, b.Published, d.Token, website[b.Id], ownDomain[b.Id]);
                 if (d.Verified && !primary.ContainsKey(d.BranchId)) primary[d.BranchId] = d.Host;
             }
             var labels = new Dictionary<string, SiteTarget>(StringComparer.OrdinalIgnoreCase);
@@ -110,12 +126,12 @@ public class SiteHosts
                 {
                     var b = byId[a.BranchId];
                     if (Label(a.Slug) != null && Label(b.Slug) is { } current)
-                        labels[Label(a.Slug)!] = new SiteTarget(b.Id, b.Slug, $"{current}.{_wildcard}", false, true, b.Published, null);
+                        labels[Label(a.Slug)!] = new SiteTarget(b.Id, b.Slug, $"{current}.{_wildcard}", false, true, b.Published, null, website[b.Id]);
                 }
                 foreach (var b in sites)
                 {
                     var label = Label(b.Slug);
-                    if (label != null) labels[label] = new SiteTarget(b.Id, b.Slug, $"{label}.{_wildcard}", false, true, b.Published, null);
+                    if (label != null) labels[label] = new SiteTarget(b.Id, b.Slug, $"{label}.{_wildcard}", false, true, b.Published, null, website[b.Id]);
                 }
             }
             _snapshot = s = new Snapshot(DateTime.UtcNow, map, labels, primary);

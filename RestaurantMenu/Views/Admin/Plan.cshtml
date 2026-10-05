@@ -1,0 +1,181 @@
+@using RestaurantMenu.Helpers
+@using RestaurantMenu.Services
+@model RestaurantMenu.ViewModels.PlanPage
+@{
+    ViewData["Title"] = "Plan · " + Model.Owner.FullName;
+    var f = Model.Form;
+    var now = Model.Now;
+    var utcNow = DateTime.UtcNow;
+    string Money(int cents) => (cents / 100m).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " " + Model.Currency;
+    string StatusText() => now.IsLegacy ? "Legacy: every module, no charge"
+        : now.Status switch
+        {
+            SubscriptionStatus.Trialing => now.TrialDaysLeft(utcNow) is { } d ? $"Trial: {d} day{(d == 1 ? "" : "s")} left" : "Trial",
+            SubscriptionStatus.Active => Model.Subscription?.CurrentPeriodEndUtc is { } end ? $"Active until {end.AddDays(-1):d MMM yyyy}" : "Active",
+            SubscriptionStatus.PastDue => $"Past due: read-only from {now.GraceEndsUtc:d MMM yyyy}",
+            SubscriptionStatus.ReadOnly => now.TrialEnded ? "Read-only: trial ended" : "Read-only",
+            SubscriptionStatus.Cancelled => "Cancelled (read-only)",
+            _ => now.Status.ToString()
+        };
+    var optional = EntitlementRules.AllModules.Where(m => m != BillingModule.Menu).ToList();
+    (PlanKind Kind, string Title, string Text)[] kinds =
+    {
+        (PlanKind.Legacy, "Legacy", "Every module, no charge. For customers from before plans."),
+        (PlanKind.Trial, "Trial", "The ticked modules until the trial's last day, then read-only."),
+        (PlanKind.Active, "Active (paid)", "The ticked modules. Until payments exist, mark them paid here."),
+        (PlanKind.ReadOnly, "Read-only", "Menus stay online; the back office can be looked at, not changed; paid modules pause.")
+    };
+}
+
+<ol class="crumbs">
+    <li><a asp-action="Index">User management</a></li>
+    <li aria-current="page">@Model.Owner.FullName</li>
+</ol>
+
+<header class="page-head">
+    <div>
+        <h1>Plan for @Model.Owner.FullName</h1>
+        <p>@Model.Owner.Email · @Model.LiveBranches live branch@(Model.LiveBranches == 1 ? "" : "es") · @Model.Domains own domain@(Model.Domains == 1 ? "" : "s")</p>
+    </div>
+</header>
+
+<div class="stats">
+    <div class="stat"><span class="stat-value" style="font-size:18px">@StatusText()</span><span class="stat-label">Now</span></div>
+    <div class="stat"><span class="stat-value">@Model.LiveBranches<small class="stat-label"> / @now.MaxBranches</small></span><span class="stat-label">Branches</span></div>
+    <div class="stat"><span class="stat-value">@(now.SeatsPerBranch?.ToString() ?? "∞")</span><span class="stat-label">Team per branch</span></div>
+</div>
+
+<p class="mb-4">
+    @foreach (var m in EntitlementRules.AllModules)
+    {
+        <span class="chip @(now.Has(m) ? "chip--ok" : "chip--later")"><i class="ph @(now.Has(m) ? "ph-check" : "ph-minus")" aria-hidden="true"></i>@EntitlementRules.Name(m)</span>
+    }
+</p>
+
+@if (Model.Subscription is { IsLegacy: false, Status: SubscriptionStatus.Trialing })
+{
+    <div class="panel mb-4"><div class="panel-body d-flex flex-wrap gap-2 align-items-center">
+        <strong class="me-2">Extend the trial</strong>
+        @foreach (var days in new[] { 7, 14, 30 })
+        {
+            <form asp-action="ExtendTrial" asp-route-id="@Model.Owner.Id" method="post" class="d-inline">
+                <input type="hidden" name="days" value="@days" />
+                <button type="submit" class="btn btn-sm btn-outline-secondary">+@days days</button>
+            </form>
+        }
+    </div></div>
+}
+
+<form asp-action="Plan" asp-route-id="@Model.Owner.Id" method="post" class="form-layout">
+    <input type="hidden" name="Version" value="@f.Version" />
+    <div class="panel">
+        @if (Model.Errors is { Count: > 0 })
+        {
+            <div class="flash flash--danger m-4 mb-0" role="alert"><i class="ph ph-warning-octagon" aria-hidden="true"></i><p>@string.Join(" ", Model.Errors)</p></div>
+        }
+
+        <section class="form-section">
+            <h2>Plan</h2>
+            <p>Changes apply on the owner's next click. The guest menu is never affected.</p>
+            <fieldset class="d-grid gap-2">
+                <legend class="visually-hidden">Kind of plan</legend>
+                @foreach (var k in kinds)
+                {
+                    <label class="form-check">
+                        <input class="form-check-input" type="radio" name="Kind" value="@k.Kind" @(f.Kind == k.Kind ? "checked" : "") />
+                        <span class="form-check-label"><strong>@k.Title</strong> <span class="text-muted">@k.Text</span></span>
+                    </label>
+                }
+            </fieldset>
+        </section>
+
+        <section class="form-section">
+            <h2>Modules</h2>
+            <p>The menu is always included. Legacy ignores these and includes everything.@(Model.Prices.Count == 0 ? " No prices are set yet (Billing__Prices__…)." : "")</p>
+            <div class="d-grid gap-2">
+                @foreach (var m in optional)
+                {
+                    var month = Model.Prices.TryGetValue((m, BillingInterval.Month), out var pm) ? Money(pm) + " / month" : null;
+                    var needs = EntitlementRules.Requires(m);
+                    <label class="form-check">
+                        <input class="form-check-input" type="checkbox" name="Modules" value="@m" @(f.Modules.Contains(m) ? "checked" : "") />
+                        <span class="form-check-label">
+                            <strong>@EntitlementRules.Name(m)</strong>
+                            @if (month != null) { <span class="text-muted">· @month@(EntitlementRules.IsPerBranch(m) ? " per branch" : "")</span> }
+                            @if (needs != null) { <span class="text-muted">· needs @EntitlementRules.Name(needs.Value)</span> }
+                        </span>
+                    </label>
+                }
+            </div>
+        </section>
+
+        <section class="form-section">
+            <h2>Limits and dates</h2>
+            <div class="fields">
+                <div>
+                    <label for="Branches" class="form-label">Branches</label>
+                    <input id="Branches" name="Branches" type="number" min="1" max="100" value="@f.Branches" class="form-control tabular" inputmode="numeric" />
+                    <span class="hint">They have @Model.LiveBranches. Fewer pauses the rest (they choose which stay active).</span>
+                </div>
+                <div>
+                    <label for="SeatsPerBranch" class="form-label">Team members per branch</label>
+                    <input id="SeatsPerBranch" name="SeatsPerBranch" type="number" min="0" max="100" value="@f.SeatsPerBranch" placeholder="@Model.SeatsDefault (default)" class="form-control tabular" inputmode="numeric" />
+                    <span class="hint">Empty: the default, @Model.SeatsDefault. Legacy: no limit.</span>
+                </div>
+                <div>
+                    <label for="OwnDomains" class="form-label">Own domains</label>
+                    <input id="OwnDomains" name="OwnDomains" type="number" min="1" max="100" value="@f.OwnDomains" class="form-control tabular" inputmode="numeric" />
+                    <span class="hint">Across all branches, with "Own domain" ticked.</span>
+                </div>
+                <div>
+                    <label for="Interval" class="form-label">Billing</label>
+                    <select id="Interval" name="Interval" class="form-select">
+                        <option value="Month" selected="@(f.Interval == BillingInterval.Month)">Monthly</option>
+                        <option value="Year" selected="@(f.Interval == BillingInterval.Year)">Yearly</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="TrialEnds" class="form-label">Trial's last day</label>
+                    <input id="TrialEnds" name="TrialEnds" type="date" value="@f.TrialEnds?.ToString("yyyy-MM-dd")" class="form-control" />
+                    <span class="hint">Trial only. Empty: @(DateTime.UtcNow.Date.AddDays(13).ToString("d MMM")) (14 days).</span>
+                </div>
+                <div>
+                    <label for="PeriodEnds" class="form-label">Paid until (last day)</label>
+                    <input id="PeriodEnds" name="PeriodEnds" type="date" value="@f.PeriodEnds?.ToString("yyyy-MM-dd")" class="form-control" />
+                    <span class="hint">Active only. Empty: no end. After it: past due for the grace days, then read-only.</span>
+                </div>
+            </div>
+        </section>
+    </div>
+    <div class="form-actions">
+        <a asp-action="Index" class="btn btn-quiet">Back</a>
+        <button type="submit" class="btn btn-primary"><i class="ph ph-check" aria-hidden="true"></i>Save plan</button>
+    </div>
+</form>
+
+<section class="mt-4" aria-labelledby="history-title">
+    <h2 id="history-title" class="section-head">History</h2>
+    @if (Model.History.Count == 0)
+    {
+        <p class="text-muted">No changes recorded yet.</p>
+    }
+    else
+    {
+        <div class="table-responsive panel">
+            <table class="data-table">
+                <thead><tr><th scope="col">When (UTC)</th><th scope="col">Who</th><th scope="col">What</th><th scope="col">Now</th></tr></thead>
+                <tbody>
+                    @foreach (var a in Model.History)
+                    {
+                        <tr>
+                            <td class="text-nowrap tabular">@a.AtUtc.ToString("d MMM yyyy HH:mm")</td>
+                            <td>@(a.ActorId == null ? "System" : Model.Actors.GetValueOrDefault(a.ActorId, "Removed account"))</td>
+                            <td>@a.Action</td>
+                            <td><code class="small" style="white-space:pre-wrap;word-break:break-word">@a.ToJson</code></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>

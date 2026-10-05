@@ -394,6 +394,58 @@ Rest of phase 0 in `docs/PLAN-signup-payments.md`.
   - The lock message tells someone guessing that the email has an account. The rate limit keeps that slow.
   - Anyone who knows an email can keep that account locked by guessing wrong. The owner can still get in by resetting the password. The admin needs email set up for that, or another admin's reset link.
 
+### 23. Plans, subscriptions and feature gating: done (no payments yet)
+Phase 1 of `docs/PLAN-signup-payments.md`. One subscription per owner says what the account may do. The admin sets it by hand until payments arrive (phase 3).
+
+- **Data** (migration `AddPlansAndSubscriptions`, additive):
+  - `PriceBook`: prices in cents, a new row when a price changes.
+  - `Subscriptions`, with an xmin concurrency token, plus `SubscriptionItems` for the modules switched on.
+  - `BillingProfiles`: invoice details, filled in from phase 3.
+  - `SubscriptionAudits`: who changed what, from and to as JSON.
+  - `Branch.KeepActive`: the owner's pick when over the branch count.
+- **Modules** (`Models/Billing.cs`):
+  - Menu: always on.
+  - Ordering, Bookings, Website, Management.
+  - OwnDomain: needs Website. Its quantity is the number of domains.
+  - Sms: needs Bookings.
+- **Startup** (`SubscriptionService.SetupAsync`):
+  - Prices from `Billing__Prices__{Module}__{Month|Year}` (cents) go into the price book when they change.
+  - **Every existing owner gets a Legacy subscription:** every module, their branch allowance (or live branch count if higher), no charge.
+  - Logged as `Billing: …`.
+  - Owners created later by the admin also start on Legacy.
+- **Rules** (`Helpers/EntitlementRules.cs`, tested in `EntitlementRulesTests`):
+  - The effective status from the clock: a trial past its end is read-only; a paid period past its end is past due for `Billing__GraceDays` (14), then read-only; with cancel at period end, it's cancelled.
+  - Read-only pauses every paid module; the menu never pauses.
+  - Seats per branch: `Billing__SeatsPerBranch` (5); Legacy has no limit.
+  - Paused branches: the owner's picks first, then the oldest.
+- **One gate** (`IEntitlementService`, through `IBranchAccess.HasModuleAsync` and `CanWriteAsync`). Nothing else reads the subscription or `NumberOfBranches`, which is kept in step for now and retired in phase 6.
+- **Read-only accounts and paused branches** (`AccountGateFilter`):
+  - Pages open. Changes are refused with "Not saved: …", or a 409 with `{ message }` for scripts (toggles, reordering, translate, kitchen).
+  - A banner above every page says why and links to `Landing__ContactUrl`.
+- **Module pages** (`[RequireModule]` on Tables, Kitchen, Bookings, Website, Stock, Shifts, Sales):
+  - A "not in your plan" card, and changes refused.
+  - Still allowed with the module off: finishing existing orders, updating existing bookings, switching ordering off, checking or removing domains.
+- **Guests, with a module off:**
+  - **Ordering:** the menu works, there's no order button, and `POST /menu/order` says unavailable.
+  - **Bookings:** the booking page says to call (with the phone number), and the menu and site lose the Book button.
+  - **Website:** `/site`, the subdomain and the own domain go to `/menu/{slug}` with a 302.
+  - **SMS:** booking texts only with the Sms module.
+  - **The guest menu itself is never gated.**
+- **Branch count:** create and restore check the plan under a per-owner advisory lock (two submits at once can't both get the last slot). Over the count, the dashboard asks which branches stay active; the rest pause, menu online.
+- **Team:** invites stop at the plan's seats per branch.
+- **Admin → Plan** (replaces the branch allowance box):
+  - Legacy, Trial (last day), Active (paid until) or Read-only.
+  - Modules with their prices, branches, seats, own domains, monthly or yearly.
+  - "+7/14/30 days" for trials.
+  - The change history.
+  - Saving an out-of-date form is refused.
+- **Checked end to end:** Legacy owners see no change. Switching Bookings off turns the booking page into "call us", removes the Book button and refuses booking settings. Ordering, the website and the subdomain stay on. Read-only, paused, trial, seats, branch count and concurrent saves all behave as above.
+- **Deploy:**
+  - The migration and the Legacy backfill run on their own.
+  - **Read the `Billing:` lines** in the log.
+  - Set `Billing__Prices__…` once prices are decided.
+  - Nothing changes for existing restaurants until an admin changes their plan.
+
 ---
 
 ## Suggested order

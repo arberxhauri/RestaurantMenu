@@ -232,11 +232,11 @@ Six phases, each deployable on its own and each ending with the usual write-up (
 **Accept when:** two branches named "Oliva Kitchen" and "OlivaKitchen" get different links; `/menu/oliver%27sitalian` still opens Oliver's Italian; a removed user's email gives a message, not a 500; the sixth wrong password locks the account.
 
 ### Phase 1: catalogue, subscriptions and gating (no payments yet)
-- [ ] Migrations for `PriceBook`, `Subscription`, `SubscriptionItem`, `BillingProfile`, `SubscriptionAudit`; seed prices from config
-- [ ] Create a Legacy subscription for every existing owner (all modules, `BranchQuantity = NumberOfBranches`)
-- [ ] `EntitlementRules`, `EntitlementService`, `IBranchAccess.HasModuleAsync`; wire the seven switch points and the branch quota (with the advisory lock)
-- [ ] Read-only filter and banners; the "module off" behaviours in the gating table
-- [ ] Admin: a subscription panel per owner (change modules, branch count, extend trial, mark legacy) replacing `UpdateBranchLimit`
+- [x] Migrations for `PriceBook`, `Subscription`, `SubscriptionItem`, `BillingProfile`, `SubscriptionAudit`; seed prices from config
+- [x] Create a Legacy subscription for every existing owner (all modules, `BranchQuantity = NumberOfBranches`)
+- [x] `EntitlementRules`, `EntitlementService`, `IBranchAccess.HasModuleAsync`; wire the seven switch points and the branch quota (with the advisory lock)
+- [x] Read-only filter and banners; the "module off" behaviours in the gating table
+- [x] Admin: a subscription panel per owner (change modules, branch count, extend trial, mark legacy) replacing `UpdateBranchLimit`
 
 **Accept when:** existing customers see no change; an admin can switch a test owner's Bookings off and the booking page degrades as described.
 

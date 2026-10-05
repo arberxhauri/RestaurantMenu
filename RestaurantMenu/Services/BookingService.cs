@@ -39,9 +39,11 @@ public class BookingService
     private readonly EmailService _email;
     private readonly EmailQueue _emailQueue;
     private readonly BackgroundJobs _jobs;
+    private readonly IEntitlementService _entitlements;
 
-    public BookingService(ApplicationDbContext db, SeoService seo, SmsService sms, EmailService email, EmailQueue emailQueue, BackgroundJobs jobs)
+    public BookingService(ApplicationDbContext db, SeoService seo, SmsService sms, EmailService email, EmailQueue emailQueue, BackgroundJobs jobs, IEntitlementService entitlements)
     {
+        _entitlements = entitlements;
         _db = db;
         _seo = seo;
         _sms = sms;
@@ -73,7 +75,16 @@ public class BookingService
             await BookedAsync(branch.Id, date));
 
     /// <summary>Whether guests can book online at all: switched on, and opening hours entered.</summary>
-    public static bool IsBookable(Branch branch, ReservationSettings s) => s.Enabled && branch.HoursEnabled && branch.OpeningHours?.Any() == true;
+    /// <summary>
+    /// Guests can book online: switched on, opening hours set, and the plan includes bookings
+    /// (<paramref name="planIncludesBookings"/>, see <see cref="PlanIncludesBookingsAsync"/>).
+    /// Otherwise the booking page asks guests to call.
+    /// </summary>
+    public static bool IsBookable(Branch branch, ReservationSettings s, bool planIncludesBookings) =>
+        planIncludesBookings && s.Enabled && branch.HoursEnabled && branch.OpeningHours?.Any() == true;
+
+    public async Task<bool> PlanIncludesBookingsAsync(int branchId) =>
+        (await _entitlements.ForBranchAsync(branchId))?.Has(BillingModule.Bookings) == true;
 
     public string GuestLink(Branch branch, Reservation r) => _seo.Url($"/book/{branch.Slug}/r/{r.PublicId}");
 
@@ -86,7 +97,7 @@ public class BookingService
         var w = BookingText.For(lang);
         BookResult Fail(BookProblem p, string message) => new(null, p, message);
 
-        if (!IsBookable(branch, settings)) return Fail(BookProblem.Unavailable, string.Format(w.Unavailable, branch.PhoneNumber));
+        if (!IsBookable(branch, settings, await PlanIncludesBookingsAsync(branch.Id))) return Fail(BookProblem.Unavailable, string.Format(w.Unavailable, branch.PhoneNumber));
         if (req.RequestId == Guid.Empty
             || !DateOnly.TryParseExact(req.Date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
             || !TimeOnly.TryParseExact(req.Time, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var time))
@@ -270,8 +281,15 @@ public class BookingService
 
         if (_sms.IsConfigured && r.Phone.Length > 0)
         {
+            // Texts cost money per message: only for plans with booking SMS (checked when the
+            // job runs, in its own scope, so callers stay synchronous).
             var to = r.Phone;
-            _jobs.Enqueue("booking sms", (sp, ct) => sp.GetRequiredService<SmsService>().SendAsync(to, text, ct));
+            var branchId = branch.Id;
+            _jobs.Enqueue("booking sms", async (sp, ct) =>
+            {
+                if ((await sp.GetRequiredService<IEntitlementService>().ForBranchAsync(branchId))?.Has(BillingModule.Sms) == true)
+                    await sp.GetRequiredService<SmsService>().SendAsync(to, text, ct);
+            });
         }
         if (_email.IsConfigured && r.Email != null)
         {

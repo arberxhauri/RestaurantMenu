@@ -1,17 +1,35 @@
 @model IEnumerable<ApplicationUser>
 @using RestaurantMenu.Services
+@using RestaurantMenu.Helpers
 @{
+    var plans = ViewBag.Plans as Dictionary<string, Entitlements> ?? new();
+    int MaxOf(ApplicationUser u) => plans.TryGetValue(u.Id, out var p) ? p.MaxBranches : u.NumberOfBranches;
+    string PlanText(ApplicationUser u)
+    {
+        if (!plans.TryGetValue(u.Id, out var p)) return "Legacy";
+        if (p.IsLegacy) return "Legacy";
+        return p.Status switch
+        {
+            SubscriptionStatus.Trialing => $"Trial · {p.TrialDaysLeft(DateTime.UtcNow)} d left",
+            SubscriptionStatus.Active => "Active",
+            SubscriptionStatus.PastDue => "Past due",
+            SubscriptionStatus.ReadOnly => p.TrialEnded ? "Trial ended" : "Read-only",
+            _ => p.Status.ToString()
+        };
+    }
+    string PlanChip(ApplicationUser u) => plans.TryGetValue(u.Id, out var p) && !p.CanWrite ? "chip--danger"
+        : plans.TryGetValue(u.Id, out var q) && q.Status is SubscriptionStatus.Trialing or SubscriptionStatus.PastDue ? "chip--warn" : "chip--ok";
     ViewData["Title"] = "User management";
     var users = Model.ToList();
     var used = users.Sum(u => u.Branches?.Count ?? 0);
-    var capacity = users.Sum(u => u.NumberOfBranches);
+    var capacity = users.Sum(MaxOf);
     var email = (EmailService)ViewBag.Email;
 }
 
 <header class="page-head">
     <div>
         <h1>User management</h1>
-        <p>Restaurant owners, their branch allowance, and access.</p>
+        <p>Restaurant owners, their plans, and access.</p>
     </div>
     <div class="page-actions">
         <a asp-action="CreateUser" class="btn btn-primary"><i class="ph ph-user-plus" aria-hidden="true"></i>New owner</a>
@@ -62,7 +80,7 @@
                         <th scope="col">Owner</th>
                         <th scope="col">NIPT</th>
                         <th scope="col">Branches used</th>
-                        <th scope="col">Allowance</th>
+                        <th scope="col">Plan</th>
                         <th scope="col"><span class="visually-hidden">Actions</span></th>
                     </tr>
                 </thead>
@@ -70,7 +88,7 @@
                     @foreach (var user in users)
                     {
                         var count = user.Branches?.Count ?? 0;
-                        var pct = Math.Min(100, count * 100.0 / Math.Max(user.NumberOfBranches, 1));
+                        var pct = Math.Min(100, count * 100.0 / Math.Max(MaxOf(user), 1));
                         <tr>
                             <td>
                                 <div class="user-cell">
@@ -88,18 +106,13 @@
                             <td>
                                 <span class="usage">
                                     <span class="usage-bar" aria-hidden="true"><span style="width:@pct.ToString("F0")%"></span></span>
-                                    @count / @user.NumberOfBranches
+                                    @count / @MaxOf(user)
                                 </span>
                             </td>
                             <td>
-                                <form asp-action="UpdateBranchLimit" method="post" class="limit-form">
-                                    <input type="hidden" name="userId" value="@user.Id" />
-                                    <label class="visually-hidden" for="limit-@user.Id">Branch allowance for @user.FullName</label>
-                                    <input id="limit-@user.Id" type="number" name="numberOfBranches" value="@user.NumberOfBranches" class="form-control" min="1" max="100" inputmode="numeric" />
-                                    <button type="submit" class="icon-btn icon-btn--line" aria-label="Save allowance for @user.FullName" title="Save">
-                                        <i class="ph ph-check" aria-hidden="true"></i>
-                                    </button>
-                                </form>
+                                <a asp-action="Plan" asp-route-id="@user.Id" class="chip @PlanChip(user) chip--link" title="Change plan">
+                                    <i class="ph ph-sliders-horizontal" aria-hidden="true"></i>@PlanText(user)
+                                </a>
                             </td>
                             <td class="text-end text-nowrap">
                                 @if (user.PasswordHash == null)

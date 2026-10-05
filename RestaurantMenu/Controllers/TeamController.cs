@@ -24,10 +24,12 @@ public class TeamController : Controller
     private readonly IBranchAccess _access;
     private readonly InviteMailer _mailer;
     private readonly SeoService _seo;
+    private readonly IEntitlementService _entitlements;
 
     public TeamController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IBranchAccess access,
-        InviteMailer mailer, SeoService seo)
+        InviteMailer mailer, SeoService seo, IEntitlementService entitlements)
     {
+        _entitlements = entitlements;
         _context = context;
         _userManager = userManager;
         _access = access;
@@ -63,6 +65,17 @@ public class TeamController : Controller
         if (name is { Length: > 100 }) name = name[..100];
 
         var branch = await _context.Branches.AsNoTracking().Include(b => b.User).FirstAsync(b => b.Id == branchId);
+
+        // Staff seats: plans include a number of team members per branch (legacy: no limit).
+        var seats = (await _entitlements.ForBranchAsync(branchId))?.Account.SeatsPerBranch;
+        if (seats is { } max && await _context.BranchMembers.CountAsync(m => m.BranchId == branchId) >= max)
+        {
+            TempData["Error"] = max == 0
+                ? "Your plan doesn't include team members. Contact us to add them."
+                : $"Your plan includes {max} team member{(max == 1 ? "" : "s")} per branch, and this branch has them all. Remove someone first, or contact us to add more.";
+            return BackToTeam(branchId);
+        }
+
         var normalized = _userManager.NormalizeEmail(email);
         // Including removed accounts: their email still belongs to them.
         var user = await _context.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.NormalizedEmail == normalized);

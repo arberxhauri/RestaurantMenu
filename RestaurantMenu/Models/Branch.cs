@@ -33,6 +33,11 @@ public class Branch : ISoftDeletable
 
     public bool IsDeleted { get; set; }
     public DateTime? DeletedOnUtc { get; set; }
+
+    // The owner's pick of branches to keep running when the account has more live branches
+    // than its plan allows: picked ones first, then the oldest; the rest are paused (menu
+    // online, back office read-only, no ordering or bookings). EntitlementRules.PausedBranches.
+    public bool KeepActive { get; set; }
         
     public string UserId { get; set; }
     public ApplicationUser? User { get; set; }

@@ -16,6 +16,7 @@ namespace RestaurantMenu.Controllers;
 [Authorize(Roles = "OWNER,STAFF")]
 [NoIndex]
 [Route("branch/{id:int}/tables")]
+[RequireModule(BillingModule.Ordering)]
 public class TablesController : Controller
 {
     public const int MaxTables = 500;
@@ -61,10 +62,16 @@ public class TablesController : Controller
 
     [HttpPost("settings")]
     [ValidateAntiForgeryToken]
+    [AllowWhenModuleOff] // switching ordering off is always allowed; on needs the plan
     public async Task<IActionResult> Settings(int id, bool orderingEnabled)
     {
         var branch = await BranchAsync(id);
         if (branch == null) return NotFound();
+        if (orderingEnabled && !await _access.HasModuleAsync(id, BillingModule.Ordering))
+        {
+            TempData["Error"] = "Table ordering isn't in your plan. Contact us to add it.";
+            return Back(id);
+        }
 
         branch.OrderingEnabled = orderingEnabled;
         if (!orderingEnabled) branch.OrdersPaused = false; // switching back on starts fresh

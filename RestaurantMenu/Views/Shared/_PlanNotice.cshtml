@@ -1,0 +1,60 @@
+@using Microsoft.AspNetCore.Identity
+@using RestaurantMenu.Filters
+@using RestaurantMenu.Helpers
+@using RestaurantMenu.Services
+@inject IEntitlementService Entitlements
+@inject UserManager<ApplicationUser> Users
+@inject IConfiguration Configuration
+@*
+    Plan notices above the page (back office only): the owner's trial, an overdue or ended plan,
+    and on a module's page the "not in your plan" card set by RequireModuleAttribute. Until
+    payments exist (phase 3), the way forward is to contact us.
+*@
+@{
+    var contactUrl = Configuration["Landing:ContactUrl"] is { Length: > 0 } configured ? configured : "https://4cs.al/";
+    Entitlements? plan = null;
+    if (User.IsInRole("OWNER") && Users.GetUserId(User) is { } ownerId)
+    {
+        plan = await Entitlements.ForOwnerAsync(ownerId);
+    }
+    var gate = ViewData[ModuleGate.Key] as ModuleGate;
+    var limitation = plan == null ? null : EntitlementRules.Limitation(plan);
+    var trialDays = plan?.TrialDaysLeft(DateTime.UtcNow);
+}
+
+@if (limitation != null && gate is not { AccountReadOnly: true })
+{
+    <div class="flash flash--@(plan!.CanWrite ? "warn" : "danger") plan-notice" role="status">
+        <i class="ph @(plan.CanWrite ? "ph-clock-countdown" : "ph-lock-simple")" aria-hidden="true"></i>
+        <p>@limitation <a href="@contactUrl" target="_blank" rel="noopener">Contact us to continue</a></p>
+    </div>
+}
+else if (trialDays is { } days)
+{
+    <div class="flash flash--warn plan-notice" role="status">
+        <i class="ph ph-hourglass-medium" aria-hidden="true"></i>
+        <p>
+            @(days == 0 ? "Your free trial ends today." : days == 1 ? "1 day left in your free trial." : $"{days} days left in your free trial.")
+            After it ends your menus stay online and the back office becomes read-only.
+            <a href="@contactUrl" target="_blank" rel="noopener">Contact us to keep everything running</a>
+        </p>
+    </div>
+}
+
+@if (gate is { On: false })
+{
+    <div class="flash flash--warn plan-notice" role="status">
+        <i class="ph @(gate.Paused ? "ph-pause-circle" : "ph-lock-simple")" aria-hidden="true"></i>
+        <p>
+            <strong>@gate.Title.</strong> @gate.Text
+            @if (gate.Paused)
+            {
+                <a asp-controller="Dashboard" asp-action="Index">Choose active branches</a>
+            }
+            else
+            {
+                <a href="@contactUrl" target="_blank" rel="noopener">Contact us</a>
+            }
+        </p>
+    </div>
+}

@@ -101,8 +101,14 @@ builder.Services.AddHostedService<EmailQueueWorker>();
 builder.Services.AddMemoryCache();
 
 // 5. Controllers. Users given a temporary password must replace it before anything else.
-builder.Services.AddControllersWithViews(options => options.Filters.Add<RequirePasswordChangeFilter>());
+builder.Services.AddControllersWithViews(options =>
+{
+    options.Filters.Add<RequirePasswordChangeFilter>();
+    // Read-only accounts and paused branches: changes refused with the reason.
+    options.Filters.Add<AccountGateFilter>();
+});
 builder.Services.AddScoped<RequirePasswordChangeFilter>();
+builder.Services.AddScoped<AccountGateFilter>();
 
 // 5a. SEO. Render terminates TLS at its proxy and forwards plain HTTP, so without
 // this the app sees Scheme == "http" and every canonical, og:url and sitemap entry
@@ -123,6 +129,10 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<SeoService>();
 builder.Services.AddScoped<QrCodeService>();
 builder.Services.AddScoped<BranchSlugs>();
+// Plans and subscriptions: what each account may do (docs/PLAN-signup-payments.md).
+builder.Services.Configure<BillingOptions>(builder.Configuration.GetSection("Billing"));
+builder.Services.AddScoped<IEntitlementService, EntitlementService>();
+builder.Services.AddScoped<SubscriptionService>();
 // Who may do what to a branch (owner, or staff member with a role). Used by every back-office controller.
 builder.Services.AddScoped<IBranchAccess, BranchAccess>();
 builder.Services.AddTransient<InviteMailer>();
@@ -330,6 +340,10 @@ if (app.Configuration.GetValue("Database:AutoMigrate", true))
 // Branches made before links were stored get theirs now (once; a no-op afterwards). Not
 // caught either: without slugs no menu can be found.
 await BranchSlugs.BackfillAsync(app.Services, app.Logger);
+
+// Configured prices into the price book, and a legacy subscription for every owner without
+// one (nobody loses a feature the day plans arrive). A no-op once done.
+await SubscriptionService.SetupAsync(app.Services, app.Logger);
 
 // Say in the deploy log whether emails will go out, and why not.
 using (var scope = app.Services.CreateScope())

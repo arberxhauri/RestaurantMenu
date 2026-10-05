@@ -17,13 +17,19 @@ public class DashboardController : Controller
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly MenuInsights _insights;
     private readonly IBranchAccess _access;
+    private readonly IEntitlementService _entitlements;
+    private readonly SiteHosts _hosts;
 
     public DashboardController(
         ApplicationDbContext context,
         UserManager<ApplicationUser> userManager,
         MenuInsights insights,
-        IBranchAccess access)
+        IBranchAccess access,
+        IEntitlementService entitlements,
+        SiteHosts hosts)
     {
+        _entitlements = entitlements;
+        _hosts = hosts;
         _context = context;
         _userManager = userManager;
         _insights = insights;
@@ -54,10 +60,45 @@ public class DashboardController : Controller
         ViewBag.Roles = roles;
         ViewBag.IsOwner = isOwner;
         ViewBag.OwnedCount = owned;
-        ViewBag.CanCreateBranch = isOwner && owned < user.NumberOfBranches;
-        ViewBag.MaxBranches = user.NumberOfBranches;
+        // The plan decides the branch count; branches past it are paused (any owner's, for staff too).
+        var plan = isOwner ? await _entitlements.ForOwnerAsync(user.Id) : null;
+        ViewBag.CanCreateBranch = plan != null && plan.CanWrite && owned < plan.MaxBranches;
+        ViewBag.MaxBranches = plan?.MaxBranches ?? 0;
+        ViewBag.OverLimit = plan != null && plan.CanWrite && owned > plan.MaxBranches;
+        var paused = new HashSet<int>();
+        foreach (var ownerId in branches.Select(b => b.UserId).Distinct())
+            paused.UnionWith(await _entitlements.PausedBranchesAsync(ownerId));
+        ViewBag.Paused = paused;
         ViewBag.Week = await _insights.WeekByBranchAsync(
             branches.Where(b => BranchAccess.Allows(roles[b.Id], BranchPermission.ViewInsights)).Select(b => b.Id).ToList());
         return View(branches);
+    }
+
+    /// <summary>
+    /// Over the plan's branch count: the owner picks which branches stay active (KeepActive);
+    /// the others pause until the plan has room. At most the plan's count may be picked.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "OWNER")]
+    public async Task<IActionResult> ChooseActive(int[]? keep)
+    {
+        var userId = _userManager.GetUserId(User)!;
+        var plan = await _entitlements.ForOwnerAsync(userId);
+        var picked = (keep ?? Array.Empty<int>()).Distinct().ToHashSet();
+        if (picked.Count == 0 || picked.Count > plan.MaxBranches)
+        {
+            TempData["Error"] = $"Pick between 1 and {plan.MaxBranches} branch{(plan.MaxBranches == 1 ? "" : "es")} to keep active.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var own = await _context.Branches.Where(b => b.UserId == userId).ToListAsync();
+        if (!picked.IsSubsetOf(own.Select(b => b.Id))) return NotFound();
+        foreach (var b in own) b.KeepActive = picked.Contains(b.Id);
+        await _context.SaveChangesAsync();
+        _hosts.Invalidate();
+
+        TempData["Success"] = $"Saved. {string.Join(", ", own.Where(b => picked.Contains(b.Id)).Select(b => b.Name))} stay{(picked.Count == 1 ? "s" : "")} active; the rest are paused, with their menus still online.";
+        return RedirectToAction(nameof(Index));
     }
 }

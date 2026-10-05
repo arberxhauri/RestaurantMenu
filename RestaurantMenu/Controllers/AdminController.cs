@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using RestaurantMenu.Helpers;
 using RestaurantMenu.Services;
 using RestaurantMenu.Models;
 using RestaurantMenu.ViewModels;
@@ -18,14 +20,26 @@ namespace RestaurantMenu.Controllers;
         private readonly InviteMailer _mailer;
         private readonly EmailService _email;
         private readonly SeoService _seo;
+        private readonly SubscriptionService _subscriptions;
+        private readonly IEntitlementService _entitlements;
+        private readonly BillingOptions _billing;
+        private readonly SiteHosts _hosts;
 
         public AdminController(
             UserManager<ApplicationUser> userManager,
             ApplicationDbContext context,
             InviteMailer mailer,
             EmailService email,
-            SeoService seo)
+            SeoService seo,
+            SubscriptionService subscriptions,
+            IEntitlementService entitlements,
+            IOptions<BillingOptions> billing,
+            SiteHosts hosts)
         {
+            _subscriptions = subscriptions;
+            _entitlements = entitlements;
+            _billing = billing.Value;
+            _hosts = hosts;
             _userManager = userManager;
             _context = context;
             _mailer = mailer;
@@ -43,6 +57,9 @@ namespace RestaurantMenu.Controllers;
                 .OrderBy(u => u.FullName)
                 .ToListAsync();
             ViewBag.Email = _email;
+            var plans = new Dictionary<string, Entitlements>();
+            foreach (var u in users) plans[u.Id] = await _entitlements.ForOwnerAsync(u.Id);
+            ViewBag.Plans = plans;
             // Restaurants' own domains: without a Render API key, each has to be added in Render by hand.
             ViewBag.Domains = await _context.Domains.AsNoTracking().Include(d => d.Branch)
                 .OrderBy(d => d.Verified).ThenByDescending(d => d.CreatedUtc).Take(200).ToListAsync();
@@ -106,6 +123,9 @@ namespace RestaurantMenu.Controllers;
                 if (result.Succeeded)
                 {
                     await _userManager.AddToRoleAsync(user, "OWNER");
+                    // Legacy terms, as every owner had before plans; change them on the Plan page.
+                    _subscriptions.AddLegacy(user, DateTime.UtcNow);
+                    await _context.SaveChangesAsync();
                     await DeliverInvite(user);
                     return RedirectToAction("Index");
                 }
@@ -234,17 +254,96 @@ namespace RestaurantMenu.Controllers;
             return RedirectToAction("Index");
         }
 
+        // ---------------------------------------------------------------- plans
+
+        /// <summary>An owner's plan: modules, branches, trial or paid period, and its history.</summary>
+        [HttpGet]
+        public async Task<IActionResult> Plan(string id)
+        {
+            var page = await PlanPageAsync(id, null, null);
+            return page == null ? NotFound() : View(page);
+        }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> UpdateBranchLimit(string userId, int numberOfBranches)
+        public async Task<IActionResult> Plan(string id, PlanForm form)
         {
-            var user = await _userManager.FindByIdAsync(userId);
-            if (user != null && numberOfBranches is >= 1 and <= 100)
+            var owner = await OwnerAsync(id);
+            if (owner == null) return NotFound();
+
+            var errors = new List<string>();
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            if (form.Branches is < 1 or > 100) errors.Add("Branches must be between 1 and 100.");
+            if (form.SeatsPerBranch is < 0 or > 100) errors.Add("Team members per branch must be between 0 and 100 (leave empty for the default).");
+            if (form.Kind == PlanKind.Trial && form.TrialEnds is { } t && t < today) errors.Add("The trial's last day can't be in the past. Choose Read-only to end it now.");
+            if (form.Kind == PlanKind.Active && form.PeriodEnds is { } p && p < today) errors.Add("The paid period's last day can't be in the past.");
+            if (form.Kind != PlanKind.Legacy && form.Modules.Contains(BillingModule.OwnDomain) && form.OwnDomains is < 1 or > 100)
+                errors.Add("Own domains must be between 1 and 100.");
+            if (errors.Count > 0)
             {
-                user.NumberOfBranches = numberOfBranches;
-                await _userManager.UpdateAsync(user);
-                TempData["Success"] = $"{user.FullName} can now have {numberOfBranches} branch(es).";
+                return View(await PlanPageAsync(id, form, errors));
             }
-            return RedirectToAction("Index");
+
+            var change = new SubscriptionChange(form.Kind, form.Modules.ToHashSet(), form.Branches, form.SeatsPerBranch,
+                form.Modules.Contains(BillingModule.OwnDomain) ? form.OwnDomains : 0, form.Interval,
+                PlanForm.EndOf(form.TrialEnds), PlanForm.EndOf(form.PeriodEnds));
+            var problem = await _subscriptions.ApplyAsync(id, change, form.Version, _userManager.GetUserId(User), DateTime.UtcNow);
+            if (problem != null)
+            {
+                TempData["Error"] = problem;
+                return RedirectToAction(nameof(Plan), new { id });
+            }
+            _hosts.Invalidate();
+
+            var live = await _context.Branches.CountAsync(b => b.UserId == id);
+            TempData[live > form.Branches ? "Warning" : "Success"] = live > form.Branches
+                ? $"Plan saved. {owner.FullName} has {live} branches but the plan includes {form.Branches}: the newest are paused until they choose which stay active."
+                : $"Plan saved for {owner.FullName}.";
+            return RedirectToAction(nameof(Plan), new { id });
+        }
+
+        /// <summary>Adds days to a trial (from its current end, or from today if it already ended).</summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ExtendTrial(string id, int days)
+        {
+            var sub = await _subscriptions.FindAsync(id);
+            if (sub == null || sub.IsLegacy || days is < 1 or > 365) return NotFound();
+            var now = DateTime.UtcNow;
+            var from = sub.Status == SubscriptionStatus.Trialing && sub.TrialEndsUtc > now ? sub.TrialEndsUtc.Value : now.Date.AddDays(1);
+            var change = new SubscriptionChange(PlanKind.Trial, sub.Items.Select(i => i.Module).ToHashSet(), sub.BranchQuantity, sub.SeatsPerBranch,
+                sub.Items.FirstOrDefault(i => i.Module == BillingModule.OwnDomain)?.Quantity ?? 0, sub.Interval, from.AddDays(days), null);
+            var problem = await _subscriptions.ApplyAsync(id, change, sub.Version, _userManager.GetUserId(User), now);
+            if (problem == null) _hosts.Invalidate();
+            TempData[problem == null ? "Success" : "Error"] = problem ?? $"Trial extended to {from.AddDays(days).AddDays(-1):d MMM yyyy}.";
+            return RedirectToAction(nameof(Plan), new { id });
+        }
+
+        private async Task<ApplicationUser?> OwnerAsync(string id)
+        {
+            var user = await _userManager.FindByIdAsync(id);
+            return user != null && await _userManager.IsInRoleAsync(user, "OWNER") ? user : null;
+        }
+
+        private async Task<PlanPage?> PlanPageAsync(string id, PlanForm? form, List<string>? errors)
+        {
+            var owner = await OwnerAsync(id);
+            if (owner == null) return null;
+            var sub = await _context.Subscriptions.AsNoTracking().Include(s => s.Items).FirstOrDefaultAsync(s => s.OwnerId == id);
+            var now = await _entitlements.ForOwnerAsync(id);
+            var live = await _context.Branches.CountAsync(b => b.UserId == id);
+            var domains = await _context.Domains.CountAsync(d => d.Branch!.UserId == id);
+            var prices = new Dictionary<(BillingModule, BillingInterval), int>();
+            foreach (var interval in Enum.GetValues<BillingInterval>())
+                foreach (var (module, cents) in await _subscriptions.CurrentPricesAsync(_billing.Currency, interval, DateTime.UtcNow))
+                    prices[(module, interval)] = cents;
+            var history = sub == null ? new List<SubscriptionAudit>()
+                : await _context.SubscriptionAudits.AsNoTracking().Where(a => a.SubscriptionId == sub.Id)
+                    .OrderByDescending(a => a.AtUtc).Take(30).ToListAsync();
+            var actorIds = history.Where(a => a.ActorId != null).Select(a => a.ActorId!).Distinct().ToList();
+            var actors = await _context.Users.IgnoreQueryFilters().Where(u => actorIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => u.Email ?? u.FullName);
+            return new PlanPage(owner, sub, now, live, domains, _billing.SeatsPerBranch,
+                form ?? PlanForm.From(sub, now, live), prices, _billing.Currency, history, actors, errors);
         }
     }

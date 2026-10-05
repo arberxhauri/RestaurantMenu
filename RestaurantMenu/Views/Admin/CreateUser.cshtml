@@ -37,9 +37,9 @@
                     <span asp-validation-for="NIPT"></span>
                 </div>
                 <div>
-                    <label asp-for="NumberOfBranches" class="form-label">Branch allowance</label>
+                    <label asp-for="NumberOfBranches" class="form-label">Branches</label>
                     <input asp-for="NumberOfBranches" class="form-control tabular" type="number" min="1" max="100" value="@(Model?.NumberOfBranches > 0 ? Model.NumberOfBranches : 1)" inputmode="numeric" />
-                    <span class="hint">How many branches they can create.</span>
+                    <span class="hint">They start on a Legacy plan (every module, no charge) with this many branches. Change it on their Plan page.</span>
                     <span asp-validation-for="NumberOfBranches"></span>
                 </div>
             </div>

@@ -51,6 +51,8 @@
             </button>
         </div>
     </header>
+    @* Ordering not in the plan (or the branch paused): say so above the board. *@
+    <div class="k-plan"><partial name="_PlanNotice" /></div>
 
     <div class="k-banner k-banner--warn" data-paused-banner @(Model.OrdersPaused && Model.OrderingEnabled ? "" : "hidden")>
         <i class="ph ph-pause-circle" aria-hidden="true"></i>

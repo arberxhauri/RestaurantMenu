@@ -133,7 +133,8 @@
                     <div class="ws-domain @(d.Verified ? "is-ok" : "")">
                         <div class="ws-domain-head">
                             <strong class="mono">@shown</strong>
-                            @if (d.Verified) { <span class="chip chip--ok"><i class="ph ph-check" aria-hidden="true"></i>Connected</span> }
+                            @if (ViewBag.DomainsPaused == true) { <span class="chip chip--later"><i class="ph ph-pause" aria-hidden="true"></i>Paused: not in your plan</span> }
+                            else if (d.Verified) { <span class="chip chip--ok"><i class="ph ph-check" aria-hidden="true"></i>Connected</span> }
                             else { <span class="chip chip--warn"><i class="ph ph-hourglass-medium" aria-hidden="true"></i>Waiting for DNS</span> }
                         </div>
                         @if (!d.Verified)
@@ -171,7 +172,7 @@
                     </div>
                 }
 
-                @if (Model.Domains.Count < SiteRules.MaxDomainsPerBranch)
+                @if (Model.Domains.Count < SiteRules.MaxDomainsPerBranch && ViewBag.DomainsPaused != true)
                 {
                     <form method="post" asp-action="AddDomain" asp-route-id="@b.Id" class="input-group mt-2">
                         <label class="visually-hidden" for="host">Domain</label>

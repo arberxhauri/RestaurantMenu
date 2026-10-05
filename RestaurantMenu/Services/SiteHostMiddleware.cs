@@ -64,6 +64,13 @@ public class SiteHostMiddleware
                 "If it's yours, add it on the Website page of your branch in My Quick Menu.");
             return;
         }
+        // Not in the plan: the menu on the app's own address (302, so the site comes back with
+        // the plan). An own domain needs both the website and own-domain modules.
+        if (target.Verified && (!target.WebsiteOn || target.IsCustomDomain && !target.DomainOn) && _appBase != null)
+        {
+            context.Response.Redirect($"{_appBase}/menu/{target.Slug}{context.Request.QueryString}");
+            return;
+        }
         if (!target.Verified)
         {
             await Message(context, 404, "This website is being connected",

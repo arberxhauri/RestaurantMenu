@@ -16,6 +16,7 @@ namespace RestaurantMenu.Controllers;
 [Authorize(Roles = "OWNER,STAFF")]
 [NoIndex]
 [Route("branch/{id:int}/website")]
+[RequireModule(BillingModule.Website)]
 public class WebsiteController : Controller
 {
     private readonly ApplicationDbContext _context;
@@ -23,9 +24,11 @@ public class WebsiteController : Controller
     private readonly DomainService _domains;
     private readonly SiteHosts _hosts;
     private readonly SeoService _seo;
+    private readonly IEntitlementService _entitlements;
 
-    public WebsiteController(ApplicationDbContext context, IBranchAccess access, DomainService domains, SiteHosts hosts, SeoService seo)
+    public WebsiteController(ApplicationDbContext context, IBranchAccess access, DomainService domains, SiteHosts hosts, SeoService seo, IEntitlementService entitlements)
     {
+        _entitlements = entitlements;
         _context = context;
         _access = access;
         _domains = domains;
@@ -50,6 +53,8 @@ public class WebsiteController : Controller
         var branch = await BranchAsync(id);
         if (branch == null) return NotFound();
         var site = await _context.BranchSites.AsNoTracking().FirstOrDefaultAsync(s => s.BranchId == id) ?? new BranchSite { BranchId = id };
+        // Domains are kept while the plan doesn't include them, marked paused.
+        ViewBag.DomainsPaused = !await _access.HasModuleAsync(id, BillingModule.OwnDomain);
         return View(await PageAsync(branch, site, null));
     }
 
@@ -133,10 +138,19 @@ public class WebsiteController : Controller
 
     [HttpPost("domains")]
     [ValidateAntiForgeryToken]
+    [RequireModule(BillingModule.OwnDomain)]
     public async Task<IActionResult> AddDomain(int id, string? host)
     {
         var branch = await BranchAsync(id);
         if (branch == null) return NotFound();
+        // Own domains are counted across the account (legacy: only the per-branch limit).
+        var plan = await _entitlements.ForOwnerAsync(branch.UserId);
+        if (plan.MaxOwnDomains is { } max
+            && await _context.Domains.CountAsync(d => d.Branch!.UserId == branch.UserId) >= max)
+        {
+            TempData["Error"] = $"Your plan includes {max} own domain{(max == 1 ? "" : "s")}, and they're all in use. Contact us to add more.";
+            return Back(id, "domains");
+        }
         var (domain, error) = await _domains.AddAsync(id, host, DateTime.UtcNow);
         if (error != null) TempData["Error"] = error;
         else TempData["Success"] = $"{SiteRules.DisplayHost(domain!.Host)} added. Now set its DNS record as shown, then press Check.";
@@ -147,6 +161,7 @@ public class WebsiteController : Controller
         await BranchAsync(id) == null ? null : await _context.Domains.FirstOrDefaultAsync(d => d.Id == domainId && d.BranchId == id);
 
     [HttpPost("domains/{domainId:int}/check")]
+    [AllowWhenModuleOff]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CheckDomain(int id, int domainId)
     {
@@ -158,6 +173,7 @@ public class WebsiteController : Controller
     }
 
     [HttpPost("domains/{domainId:int}/delete")]
+    [AllowWhenModuleOff] // removing a domain is always allowed
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RemoveDomain(int id, int domainId)
     {

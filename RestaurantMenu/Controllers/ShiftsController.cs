@@ -16,6 +16,7 @@ namespace RestaurantMenu.Controllers;
 [Authorize(Roles = "OWNER,STAFF")]
 [NoIndex]
 [Route("branch/{id:int}/shifts")]
+[RequireModule(BillingModule.Management)]
 public class ShiftsController : Controller
 {
     public const int MaxShiftHours = 16;

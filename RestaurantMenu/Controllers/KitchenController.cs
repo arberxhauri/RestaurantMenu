@@ -16,6 +16,7 @@ namespace RestaurantMenu.Controllers;
 [Authorize(Roles = "OWNER,STAFF")]
 [NoIndex]
 [Route("kitchen/{id:int}")]
+[RequireModule(BillingModule.Ordering)]
 public class KitchenController : Controller
 {
     private readonly ApplicationDbContext _context;
@@ -67,6 +68,7 @@ public class KitchenController : Controller
     /// screen got there first, nothing changes and 409 returns the order as it is now.
     /// </summary>
     [HttpPost("orders/{orderId:int}/status")]
+    [AllowWhenModuleOff] // orders already sent can still be finished
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Status(int id, int orderId, [FromForm] string from, [FromForm] string to)
     {
