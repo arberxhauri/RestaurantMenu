@@ -86,6 +86,19 @@ public class SubscriptionRulesTests
     }
 
     [Fact]
+    public void A_card_subscription_waits_for_the_providers_renewal_before_the_clock_decides()
+    {
+        var s = Active(Now.AddMonths(-1), Now);
+        Assert.Equal(SubscriptionStatus.Active, SubscriptionRules.Advance(s, Now.AddHours(5), Grace, providerManaged: true).Status);
+        Assert.Equal(SubscriptionStatus.Active, SubscriptionRules.Advance(s, Now.AddDays(3).AddSeconds(-1), Grace, providerManaged: true).Status);
+        // No webhook for three days: the usual rules (past due, then read-only after grace).
+        Assert.Equal(SubscriptionStatus.PastDue, SubscriptionRules.Advance(s, Now.AddDays(3), Grace, providerManaged: true).Status);
+        // A past due reported by the provider still turns read-only when the grace ends.
+        var pastDue = s with { Status = SubscriptionStatus.PastDue, GraceEndsUtc = Now.AddDays(1) };
+        Assert.Equal(SubscriptionStatus.ReadOnly, SubscriptionRules.Advance(pastDue, Now.AddDays(1), Grace, providerManaged: true).Status);
+    }
+
+    [Fact]
     public void Cancelled_at_period_end_becomes_cancelled_not_past_due()
     {
         var s = Active(Now.AddMonths(-1), Now) with { CancelAtPeriodEnd = true };
