@@ -456,7 +456,8 @@ namespace RestaurantMenu.Controllers;
             var actors = await _context.Users.IgnoreQueryFilters().Where(u => ids.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.Email ?? u.FullName);
             var paddleOptions = HttpContext.RequestServices.GetRequiredService<IOptions<PaddleOptions>>().Value;
             ViewBag.Paddle = paddleOptions.IsConfigured ? (paddleOptions.IsSandbox ? "sandbox" : "production") : null;
-            ViewBag.PaddleSynced = await _context.PriceBook.CountAsync(p => p.PaddlePriceId != null && p.PaddleArchivedUtc == null);
+            var env = paddleOptions.EnvironmentKey;
+            ViewBag.PaddleSynced = await _context.PriceBook.CountAsync(p => p.PaddlePriceId != null && p.PaddleEnvironment == env && p.PaddleArchivedUtc == null);
             return new PricesPage(form, await _plan.PriceTableAsync(DateTime.UtcNow), history, actors, settings.UpdatedUtc,
                 settings.UpdatedById == null ? null : actors.GetValueOrDefault(settings.UpdatedById), _email.IsConfigured, _email.Problem, errors);
         }

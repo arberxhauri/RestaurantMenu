@@ -34,6 +34,17 @@ public class PaddleBilling
 
     public bool IsConfigured => _paddle.IsConfigured;
 
+    /// <summary>
+    /// The Paddle account in use: sandbox or production. Ids from the other one (prices,
+    /// products, customers, subscriptions) mean nothing here and are ignored, so switching from
+    /// the sandbox to the live account syncs fresh prices and starts card plans afresh.
+    /// </summary>
+    public string Env => _paddle.EnvironmentKey;
+
+    /// <summary>The subscription is a card plan in the Paddle account in use.</summary>
+    public bool IsCurrent(Subscription s) =>
+        s.Provider == BillingProvider.Paddle && s.ProviderSubscriptionId != null && s.ProviderEnvironment == Env;
+
     /// <summary>Card payments can be offered: Paddle is set up and switched on in Plans &amp; prices.</summary>
     public async Task<bool> IsOfferedAsync() => _paddle.IsConfigured && (await _settings.GetAsync()).CardPaymentsEnabled;
 
@@ -50,27 +61,31 @@ public class PaddleBilling
         var rows = await _db.PriceBook.Where(p => p.Currency == currency && p.ValidFromUtc <= utcNow).ToListAsync(ct);
         var current = rows.GroupBy(p => (p.Module, p.Interval))
             .Select(g => g.OrderByDescending(p => p.ValidFromUtc).ThenByDescending(p => p.Id).First()).ToList();
-        var products = await _db.PaddleProducts.ToDictionaryAsync(p => p.Module, p => p.ProductId, ct);
+        var env = Env;
+        var products = await _db.PaddleProducts.Where(p => p.Environment == env).ToDictionaryAsync(p => p.Module, p => p.ProductId, ct);
         int created = 0, archived = 0;
 
-        foreach (var row in current.Where(r => !r.Withdrawn && r.PaddlePriceId == null))
+        // A price is mirrored here only if its Paddle id is from this account (a sandbox id isn't live).
+        foreach (var row in current.Where(r => !r.Withdrawn && !(r.PaddlePriceId != null && r.PaddleEnvironment == env)))
         {
             if (!products.TryGetValue(row.Module, out var productId))
             {
                 productId = await _paddle.CreateProductAsync($"My Quick Menu: {EntitlementRules.Name(row.Module)}", ct);
-                _db.PaddleProducts.Add(new PaddleProduct { Module = row.Module, ProductId = productId });
+                _db.PaddleProducts.Add(new PaddleProduct { Module = row.Module, Environment = env, ProductId = productId });
                 products[row.Module] = productId;
                 await _db.SaveChangesAsync(ct);
             }
             var description = $"{EntitlementRules.Name(row.Module)}, {(row.Interval == BillingInterval.Year ? "yearly" : "monthly")}" +
                               (EntitlementRules.IsPerBranch(row.Module) ? ", per branch" : "");
             row.PaddlePriceId = await _paddle.CreatePriceAsync(productId, description, row.UnitAmountCents, row.Currency, row.Interval == BillingInterval.Year, ct);
+            row.PaddleEnvironment = env;
+            row.PaddleArchivedUtc = null;
             await _db.SaveChangesAsync(ct); // one at a time: a failure halfway keeps what was made
             created++;
         }
 
         var currentIds = current.Select(r => r.Id).ToHashSet();
-        foreach (var old in rows.Where(r => r.PaddlePriceId != null && r.PaddleArchivedUtc == null && (!currentIds.Contains(r.Id) || r.Withdrawn)))
+        foreach (var old in rows.Where(r => r.PaddlePriceId != null && r.PaddleEnvironment == env && r.PaddleArchivedUtc == null && (!currentIds.Contains(r.Id) || r.Withdrawn)))
         {
             await _paddle.ArchivePriceAsync(old.PaddlePriceId!, ct);
             old.PaddleArchivedUtc = utcNow;
@@ -92,7 +107,7 @@ public class PaddleBilling
         foreach (var m in plan.Modules.OrderBy(m => m))
         {
             var row = rows.Where(r => r.Module == m).OrderByDescending(r => r.ValidFromUtc).ThenByDescending(r => r.Id).FirstOrDefault();
-            if (row == null || row.Withdrawn || row.PaddlePriceId == null) return null;
+            if (row == null || row.Withdrawn || row.PaddlePriceId == null || row.PaddleEnvironment != Env) return null;
             items.Add((row.PaddlePriceId, EntitlementRules.IsPerBranch(m) ? plan.Branches : 1));
         }
         return items;
@@ -114,6 +129,13 @@ public class PaddleBilling
         {
             var items = await ItemsForAsync(plan, utcNow, ct);
             if (items == null) return (null, w.ErrPrice);
+            // A customer from the other Paddle account (sandbox while live, or back) isn't known here.
+            if (sub.ProviderEnvironment != Env)
+            {
+                sub.ProviderCustomerId = null;
+                if (sub.Provider == BillingProvider.Paddle) sub.ProviderSubscriptionId = null;
+                sub.ProviderEnvironment = Env;
+            }
             sub.ProviderCustomerId ??= await _paddle.CustomerAsync(owner.Email!, owner.FullName, ct);
             await _db.SaveChangesAsync(ct);
             return (await _paddle.CreateTransactionAsync(sub.ProviderCustomerId, items, owner.Id, ct), null);
@@ -128,7 +150,7 @@ public class PaddleBilling
     public async Task<string?> PortalUrlAsync(string ownerId, CancellationToken ct = default)
     {
         var sub = await _db.Subscriptions.AsNoTracking().FirstOrDefaultAsync(s => s.OwnerId == ownerId, ct);
-        if (sub?.ProviderCustomerId == null || !_paddle.IsConfigured) return null;
+        if (sub?.ProviderCustomerId == null || !_paddle.IsConfigured || sub.ProviderEnvironment != Env) return null;
         try { return await _paddle.PortalUrlAsync(sub.ProviderCustomerId, sub.ProviderSubscriptionId, ct); }
         catch (Exception ex) when (ex is PaddleException or HttpRequestException or TaskCanceledException)
         {
@@ -144,7 +166,7 @@ public class PaddleBilling
     /// </summary>
     public async Task<bool> ChangeItemsAsync(Subscription sub, PlanSelection plan, DateTime utcNow, CancellationToken ct = default)
     {
-        if (sub.ProviderSubscriptionId == null) return false;
+        if (!IsCurrent(sub)) return false;
         try
         {
             var items = await ItemsForAsync(plan with { Interval = sub.Interval }, utcNow, ct);
@@ -161,7 +183,7 @@ public class PaddleBilling
 
     public async Task<bool> CancelAsync(Subscription sub, bool cancel, CancellationToken ct = default)
     {
-        if (sub.ProviderSubscriptionId == null) return false;
+        if (!IsCurrent(sub)) return false;
         try
         {
             if (cancel) await _paddle.CancelAtPeriodEndAsync(sub.ProviderSubscriptionId, ct);
@@ -281,9 +303,11 @@ public class PaddleBilling
         return null;
     }
 
-    private static void Link(Subscription sub, PaddleEvent ev)
+    private void Link(Subscription sub, PaddleEvent ev)
     {
         sub.Provider = BillingProvider.Paddle;
+        // Webhooks are signed with this account's secret, so their ids are this account's.
+        sub.ProviderEnvironment = Env;
         sub.ProviderCustomerId = ev.CustomerId ?? sub.ProviderCustomerId;
         sub.ProviderSubscriptionId = ev.SubscriptionId ?? sub.ProviderSubscriptionId;
     }

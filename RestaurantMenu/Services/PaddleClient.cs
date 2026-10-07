@@ -26,6 +26,8 @@ public class PaddleOptions
     public string? ApiBase { get; set; }
 
     public bool IsSandbox => !string.Equals(Environment, "production", StringComparison.OrdinalIgnoreCase);
+    /// <summary>"sandbox" or "production": which Paddle account stored ids belong to.</summary>
+    public string EnvironmentKey => IsSandbox ? "sandbox" : "production";
     public bool IsConfigured => !string.IsNullOrWhiteSpace(ApiKey) && !string.IsNullOrWhiteSpace(WebhookSecret) && !string.IsNullOrWhiteSpace(ClientToken);
     public string BaseUrl => (ApiBase ?? (IsSandbox ? "https://sandbox-api.paddle.com" : "https://api.paddle.com")).TrimEnd('/');
 }
@@ -54,6 +56,7 @@ public class PaddleClient
     }
 
     public bool IsConfigured => _o.IsConfigured;
+    public string EnvironmentKey => _o.EnvironmentKey;
 
     private async Task<JsonNode> SendAsync(HttpMethod method, string path, object? body = null, CancellationToken ct = default)
     {

@@ -93,7 +93,7 @@
             <h2>Card payments (Paddle)</h2>
             @if (ViewBag.Paddle is string paddleEnv)
             {
-                <p>Connected to Paddle (<strong>@paddleEnv</strong>). @ViewBag.PaddleSynced price(s) mirrored. Paddle is the reseller: it charges the card, handles VAT and sends the receipt.</p>
+                <p>Connected to Paddle (<strong>@paddleEnv</strong>). @ViewBag.PaddleSynced price(s) mirrored in this Paddle account@(paddleEnv == "production" ? " (sandbox prices don't count here)" : ""). Paddle is the reseller: it charges the card, handles VAT and sends the receipt.</p>
             }
             else
             {

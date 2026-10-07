@@ -50,14 +50,17 @@ public class PriceBook
     /// <summary>The admin who set it; null for the first-start seed.</summary>
     public string? ChangedById { get; set; }
     public string? PaddlePriceId { get; set; }
+    /// <summary>The Paddle account the price id belongs to: sandbox or production (ids don't carry over).</summary>
+    public string? PaddleEnvironment { get; set; }
     /// <summary>When the Paddle price was archived because a newer price replaced it.</summary>
     public DateTime? PaddleArchivedUtc { get; set; }
 }
 
-/// <summary>The Paddle product each module's prices belong to (created on the first price sync).</summary>
+/// <summary>The Paddle product each module's prices belong to, per Paddle account (sandbox, production).</summary>
 public class PaddleProduct
 {
     public BillingModule Module { get; set; }
+    public string Environment { get; set; } = "sandbox";
     public string ProductId { get; set; } = string.Empty;
 }
 
@@ -248,6 +251,8 @@ public class Subscription
     public BillingInterval? NextInterval { get; set; }
     /// <summary>When the last provider (Paddle) subscription event applied happened: older ones arriving late are skipped.</summary>
     public DateTime? ProviderSyncedUtc { get; set; }
+    /// <summary>The Paddle account (sandbox or production) the provider ids belong to.</summary>
+    public string? ProviderEnvironment { get; set; }
     public string? ProviderSubscriptionId { get; set; }
 
     /// <summary>

@@ -168,7 +168,7 @@ public class BillingController : Controller
         if (sub == null || sub.IsLegacy) return RedirectToAction(nameof(Index));
         var plan = PricingRules.Parse(m, b, i);
         // A card plan changes at Paddle, prorated; its webhook then updates the account.
-        if (sub.Provider == BillingProvider.Paddle && sub.ProviderSubscriptionId != null && sub.Status is SubscriptionStatus.Active or SubscriptionStatus.PastDue)
+        if (_paddle.IsCurrent(sub) && sub.Status is SubscriptionStatus.Active or SubscriptionStatus.PastDue)
         {
             var tracked = await _db.Subscriptions.Include(s => s.Items).FirstAsync(s => s.Id == sub.Id);
             var ok = await _paddle.ChangeItemsAsync(tracked, plan, DateTime.UtcNow);
@@ -198,7 +198,7 @@ public class BillingController : Controller
         var owner = (await _users.GetUserAsync(User))!;
         var w = BillingText.For(owner.Language);
         var card = await _db.Subscriptions.AsNoTracking().FirstAsync(s => s.OwnerId == owner.Id);
-        if (card.Provider == BillingProvider.Paddle && card.ProviderSubscriptionId != null && !await _paddle.CancelAsync(card, !resume))
+        if (_paddle.IsCurrent(card) && !await _paddle.CancelAsync(card, !resume))
         {
             TempData["Error"] = w.ErrCard;
             return RedirectToAction(nameof(Index));
@@ -257,7 +257,7 @@ public class BillingController : Controller
         // The billing pages load nothing from third parties (SecurityHeaders, _HeadAssets).
         ViewData["NoThirdParty"] = true;
         return new BillingPage(w, owner.Language, sub, now, current, PricingRules.Quote(current, prices, settings.Currency), next, open, invoices,
-            form, settings, canPay, errors, await _paddle.IsOfferedAsync(), sub.Provider == BillingProvider.Paddle && sub.ProviderSubscriptionId != null);
+            form, settings, canPay, errors, await _paddle.IsOfferedAsync(), _paddle.IsCurrent(sub));
     }
 
     private static string? Trim(string? v, int max) => string.IsNullOrWhiteSpace(v) ? null : v.Trim().Length > max ? v.Trim()[..max] : v.Trim();

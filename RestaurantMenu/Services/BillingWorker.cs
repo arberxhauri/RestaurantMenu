@@ -30,9 +30,12 @@ public class BillingRunner
     private readonly BillingMailer _mailer;
     private readonly PlanSettingsService _settings;
     private readonly ILogger<BillingRunner> _logger;
+    private readonly string _paddleEnv;
 
-    public BillingRunner(ApplicationDbContext db, BillingService billing, BillingMailer mailer, PlanSettingsService settings, ILogger<BillingRunner> logger)
+    public BillingRunner(ApplicationDbContext db, BillingService billing, BillingMailer mailer, PlanSettingsService settings, ILogger<BillingRunner> logger,
+        Microsoft.Extensions.Options.IOptions<PaddleOptions> paddle)
     {
+        _paddleEnv = paddle.Value.EnvironmentKey;
         _db = db;
         _billing = billing;
         _mailer = mailer;
@@ -157,7 +160,9 @@ public class BillingRunner
 
             // 1. The stored status follows the clock.
             var before = BillingService.State(sub);
-            var after = SubscriptionRules.Advance(before, utcNow, settings.GraceDays, providerManaged: sub.Provider == BillingProvider.Paddle);
+            // Only a card plan in the Paddle account in use is renewed by Paddle; old sandbox plans follow the clock.
+            var after = SubscriptionRules.Advance(before, utcNow, settings.GraceDays,
+                providerManaged: sub.Provider == BillingProvider.Paddle && sub.ProviderEnvironment == _paddleEnv);
             if (after != before)
             {
                 sub.Status = after.Status;

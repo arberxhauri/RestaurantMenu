@@ -591,6 +591,10 @@ Phase 4 of `docs/PLAN-signup-payments.md`. Paddle is the reseller (merchant of r
   - On `/billing`: a full Content-Security-Policy where only this site and `*.paddle.com` may run scripts, frames or connections.
   - The billing pages use Phosphor served from `wwwroot/lib/phosphor` and system fonts (`ViewData["NoThirdParty"]`), never unpkg or Google Fonts.
 - **Tests:** `PaddleEventsTests` (signatures, parsing) and the provider renewal window in `SubscriptionRulesTests`.
+- **Sandbox and live are separate accounts** (migration `PaddleEnvironments`): every stored Paddle id (prices, products, customers, subscriptions) is labelled `sandbox` or `production`, and only ids of the account in use count.
+  - After switching to live keys, Sync creates the live prices.
+  - Owners who paid in the sandbox aren't card plans in live mode: they follow the clock and check out again.
+  - Switching back to the sandbox later creates sandbox prices again (harmless duplicates there).
 - **Checked end to end against a local mock of Paddle's API with signed webhooks:**
   - Prices synced (6 products, 11 prices).
   - The card checkout page and its policy; a card payment activates the account and mirrors invoice `325-10001`.

@@ -142,6 +142,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.Property(p => p.Currency).HasMaxLength(3);
             e.Property(p => p.PaddlePriceId).HasMaxLength(64);
             e.Property(p => p.ChangedById).HasMaxLength(450);
+            e.Property(p => p.PaddleEnvironment).HasMaxLength(20);
             e.HasIndex(p => new { p.Module, p.Interval, p.Currency, p.ValidFromUtc }).IsUnique();
         });
         builder.Entity<PlanSettings>(e =>
@@ -200,8 +201,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         });
         builder.Entity<PaddleProduct>(e =>
         {
-            e.HasKey(p => p.Module);
+            e.HasKey(p => new { p.Module, p.Environment });
             e.Property(p => p.Module).HasConversion<string>().HasMaxLength(20);
+            e.Property(p => p.Environment).HasMaxLength(20);
             e.Property(p => p.ProductId).HasMaxLength(64);
         });
         builder.Entity<InvoiceSequence>(e =>
@@ -236,6 +238,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.Property(s => s.ProviderCustomerId).HasMaxLength(100);
             e.Property(s => s.ProviderSubscriptionId).HasMaxLength(100);
             e.Property(s => s.NextModules).HasMaxLength(200);
+            e.Property(s => s.ProviderEnvironment).HasMaxLength(20);
             e.Property(s => s.NextInterval).HasConversion<string>().HasMaxLength(10);
             e.Property(s => s.Version).IsRowVersion();
             // Matches the user filter: a removed owner's subscription is never read on its own.
