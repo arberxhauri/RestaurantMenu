@@ -90,6 +90,26 @@
         </section>
 
         <section class="form-section">
+            <h2>Card payments (Paddle)</h2>
+            @if (ViewBag.Paddle is string paddleEnv)
+            {
+                <p>Connected to Paddle (<strong>@paddleEnv</strong>). @ViewBag.PaddleSynced price(s) mirrored. Paddle is the reseller: it charges the card, handles VAT and sends the receipt.</p>
+            }
+            else
+            {
+                <p>Not connected: set <code>Billing__Paddle__ApiKey</code>, <code>__WebhookSecret</code>, <code>__ClientToken</code> and <code>__Environment</code> (sandbox or production) on the server.</p>
+            }
+            <label class="form-check">
+                <input class="form-check-input" type="checkbox" name="CardPaymentsEnabled" value="true" @(f.CardPaymentsEnabled ? "checked" : "") />
+                <span class="form-check-label"><strong>Offer paying by card</strong> <span class="text-muted">Restaurants choose card or bank transfer on their Billing page.</span></span>
+            </label>
+            @if (ViewBag.Paddle != null)
+            {
+                <button type="submit" class="btn btn-sm btn-outline-secondary mt-2" formaction="@Url.Action("SyncPaddle")" formnovalidate><i class="ph ph-arrows-clockwise" aria-hidden="true"></i>Sync prices to Paddle</button>
+            }
+        </section>
+
+        <section class="form-section">
             <h2>Prices</h2>
             <p>Without VAT, per branch unless noted. Leave a box empty for "price on request". A change applies to new subscriptions and renewals; existing ones keep the price they were sold at.</p>
             <div class="table-responsive">

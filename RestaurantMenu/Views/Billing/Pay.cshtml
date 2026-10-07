@@ -1,0 +1,22 @@
+@model RestaurantMenu.Controllers.PayPage
+@{
+    var w = Model.W;
+}
+@* Paddle's checkout. Paddle.js reads ?_ptxn= and opens the payment form for that transaction;
+   paddle-checkout.js starts it and returns to /billing when the payment completes. *@
+<div lang="@Model.Lang" class="paddle-pay" data-paddle-checkout data-token="@Model.ClientToken" data-sandbox="@(Model.Sandbox ? "true" : "false")" data-done="/billing?paid=true">
+    <header class="page-head">
+        <div>
+            <h1>@w.PayPageTitle</h1>
+            <p>@w.PayPageText</p>
+        </div>
+    </header>
+    <p class="text-muted">@w.CardNote</p>
+    <noscript><p class="flash flash--warn">JavaScript is needed for the card form. You can also pay by bank transfer on the Billing page.</p></noscript>
+    <a class="btn btn-outline-secondary" href="/billing"><i class="ph ph-arrow-left" aria-hidden="true"></i>@w.PayPageBack</a>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+    <script src="~/js/paddle-checkout.js" asp-append-version="true"></script>
+}

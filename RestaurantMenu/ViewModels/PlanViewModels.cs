@@ -94,6 +94,7 @@ public class PlanSettingsForm
     public string? VatPercent { get; set; } = "0";
     public int InvoiceDueDays { get; set; } = 14;
     public int RenewalLeadDays { get; set; } = 7;
+    public bool CardPaymentsEnabled { get; set; }
     public uint? Version { get; set; }
     /// <summary>"Ordering_Month" → "9.00".</summary>
     public Dictionary<string, string?> Prices { get; set; } = new();
@@ -111,7 +112,7 @@ public class PlanSettingsForm
         OperatorName = s.OperatorName, OperatorNipt = s.OperatorNipt, OperatorAddress = s.OperatorAddress, OperatorEmail = s.OperatorEmail,
         OperatorIban = s.OperatorIban, OperatorBank = s.OperatorBank, OperatorSwift = s.OperatorSwift,
         VatPercent = s.VatPercent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture),
-        InvoiceDueDays = s.InvoiceDueDays, RenewalLeadDays = s.RenewalLeadDays,
+        InvoiceDueDays = s.InvoiceDueDays, RenewalLeadDays = s.RenewalLeadDays, CardPaymentsEnabled = s.CardPaymentsEnabled,
         Version = s.Version == 0 ? null : s.Version,
         Prices = prices.ToDictionary(p => Key(p.Key.Item1, p.Key.Item2), p => (string?)Helpers.MoneyInput.Format(p.Value))
     };

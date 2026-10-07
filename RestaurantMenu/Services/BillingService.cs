@@ -22,9 +22,12 @@ public class BillingService
     private readonly BillingMailer _mailer;
     private readonly ILogger<BillingService> _logger;
 
-    public BillingService(ApplicationDbContext db, PlanSettingsService settings, BillingMailer mailer, ILogger<BillingService> logger)
+    private readonly PaddleBilling _paddle;
+
+    public BillingService(ApplicationDbContext db, PlanSettingsService settings, BillingMailer mailer, PaddleBilling paddle, ILogger<BillingService> logger)
     {
         _db = db;
+        _paddle = paddle;
         _settings = settings;
         _mailer = mailer;
         _logger = logger;
@@ -33,7 +36,7 @@ public class BillingService
     public static LifecycleState State(Subscription s) =>
         new(s.Status, s.IsLegacy, s.TrialEndsUtc, s.CurrentPeriodStartUtc, s.CurrentPeriodEndUtc, s.GraceEndsUtc, s.CancelAtPeriodEnd);
 
-    private static void Set(Subscription s, LifecycleState x)
+    public static void SetState(Subscription s, LifecycleState x)
     {
         s.Status = x.Status;
         s.IsLegacy = x.IsLegacy;
@@ -184,13 +187,15 @@ public class BillingService
     /// paid and the subscription isn't moved twice. Returns the invoice it just paid (null if
     /// nothing changed). Throws on anything unexpected (the inbox retries).
     /// </summary>
-    public async Task<Invoice?> ApplyAsync(BillingEvent e, DateTime utcNow)
+    public async Task<ApplyResult> ApplyAsync(BillingEvent e, DateTime utcNow)
     {
-        if (e.Type != BillingEventType.PaymentSucceeded) return null; // other types arrive with card providers
+        if (e.Provider == BillingProvider.Paddle)
+            return await _paddle.ApplyAsync(e, utcNow);
+        if (e.Type != BillingEventType.PaymentSucceeded) return ApplyResult.None;
         var p = JsonSerializer.Deserialize<PaymentPayload>(e.PayloadJson) ?? throw new InvalidOperationException("Empty payload");
         var inv = await _db.Invoices.Include(i => i.Lines).FirstOrDefaultAsync(i => i.Id == p.InvoiceId)
                   ?? throw new InvalidOperationException($"Invoice {p.InvoiceId} not found");
-        if (inv.Status == InvoiceStatus.Paid) return null;
+        if (inv.Status == InvoiceStatus.Paid) return ApplyResult.None;
         if (inv.Status == InvoiceStatus.Void) throw new InvalidOperationException($"Invoice {inv.Number} is void");
 
         inv.Status = InvoiceStatus.Paid;
@@ -199,7 +204,7 @@ public class BillingService
 
         var sub = await _db.Subscriptions.IgnoreQueryFilters().Include(s => s.Items).FirstAsync(s => s.Id == inv.SubscriptionId);
         var before = SubscriptionService.Describe(sub);
-        Set(sub, SubscriptionRules.ApplyPayment(State(sub), inv.PeriodStartUtc, inv.PeriodEndUtc));
+        SetState(sub, SubscriptionRules.ApplyPayment(State(sub), inv.PeriodStartUtc, inv.PeriodEndUtc));
         sub.Provider = BillingProvider.BankTransfer;
         sub.Interval = inv.Interval;
         sub.BranchQuantity = inv.BranchQuantity;
@@ -225,7 +230,7 @@ public class BillingService
             SubscriptionId = sub.Id, ActorId = p.ActorId, Action = $"paid {inv.Number}", FromJson = before,
             ToJson = SubscriptionService.Describe(sub), AtUtc = utcNow
         });
-        return inv;
+        return new ApplyResult(inv, inv.OwnerId);
     }
 
     /// <summary>After a payment is applied: the "payment received" email (once).</summary>

@@ -20,6 +20,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<InvoiceSequence> InvoiceSequences { get; set; }
     public DbSet<BillingEvent> BillingEvents { get; set; }
     public DbSet<BillingEmailLog> BillingEmailLog { get; set; }
+    public DbSet<PaddleProduct> PaddleProducts { get; set; }
     public DbSet<Subscription> Subscriptions { get; set; }
     public DbSet<SubscriptionItem> SubscriptionItems { get; set; }
     public DbSet<BillingProfile> BillingProfiles { get; set; }
@@ -166,7 +167,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.HasIndex(i => new { i.OwnerId, i.IssuedUtc });
             e.HasIndex(i => new { i.Status, i.DueUtc });
             // One live invoice per subscription and period: the worker can't bill a period twice.
-            e.HasIndex(i => new { i.SubscriptionId, i.PeriodStartUtc }).IsUnique().HasFilter("\"Status\" <> 'Void'");
+            // Bank transfer only: card providers can bill a period more than once (a mid-period change is prorated).
+            e.HasIndex(i => new { i.SubscriptionId, i.PeriodStartUtc }).IsUnique().HasFilter("\"Status\" <> 'Void' AND \"Provider\" = 'BankTransfer'");
+            e.HasIndex(i => i.ProviderRef);
             e.HasOne(i => i.Owner).WithMany().HasForeignKey(i => i.OwnerId).OnDelete(DeleteBehavior.Restrict);
             e.Property(i => i.Number).HasMaxLength(20);
             e.Property(i => i.Kind).HasMaxLength(10);
@@ -194,6 +197,12 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         {
             e.HasOne(l => l.Invoice).WithMany(i => i.Lines).HasForeignKey(l => l.InvoiceId).OnDelete(DeleteBehavior.Cascade);
             e.Property(l => l.Module).HasConversion<string>().HasMaxLength(20);
+        });
+        builder.Entity<PaddleProduct>(e =>
+        {
+            e.HasKey(p => p.Module);
+            e.Property(p => p.Module).HasConversion<string>().HasMaxLength(20);
+            e.Property(p => p.ProductId).HasMaxLength(64);
         });
         builder.Entity<InvoiceSequence>(e =>
         {

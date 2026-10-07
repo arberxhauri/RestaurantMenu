@@ -401,7 +401,7 @@ namespace RestaurantMenu.Controllers;
             var problem = await _plan.SaveAsync(new PlanSettingsInput(form.Currency, form.TrialDays, form.SeatsPerBranch, form.GraceDays,
                 form.SignupEnabled, form.SignupRequireApproval,
                 new InvoiceSettingsInput(form.OperatorName, form.OperatorNipt, form.OperatorAddress, form.OperatorEmail, form.OperatorIban,
-                    form.OperatorBank, form.OperatorSwift, vat, form.InvoiceDueDays, form.RenewalLeadDays)), form.Version, actor, now);
+                    form.OperatorBank, form.OperatorSwift, vat, form.InvoiceDueDays, form.RenewalLeadDays, form.CardPaymentsEnabled)), form.Version, actor, now);
             if (problem != null)
             {
                 TempData["Error"] = problem;
@@ -410,8 +410,41 @@ namespace RestaurantMenu.Controllers;
             // Prices go in the (possibly new) currency.
             var changed = await _plan.SetPricesAsync(wanted, actor, now);
             var signupNote = form.SignupEnabled && !_email.IsConfigured ? " Signup is switched on but stays closed until email is set up." : "";
+            // New prices go to Paddle at once when card payments are on.
+            // Warnings (signupNote) colour the message; plain information doesn't.
+            var paddle = HttpContext.RequestServices.GetRequiredService<PaddleBilling>();
+            var info = "";
+            if (form.CardPaymentsEnabled && !paddle.IsConfigured) signupNote += " Card payments stay off until the Billing__Paddle__… settings are set on the server.";
+            else if (form.CardPaymentsEnabled)
+            {
+                try { var (made, gone) = await paddle.SyncPricesAsync(now); if (made + gone > 0) info = $" Paddle: {made} price(s) created, {gone} archived."; }
+                catch (Exception ex) when (ex is PaddleException or HttpRequestException or TaskCanceledException) { signupNote += $" Paddle price sync failed ({ex.Message}); try Sync again."; }
+            }
             TempData[signupNote.Length > 0 ? "Warning" : "Success"] =
-                $"Saved. {(changed == 0 ? "No prices changed." : $"{changed} price{(changed == 1 ? "" : "s")} changed; existing subscriptions keep theirs.")}{signupNote}";
+                $"Saved. {(changed == 0 ? "No prices changed." : $"{changed} price{(changed == 1 ? "" : "s")} changed; existing subscriptions keep theirs.")}{info}{signupNote}";
+            return RedirectToAction(nameof(Prices));
+        }
+
+        /// <summary>Mirrors the current prices into Paddle (products and prices), archiving replaced ones.</summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SyncPaddle()
+        {
+            var paddle = HttpContext.RequestServices.GetRequiredService<PaddleBilling>();
+            if (!paddle.IsConfigured)
+            {
+                TempData["Error"] = "Paddle isn't set up: set Billing__Paddle__ApiKey, __WebhookSecret and __ClientToken on the server.";
+                return RedirectToAction(nameof(Prices));
+            }
+            try
+            {
+                var (made, gone) = await paddle.SyncPricesAsync(DateTime.UtcNow);
+                TempData["Success"] = $"Prices are in Paddle: {made} created, {gone} archived.";
+            }
+            catch (Exception ex) when (ex is PaddleException or HttpRequestException or TaskCanceledException)
+            {
+                TempData["Error"] = $"Paddle refused the sync: {ex.Message}";
+            }
             return RedirectToAction(nameof(Prices));
         }
 
@@ -421,6 +454,9 @@ namespace RestaurantMenu.Controllers;
             var history = await _plan.HistoryAsync(40);
             var ids = history.Select(h => h.ChangedById).Append(settings.UpdatedById).Where(id => id != null).Select(id => id!).Distinct().ToList();
             var actors = await _context.Users.IgnoreQueryFilters().Where(u => ids.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.Email ?? u.FullName);
+            var paddleOptions = HttpContext.RequestServices.GetRequiredService<IOptions<PaddleOptions>>().Value;
+            ViewBag.Paddle = paddleOptions.IsConfigured ? (paddleOptions.IsSandbox ? "sandbox" : "production") : null;
+            ViewBag.PaddleSynced = await _context.PriceBook.CountAsync(p => p.PaddlePriceId != null && p.PaddleArchivedUtc == null);
             return new PricesPage(form, await _plan.PriceTableAsync(DateTime.UtcNow), history, actors, settings.UpdatedUtc,
                 settings.UpdatedById == null ? null : actors.GetValueOrDefault(settings.UpdatedById), _email.IsConfigured, _email.Problem, errors);
         }

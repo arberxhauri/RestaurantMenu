@@ -48,7 +48,7 @@ public class BillingRunner
         var applied = 0;
         for (var n = 0; n < 50; n++)
         {
-            var paid = (Invoice?)null;
+            var result = ApplyResult.None;
             var strategy = _db.Database.CreateExecutionStrategy();
             var outcome = await strategy.ExecuteAsync(async () =>
             {
@@ -62,7 +62,7 @@ public class BillingRunner
                 if (e == null) return (int?)null;
                 try
                 {
-                    paid = await _billing.ApplyAsync(e, utcNow);
+                    result = await _billing.ApplyAsync(e, utcNow);
                     e.ProcessedUtc = utcNow;
                     e.LastError = null;
                     await _db.SaveChangesAsync(ct);
@@ -89,10 +89,28 @@ public class BillingRunner
             if (outcome > 0)
             {
                 applied++;
-                if (paid != null) await _billing.ThankAsync(paid);
+                if (result.Paid != null) await _billing.ThankAsync(result.Paid);
+                if (result.StatusEmail != null && result.OwnerId != null) await StatusEmailAsync(result.OwnerId, result.StatusEmail);
             }
         }
         return applied;
+    }
+
+    /// <summary>The past-due, read-only or cancelled email for a change a provider reported (once).</summary>
+    private async Task StatusEmailAsync(string ownerId, string kind)
+    {
+        var sub = await _db.Subscriptions.IgnoreQueryFilters().AsNoTracking().Include(s => s.Owner).FirstAsync(s => s.OwnerId == ownerId);
+        var owner = sub.Owner!;
+        var w = BillingText.For(owner.Language);
+        var key = SubscriptionRules.Key(sub.CurrentPeriodEndUtc);
+        _ = kind switch
+        {
+            "past-due" => await _mailer.SendOnceAsync(owner, kind, key, w.PastDueSubject,
+                string.Format(w.PastDueCardText, BillingText.Date(sub.GraceEndsUtc ?? DateTime.UtcNow, owner.Language))),
+            "read-only" => await _mailer.SendOnceAsync(owner, kind, key, w.ReadOnlySubject, w.ReadOnlyText),
+            "cancelled" => await _mailer.SendOnceAsync(owner, kind, key, w.CancelledSubject, w.CancelledText),
+            _ => false
+        };
     }
 
     // ---------------------------------------------------------------- lifecycle
@@ -139,7 +157,7 @@ public class BillingRunner
 
             // 1. The stored status follows the clock.
             var before = BillingService.State(sub);
-            var after = SubscriptionRules.Advance(before, utcNow, settings.GraceDays);
+            var after = SubscriptionRules.Advance(before, utcNow, settings.GraceDays, providerManaged: sub.Provider == BillingProvider.Paddle);
             if (after != before)
             {
                 sub.Status = after.Status;

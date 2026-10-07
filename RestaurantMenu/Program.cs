@@ -139,6 +139,9 @@ builder.Services.Configure<SignupOptions>(builder.Configuration.GetSection("Sign
 builder.Services.AddScoped<SignupService>();
 // Billing (phase 3): invoices, bank transfer, the inbox and the lifecycle worker.
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+builder.Services.Configure<PaddleOptions>(builder.Configuration.GetSection("Billing:Paddle"));
+builder.Services.AddHttpClient<PaddleClient>();
+builder.Services.AddScoped<PaddleBilling>();
 builder.Services.AddScoped<BillingMailer>();
 builder.Services.AddScoped<BillingService>();
 builder.Services.AddScoped<BillingRunner>();
@@ -247,6 +250,11 @@ builder.Services.AddRateLimiter(options =>
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 
+    // Payment provider webhooks, per address: Paddle sends bursts, never thousands a minute.
+    options.AddPolicy("webhooks", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 300, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+
     // People get a page that explains, not a bare 429.
     options.OnRejected = async (context, ct) =>
     {
@@ -292,6 +300,9 @@ var app = builder.Build();
 // Must run before anything reads Request.Scheme or Request.Host — including
 // UseHttpsRedirection and every SEO URL the views build.
 app.UseForwardedHeaders();
+
+// nosniff, referrer policy, no framing (except guest pages), and a strict policy on /billing.
+app.UseMiddleware<SecurityHeaders>();
 
 // Restaurants' own domains: before static files and routing, so "/" on such a domain becomes
 // that restaurant's website and back-office paths go to the app's own address.

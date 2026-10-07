@@ -29,7 +29,7 @@ public static class SlugRules
         "menu", "book", "site", "kitchen", "manage", "admin", "account", "dashboard", "branch", "category",
         "product", "seo", "team", "tables", "bookings", "website", "stock", "shifts", "sales", "insights", "translate",
         "home", "privacy", "terms", "pricing", "signup", "login", "logout", "register", "billing", "checkout",
-        "invoice", "invoices", "hubs", "api", "app", "webhooks", "sitemap", "robots", "manifest",
+        "invoice", "invoices", "paddle", "paddlewebhook", "hubs", "api", "app", "webhooks", "sitemap", "robots", "manifest",
         // Static folders.
         "css", "js", "lib", "img", "images", "assets", "static", "cdn", "media", "files",
         // Hosts and names that would look like the platform's own.

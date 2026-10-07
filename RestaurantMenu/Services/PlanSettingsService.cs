@@ -11,7 +11,7 @@ public record PlanSettingsInput(string Currency, int TrialDays, int SeatsPerBran
 
 /// <summary>The seller on invoices and the invoicing rules (phase 3).</summary>
 public record InvoiceSettingsInput(string? Name, string? Nipt, string? Address, string? Email, string? Iban, string? Bank, string? Swift,
-    decimal VatPercent, int DueDays, int RenewalLeadDays);
+    decimal VatPercent, int DueDays, int RenewalLeadDays, bool CardPaymentsEnabled = false);
 
 /// <summary>
 /// The platform's plan settings and price book, both in the database and edited in Admin → Plans
@@ -87,6 +87,7 @@ public class PlanSettingsService
         row.VatPercent = Math.Clamp(inv.VatPercent, 0, 50);
         row.InvoiceDueDays = Math.Clamp(inv.DueDays, 1, 90);
         row.RenewalLeadDays = Math.Clamp(inv.RenewalLeadDays, 0, 60);
+        row.CardPaymentsEnabled = inv.CardPaymentsEnabled;
         row.UpdatedUtc = utcNow;
         row.UpdatedById = actorId;
         try

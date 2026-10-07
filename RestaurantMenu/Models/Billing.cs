@@ -50,6 +50,15 @@ public class PriceBook
     /// <summary>The admin who set it; null for the first-start seed.</summary>
     public string? ChangedById { get; set; }
     public string? PaddlePriceId { get; set; }
+    /// <summary>When the Paddle price was archived because a newer price replaced it.</summary>
+    public DateTime? PaddleArchivedUtc { get; set; }
+}
+
+/// <summary>The Paddle product each module's prices belong to (created on the first price sync).</summary>
+public class PaddleProduct
+{
+    public BillingModule Module { get; set; }
+    public string ProductId { get; set; } = string.Empty;
 }
 
 /// <summary>
@@ -90,6 +99,8 @@ public class PlanSettings
     public int InvoiceDueDays { get; set; } = 14;
     /// <summary>A renewal invoice is issued this many days before the paid period ends (and is due on that day).</summary>
     public int RenewalLeadDays { get; set; } = 7;
+    /// <summary>Offer paying by card through Paddle (needs the Billing__Paddle__… settings).</summary>
+    public bool CardPaymentsEnabled { get; set; }
 
     public DateTime UpdatedUtc { get; set; }
     public string? UpdatedById { get; set; }
@@ -235,6 +246,8 @@ public class Subscription
     public string? NextModules { get; set; }
     public int? NextBranchQuantity { get; set; }
     public BillingInterval? NextInterval { get; set; }
+    /// <summary>When the last provider (Paddle) subscription event applied happened: older ones arriving late are skipped.</summary>
+    public DateTime? ProviderSyncedUtc { get; set; }
     public string? ProviderSubscriptionId { get; set; }
 
     /// <summary>

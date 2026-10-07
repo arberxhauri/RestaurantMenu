@@ -23,7 +23,13 @@ public record BillingPage(
     BillingDetailsForm Details,
     PlanSettings Settings,
     bool CanPay,
-    IReadOnlyList<string>? Errors);
+    IReadOnlyList<string>? Errors,
+    bool CardOffered = false,
+    bool PaysByCard = false,
+    bool JustPaid = false);
+
+/// <summary>The card checkout page: Paddle.js with the client token.</summary>
+public record PayPage(BillingText.Words W, string Lang, string ClientToken, bool Sandbox);
 
 /// <summary>The bank-transfer checkout form (billing details and the period).</summary>
 public class BillingDetailsForm
@@ -53,10 +59,14 @@ public class BillingController : Controller
     private readonly BillingMailer _mailer;
     private readonly PlanSettingsService _settings;
     private readonly IEntitlementService _entitlements;
+    private readonly PaddleBilling _paddle;
+    private readonly Microsoft.Extensions.Options.IOptions<PaddleOptions> _paddleOptions;
 
     public BillingController(ApplicationDbContext db, UserManager<ApplicationUser> users, BillingService billing, BillingMailer mailer,
-        PlanSettingsService settings, IEntitlementService entitlements)
+        PlanSettingsService settings, IEntitlementService entitlements, PaddleBilling paddle, Microsoft.Extensions.Options.IOptions<PaddleOptions> paddleOptions)
     {
+        _paddle = paddle;
+        _paddleOptions = paddleOptions;
         _db = db;
         _users = users;
         _billing = billing;
@@ -66,11 +76,58 @@ public class BillingController : Controller
     }
 
     [HttpGet("")]
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index(bool paid = false)
     {
         var owner = (await _users.GetUserAsync(User))!;
         var page = await PageAsync(owner, null, null);
-        return page == null ? RedirectToAction("Index", "Dashboard") : View(page);
+        return page == null ? RedirectToAction("Index", "Dashboard") : View(page with { JustPaid = paid });
+    }
+
+    /// <summary>"Pay by card": a Paddle transaction for the plan, opened on /billing/pay.</summary>
+    [HttpPost("card")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Card(BillingInterval interval = BillingInterval.Month)
+    {
+        var owner = (await _users.GetUserAsync(User))!;
+        var (txn, problem) = await _paddle.StartCheckoutAsync(owner, interval == BillingInterval.Year ? BillingInterval.Year : BillingInterval.Month, DateTime.UtcNow);
+        if (txn == null)
+        {
+            TempData["Error"] = problem;
+            return RedirectToAction(nameof(Index));
+        }
+        return Redirect("/billing/pay?_ptxn=" + Uri.EscapeDataString(txn));
+    }
+
+    /// <summary>
+    /// Paddle's checkout (also the "default payment link" set in Paddle): Paddle.js opens the form
+    /// for the transaction in ?_ptxn= and comes back to /billing when it's paid. Only Paddle's
+    /// script runs here (SecurityHeaders gives it a strict policy).
+    /// </summary>
+    [HttpGet("pay")]
+    public async Task<IActionResult> Pay([FromQuery(Name = "_ptxn")] string? transaction)
+    {
+        var owner = (await _users.GetUserAsync(User))!;
+        if (!await _paddle.IsOfferedAsync() || transaction == null || !System.Text.RegularExpressions.Regex.IsMatch(transaction, "^txn_[a-z0-9]{10,40}$"))
+            return RedirectToAction(nameof(Index));
+        var w = BillingText.For(owner.Language);
+        ViewData["Title"] = w.PayPageTitle;
+        ViewData["NoThirdParty"] = true;
+        return View(new PayPage(w, owner.Language, _paddleOptions.Value.ClientToken!, _paddleOptions.Value.IsSandbox));
+    }
+
+    /// <summary>Paddle's customer portal: change the card, see receipts.</summary>
+    [HttpPost("card/manage")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ManageCard()
+    {
+        var owner = (await _users.GetUserAsync(User))!;
+        var url = await _paddle.PortalUrlAsync(owner.Id);
+        if (url == null || !url.StartsWith("https://", StringComparison.Ordinal))
+        {
+            TempData["Error"] = BillingText.For(owner.Language).ErrCard;
+            return RedirectToAction(nameof(Index));
+        }
+        return Redirect(url);
     }
 
     /// <summary>"Get the invoice": billing details saved, invoice issued and emailed with its PDF.</summary>
@@ -110,6 +167,14 @@ public class BillingController : Controller
         var sub = await _db.Subscriptions.AsNoTracking().FirstOrDefaultAsync(s => s.OwnerId == owner.Id);
         if (sub == null || sub.IsLegacy) return RedirectToAction(nameof(Index));
         var plan = PricingRules.Parse(m, b, i);
+        // A card plan changes at Paddle, prorated; its webhook then updates the account.
+        if (sub.Provider == BillingProvider.Paddle && sub.ProviderSubscriptionId != null && sub.Status is SubscriptionStatus.Active or SubscriptionStatus.PastDue)
+        {
+            var tracked = await _db.Subscriptions.Include(s => s.Items).FirstAsync(s => s.Id == sub.Id);
+            var ok = await _paddle.ChangeItemsAsync(tracked, plan, DateTime.UtcNow);
+            TempData[ok ? "Success" : "Error"] = ok ? w.ChangeSavedCard : w.ErrCard;
+            return RedirectToAction(nameof(Index));
+        }
         var now = await _billing.ChangePlanAsync(owner.Id, plan, DateTime.UtcNow);
         TempData["Success"] = now ? w.ChangeSavedNow
             : string.Format(w.ChangeSavedNext, BillingText.Date(sub.CurrentPeriodEndUtc ?? DateTime.UtcNow, owner.Language));
@@ -132,6 +197,12 @@ public class BillingController : Controller
     {
         var owner = (await _users.GetUserAsync(User))!;
         var w = BillingText.For(owner.Language);
+        var card = await _db.Subscriptions.AsNoTracking().FirstAsync(s => s.OwnerId == owner.Id);
+        if (card.Provider == BillingProvider.Paddle && card.ProviderSubscriptionId != null && !await _paddle.CancelAsync(card, !resume))
+        {
+            TempData["Error"] = w.ErrCard;
+            return RedirectToAction(nameof(Index));
+        }
         if (await _billing.CancelAsync(owner.Id, !resume, DateTime.UtcNow))
         {
             var end = (await _db.Subscriptions.AsNoTracking().FirstAsync(s => s.OwnerId == owner.Id)).CurrentPeriodEndUtc!.Value;
@@ -147,6 +218,9 @@ public class BillingController : Controller
         var ownerId = _users.GetUserId(User);
         var inv = await _db.Invoices.AsNoTracking().Include(i => i.Lines).FirstOrDefaultAsync(i => i.Id == id && i.OwnerId == ownerId);
         if (inv == null) return NotFound();
+        // A card payment's receipt is Paddle's (the reseller's) invoice.
+        if (inv.Provider == BillingProvider.Paddle && inv.ProviderRef != null && await _paddle.InvoiceUrlAsync(inv.ProviderRef) is { } url && url.StartsWith("https://"))
+            return Redirect(url);
         return File(InvoicePdf.Render(inv), "application/pdf", InvoicePdf.FileName(inv));
     }
 
@@ -180,8 +254,10 @@ public class BillingController : Controller
         var canPay = !sub.IsLegacy && open == null && (now.Status == SubscriptionStatus.Trialing || !now.CanWrite);
 
         ViewData["Title"] = w.Title;
+        // The billing pages load nothing from third parties (SecurityHeaders, _HeadAssets).
+        ViewData["NoThirdParty"] = true;
         return new BillingPage(w, owner.Language, sub, now, current, PricingRules.Quote(current, prices, settings.Currency), next, open, invoices,
-            form, settings, canPay, errors);
+            form, settings, canPay, errors, await _paddle.IsOfferedAsync(), sub.Provider == BillingProvider.Paddle && sub.ProviderSubscriptionId != null);
     }
 
     private static string? Trim(string? v, int max) => string.IsNullOrWhiteSpace(v) ? null : v.Trim().Length > max ? v.Trim()[..max] : v.Trim();

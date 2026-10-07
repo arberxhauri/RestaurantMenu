@@ -48,14 +48,22 @@ public static class SubscriptionRules
         CancelAtPeriodEnd = false
     };
 
+    /// <summary>How long a card provider has to report a renewal before the clock takes over.</summary>
+    public static readonly TimeSpan ProviderRenewalWindow = TimeSpan.FromDays(3);
+
     /// <summary>
     /// The status to store now. Same rules as the entitlements (EntitlementRules.EffectiveStatus),
     /// plus the grace end fixed when an account first falls past due, so later changes to the
     /// grace days don't move a deadline already announced.
+    /// <paramref name="providerManaged"/>: a card provider (Paddle) renews and reports failures
+    /// itself, so an active period that just ended stays active while the renewal's webhook is
+    /// on its way; only after <see cref="ProviderRenewalWindow"/> without one does the clock decide.
     /// </summary>
-    public static LifecycleState Advance(LifecycleState s, DateTime utcNow, int graceDays)
+    public static LifecycleState Advance(LifecycleState s, DateTime utcNow, int graceDays, bool providerManaged = false)
     {
         if (s.IsLegacy) return s;
+        if (providerManaged && s.Status == SubscriptionStatus.Active && !s.CancelAtPeriodEnd
+            && s.CurrentPeriodEndUtc is { } periodEnd && utcNow < periodEnd + ProviderRenewalWindow) return s;
         var snapshot = new SubscriptionSnapshot(s.Status, false, new Dictionary<BillingModule, int>(), 1,
             TrialEndsUtc: s.TrialEndsUtc, CurrentPeriodEndUtc: s.CurrentPeriodEndUtc, GraceEndsUtc: s.GraceEndsUtc, CancelAtPeriodEnd: s.CancelAtPeriodEnd);
         var status = EntitlementRules.EffectiveStatus(snapshot, utcNow, new BillingDefaults(0, graceDays));

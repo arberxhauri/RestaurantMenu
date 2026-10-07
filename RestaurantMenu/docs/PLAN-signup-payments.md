@@ -258,10 +258,10 @@ Six phases, each deployable on its own and each ending with the usual write-up (
 **Accept when:** a trial ends, the owner chooses bank transfer, the admin marks the invoice paid and the account is Active; an unpaid invoice moves the account to PastDue, then ReadOnly after grace, with the menu still public. **Turn signup on here.**
 
 ### Phase 4: card payments with Paddle
-- [ ] Paddle account onboarding (needs the legal entity); sandbox first
-- [ ] Mirror the price book into Paddle prices (one per module per interval); store `PaddlePriceId`
-- [ ] `PaddleProvider`: checkout, webhook endpoint with signature check, update with proration, cancel, customer portal link
-- [ ] Security headers and a third-party-free layout for billing pages
+- [ ] Paddle account onboarding (needs the legal entity); sandbox first. **Owner's step; the app side is ready (ROADMAP item 27 lists the exact settings).**
+- [x] Mirror the price book into Paddle prices (one per module per interval); store `PaddlePriceId`
+- [x] `PaddleProvider`: checkout, webhook endpoint with signature check, update with proration, cancel, customer portal link
+- [x] Security headers and a third-party-free layout for billing pages
 
 **Accept when:** in the Paddle sandbox, a card payment activates the account; a declined renewal moves it to PastDue; replaying the same webhook ten times changes nothing.
 

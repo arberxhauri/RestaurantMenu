@@ -37,7 +37,10 @@ public static class BillingText
         string EmailButton, string InvoiceSubject, string InvoiceText, string DueSoonSubject, string DueSoonText,
         string PaidSubject, string PaidText, string TrialSubject, string TrialSubjectOne, string TrialText,
         string TrialEndedSubject, string TrialEndedText, string PastDueSubject, string PastDueText,
-        string GraceSubject, string GraceText, string ReadOnlySubject, string ReadOnlyText, string CancelledSubject, string CancelledText);
+        string GraceSubject, string GraceText, string ReadOnlySubject, string ReadOnlyText, string CancelledSubject, string CancelledText,
+        // Card (Paddle)
+        string PayCardTitle, string PayCardIntro, string PayCardButton, string CardNote, string ManageCard, string ChangeHintCard,
+        string ChangeSavedCard, string ErrCard, string CardThanks, string PayPageTitle, string PayPageText, string PayPageBack, string PastDueCardText, string PaidByCard);
 
     private static readonly Dictionary<string, Words> All = new()
     {
@@ -100,7 +103,19 @@ public static class BillingText
             ReadOnlySubject: "Your account is now read-only",
             ReadOnlyText: "The back office is read-only and paid features are paused. Pay the open invoice to switch everything back on. Your menus are still online.",
             CancelledSubject: "Your plan has ended",
-            CancelledText: "Your plan has ended as you asked. Your menus are still online; the back office is read-only. Get a new invoice whenever you want to continue."),
+            CancelledText: "Your plan has ended as you asked. Your menus are still online; the back office is read-only. Get a new invoice whenever you want to continue.",
+            PayCardTitle: "Pay by card", PayCardIntro: "Charged today and then every period automatically. Your paid period starts today.",
+            PayCardButton: "Pay by card",
+            CardNote: "Card payments are processed by Paddle, our reseller: Paddle charges your card, adds VAT where it applies and sends the receipt.",
+            ManageCard: "Change card or download receipts",
+            ChangeHintCard: "Changes apply straight away; the difference for the rest of this period is charged or credited to your card.",
+            ChangeSavedCard: "Saved. Your plan is updated; the difference for this period is charged or credited.",
+            ErrCard: "Card payment couldn't be started just now. Try again in a minute, or pay by bank transfer.",
+            CardThanks: "Thank you! Your payment is being confirmed; this page updates within a minute.",
+            PayPageTitle: "Pay by card", PayPageText: "The secure payment form opens here. If it doesn't, allow pop-ups and reload the page.",
+            PayPageBack: "Back to billing",
+            PastDueCardText: "Your card payment didn't go through. We'll try again over the next days; you can also change the card. Everything keeps working until {0}; after that the back office becomes read-only. Your menus stay online.",
+            PaidByCard: "Paid by card"),
 
         ["sq"] = new Words(
             Title: "Faturimi", Intro: "Plani juaj, mënyra e pagesës dhe faturat.",
@@ -161,7 +176,19 @@ public static class BillingText
             ReadOnlySubject: "Llogaria juaj tani është vetëm për lexim",
             ReadOnlyText: "Paneli është vetëm për lexim dhe veçoritë me pagesë janë ndalur. Paguani faturën e hapur që gjithçka të rikthehet. Menutë janë ende online.",
             CancelledSubject: "Plani juaj mbaroi",
-            CancelledText: "Plani juaj mbaroi siç kërkuat. Menutë janë ende online; paneli është vetëm për lexim. Merrni një faturë të re kur të doni të vazhdoni.")
+            CancelledText: "Plani juaj mbaroi siç kërkuat. Menutë janë ende online; paneli është vetëm për lexim. Merrni një faturë të re kur të doni të vazhdoni.",
+            PayCardTitle: "Paguani me kartë", PayCardIntro: "Paguhet sot dhe më pas automatikisht çdo periudhë. Periudha e paguar fillon sot.",
+            PayCardButton: "Paguaj me kartë",
+            CardNote: "Pagesat me kartë i përpunon Paddle, rishitësi ynë: Paddle tërheq pagesën nga karta, shton TVSH-në kur aplikohet dhe dërgon faturën.",
+            ManageCard: "Ndrysho kartën ose shkarko faturat",
+            ChangeHintCard: "Ndryshimet vlejnë menjëherë; diferenca për pjesën e mbetur të periudhës tërhiqet ose kthehet në kartë.",
+            ChangeSavedCard: "U ruajt. Plani juaj u përditësua; diferenca për këtë periudhë tërhiqet ose kthehet.",
+            ErrCard: "Pagesa me kartë nuk mund të fillonte tani. Provoni sërish pas një minute, ose paguani me transfertë bankare.",
+            CardThanks: "Faleminderit! Pagesa juaj po konfirmohet; kjo faqe përditësohet brenda një minute.",
+            PayPageTitle: "Paguani me kartë", PayPageText: "Formulari i sigurt i pagesës hapet këtu. Nëse nuk hapet, lejoni dritaret që hapen vetë dhe ringarkoni faqen.",
+            PayPageBack: "Kthehu te faturimi",
+            PastDueCardText: "Pagesa me kartë nuk kaloi. Do të provojmë sërish ditët në vijim; mund edhe ta ndryshoni kartën. Gjithçka funksionon deri më {0}; pas kësaj paneli kalon vetëm për lexim. Menutë mbeten online.",
+            PaidByCard: "Paguar me kartë")
     };
 
     public static Words For(string? language) => All.TryGetValue(language ?? "en", out var w) ? w : All["en"];

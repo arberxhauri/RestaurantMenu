@@ -557,6 +557,55 @@ Phase 3 of `docs/PLAN-signup-payments.md`. Restaurants pay by bank transfer agai
 - **Deploy:** the migration runs on its own. Then in **Admin → Plans & prices**, fill in your legal name, NIPT, address, IBAN, bank and SWIFT, set VAT, check the prices, and tick **Signup open**. Download one invoice PDF in production to confirm PDFs render on Render.
 - **Not yet:** fiscalization of these invoices (a `FiscalCode` field is ready; ask the accountant), cards (phase 4, Paddle), mid-period upgrades with proration (changes wait for the next period).
 
+### 27. Card payments with Paddle: built (sandbox run pending)
+Phase 4 of `docs/PLAN-signup-payments.md`. Paddle is the reseller (merchant of record): it charges the card, adds VAT, sends the receipt and retries failed renewals. The app keeps the subscription.
+
+- **Settings:**
+  - Secrets as env vars: `Billing__Paddle__ApiKey`, `__WebhookSecret`, `__ClientToken`, `__Environment` (`sandbox` or `production`).
+  - "Offer paying by card" is in Admin → Plans & prices, with the connection status and **Sync prices to Paddle**.
+- **Prices** (`Services/PaddleBilling.cs`):
+  - A Paddle product per module and a Paddle price per current price-book row (amount, currency, monthly or yearly, up to 100 units).
+  - Price ids are stored in `PriceBook.PaddlePriceId`; a replaced price is archived in Paddle (`PaddleArchivedUtc`).
+  - Synced when you save prices with card payments on.
+- **Checkout:**
+  - On `/billing`, "Pay by card" finds or creates the Paddle customer and creates a transaction for the plan (modules × branches), carrying the owner id.
+  - It opens on `/billing/pay?_ptxn=…`, which only loads Paddle.js. Set this page as Paddle's **default payment link**. After paying, the owner returns to `/billing`, which refreshes until the webhook arrives.
+- **Webhooks** (`POST /billing/webhooks/paddle`, `PaddleWebhookController`):
+  - The `Paddle-Signature` HMAC is checked on the raw body (`PaddleSignature`, 5-minute tolerance, rotated secrets) before anything is stored.
+  - Valid events go into the billing inbox (unique event id), with an immediate 200.
+  - The worker applies them:
+    - `transaction.completed`: mirrored as a paid invoice with Paddle's number, account Active for the period, modules from what was charged, open bank invoices voided, thanked.
+    - `subscription.*`: status, period, scheduled cancel, items.
+    - `past_due`: PastDue, grace, card-specific email.
+    - `canceled` and `paused`.
+  - Subscription events older than the last applied are skipped (`ProviderSyncedUtc`), and a transaction is never mirrored twice.
+- **Card subscriptions in the worker:** a period that just ended stays Active for 3 days while Paddle's renewal webhook arrives; after that the clock decides (`SubscriptionRules.Advance(providerManaged)`). No bank renewal invoices for card plans.
+- **Owner, card plan:**
+  - "Change card or download receipts" opens Paddle's customer portal.
+  - Plan changes go to Paddle at once, prorated. Cancel and resume go through Paddle.
+  - Card invoices show "Paid by card" and open Paddle's PDF.
+  - English and Albanian words in `BillingText`.
+- **Security headers** (`Services/SecurityHeaders.cs`):
+  - Everywhere: `nosniff` and `Referrer-Policy: strict-origin-when-cross-origin`.
+  - No framing (`X-Frame-Options: DENY`, `frame-ancestors 'none'`) except /menu, /site and /book.
+  - On `/billing`: a full Content-Security-Policy where only this site and `*.paddle.com` may run scripts, frames or connections.
+  - The billing pages use Phosphor served from `wwwroot/lib/phosphor` and system fonts (`ViewData["NoThirdParty"]`), never unpkg or Google Fonts.
+- **Tests:** `PaddleEventsTests` (signatures, parsing) and the provider renewal window in `SubscriptionRulesTests`.
+- **Checked end to end against a local mock of Paddle's API with signed webhooks:**
+  - Prices synced (6 products, 11 prices).
+  - The card checkout page and its policy; a card payment activates the account and mirrors invoice `325-10001`.
+  - **The same webhook replayed 10 times changes nothing.**
+  - No clock-only past due an hour after the period ends; then **a declined renewal moves the account to PastDue** with the card email, and the retry brings it back.
+  - A prorated plan change, an older event arriving late ignored, cancel and resume, the portal and Paddle's PDF.
+  - Forged, stale and wrong-secret webhooks refused (401); the headers on every kind of page.
+- **To do with the real sandbox:**
+  1. Create the Paddle sandbox account.
+  2. Developer tools: an API key, a client-side token, and a notification destination `https://<host>/billing/webhooks/paddle` for transaction.completed, transaction.payment_failed and subscription.*. Copy its secret.
+  3. Checkout settings: default payment link `https://<host>/billing/pay`.
+  4. Set the four env vars, tick card payments, Sync.
+  5. Pay with Paddle's test card 4242 4242 4242 4242, then a declined test card for a renewal (or Paddle's simulator).
+  6. Production: same steps with `__Environment=production`, after Paddle approves the account (needs the legal entity).
+
 ---
 
 ## Suggested order

@@ -39,6 +39,11 @@
     </div>
 </header>
 
+@if (Model.JustPaid && now.Status != SubscriptionStatus.Active)
+{
+    <div class="flash flash--ok mb-3" role="status" data-await-payment><i class="ph ph-hourglass-medium" aria-hidden="true"></i><p>@w.CardThanks</p></div>
+}
+
 @if (Model.Errors is { Count: > 0 })
 {
     <div class="flash flash--danger mb-3" role="alert"><i class="ph ph-warning-octagon" aria-hidden="true"></i><p>@string.Join(" ", Model.Errors)</p></div>
@@ -52,6 +57,13 @@
         @if (!sub.IsLegacy)
         {
             <p class="text-muted mb-0">@priceText</p>
+        }
+        @if (Model.PaysByCard)
+        {
+            <form method="post" action="/billing/card/manage" class="mt-3">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="ph ph-credit-card" aria-hidden="true"></i>@w.ManageCard</button>
+            </form>
         }
         @if (Model.Next is { } next)
         {
@@ -82,6 +94,23 @@
                 <dt>@w.Reference</dt><dd><strong class="mono">@open.Number</strong> <span class="hint d-block">@w.ReferenceHint</span></dd>
             </dl>
             <a class="btn btn-outline-secondary" href="/billing/invoices/@(open.Id).pdf"><i class="ph ph-file-pdf" aria-hidden="true"></i>@w.DownloadPdf</a>
+        </div>
+    </section>
+}
+
+@if (Model.CanPay && Model.CardOffered)
+{
+    <section class="panel mb-4" aria-labelledby="card-title">
+        <div class="panel-body">
+            <h2 id="card-title" class="h5">@w.PayCardTitle</h2>
+            <p class="text-muted mb-2">@w.PayCardIntro</p>
+            <form method="post" action="/billing/card">
+                @Html.AntiForgeryToken()
+                <label class="form-check form-check-inline"><input class="form-check-input" type="radio" name="interval" value="Month" @(f.Interval == BillingInterval.Month ? "checked" : "") /> <span class="form-check-label">@w.Monthly</span></label>
+                <label class="form-check form-check-inline"><input class="form-check-input" type="radio" name="interval" value="Year" @(f.Interval == BillingInterval.Year ? "checked" : "") /> <span class="form-check-label">@w.Yearly</span></label>
+                <div class="mt-3"><button type="submit" class="btn btn-primary"><i class="ph ph-credit-card" aria-hidden="true"></i>@w.PayCardButton</button></div>
+            </form>
+            <p class="hint mt-2 mb-0">@w.CardNote</p>
         </div>
     </section>
 }
@@ -125,7 +154,7 @@
     <section class="panel mb-4" aria-labelledby="change-title">
         <div class="panel-body">
             <h2 id="change-title" class="h5">@w.ChangeTitle</h2>
-            <p class="text-muted">@(paidPeriod ? string.Format(w.ChangeHintPaid, BillingText.Date(sub.CurrentPeriodEndUtc!.Value, lang)) : w.ChangeHintTrial)</p>
+            <p class="text-muted">@(Model.PaysByCard ? w.ChangeHintCard : paidPeriod ? string.Format(w.ChangeHintPaid, BillingText.Date(sub.CurrentPeriodEndUtc!.Value, lang)) : w.ChangeHintTrial)</p>
             @{ var target = Model.Next ?? Model.Current; }
             <form method="post" action="/billing/plan">
                 @Html.AntiForgeryToken()
@@ -166,7 +195,7 @@
                 <tbody>
                     @foreach (var inv in Model.Invoices)
                     {
-                        var st = BillingText.Status(w, inv.Status, inv.DueUtc, utcNow);
+                        var st = inv.Provider == BillingProvider.Paddle && inv.Status == InvoiceStatus.Paid ? w.PaidByCard : BillingText.Status(w, inv.Status, inv.DueUtc, utcNow);
                         <tr>
                             <td class="mono">@inv.Number</td>
                             <td class="text-nowrap">@BillingText.Date(inv.PeriodStartUtc, lang) – @BillingText.LastDay(inv.PeriodEndUtc, lang)</td>
@@ -200,3 +229,7 @@
     </section>
 }
 </div>
+
+@section Scripts {
+    <script src="~/js/billing.js" asp-append-version="true"></script>
+}
