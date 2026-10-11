@@ -126,7 +126,7 @@ public class SiteController : Controller
         };
         var seoMeta = (SeoMetadata)ViewData["Seo"]!;
         var facts = await _restaurantSeo.FactsAsync(branch, language, site,
-            bookable ? _seo.Url($"/book/{canonicalSlug}") + SeoLanguages.Query(language, mainLanguage) : null);
+            bookable ? _seo.BookUrl(branch, language) : null);
         seoMeta.JsonLd = StructuredData.ForBranchSite(facts, siteUrl, seoMeta.Title);
 
         return View(new SitePage(branch, site, language, languages, preview, highlights,
@@ -136,38 +136,50 @@ public class SiteController : Controller
             Currency: CurrencyHelper.GetCurrencySymbol(branch.Currency)));
     }
 
-    /// <summary>robots.txt on a restaurant's own domain (or free subdomain): everything open, its own sitemap.</summary>
+    /// <summary>robots.txt on a restaurant's own domain or subdomain: everything open, this host's sitemap.</summary>
     [HttpGet("site/{slug}/robots.txt")]
     public async Task<IActionResult> Robots(string slug)
     {
         var branch = await BranchAsync(slug);
         if (branch == null) return NotFound();
-        var url = await SiteUrlAsync(branch, null);
-        return Content(RobotsTxt.Build($"{url.TrimEnd('/')}/sitemap.xml", Array.Empty<string>()), "text/plain", Encoding.UTF8);
+        return Content(RobotsTxt.Build($"https://{Request.Host.Host}/sitemap.xml", Array.Empty<string>()), "text/plain", Encoding.UTF8);
     }
 
     /// <summary>
-    /// sitemap.xml on a restaurant's own domain: the website in each language, with hreflang and its
-    /// banner. The menu isn't listed: its address is on My Quick Menu, where its QR codes point.
+    /// sitemap.xml on a restaurant's own domain or subdomain: the pages whose main address is this
+    /// host, in each language, with hreflang: the website (if published here) and, on its subdomain,
+    /// the menu (SeoService.RestaurantHost). Empty when nothing here is indexable.
     /// </summary>
     [HttpGet("site/{slug}/sitemap.xml")]
     public async Task<IActionResult> Sitemap(string slug)
     {
         var branch = await BranchAsync(slug);
-        var site = branch == null ? null : await _context.BranchSites.AsNoTracking().FirstOrDefaultAsync(s => s.BranchId == branch.Id && s.Enabled);
-        if (branch == null || site == null || !await _access.HasModuleAsync(branch.Id, BillingModule.Website)) return NotFound();
+        if (branch == null) return NotFound();
+        var host = Request.Host.Host;
+        bool Here(string url) => Uri.TryCreate(url, UriKind.Absolute, out var u) && string.Equals(u.Host, host, StringComparison.OrdinalIgnoreCase);
         var languages = SeoLanguages.Of(branch);
+        var main = SeoLanguages.Default(branch);
         var entries = new List<SitemapService.Entry>();
-        if (SeoIndexing.Site(branch, true))
+
+        var site = await _context.BranchSites.AsNoTracking().FirstOrDefaultAsync(s => s.BranchId == branch.Id && s.Enabled);
+        if (site != null && SeoIndexing.Site(branch, true) && await _access.HasModuleAsync(branch.Id, BillingModule.Website))
         {
             var alternates = new List<SeoAlternate>();
             foreach (var l in languages) alternates.Add(new SeoAlternate(l, await SiteUrlAsync(branch, l)));
-            var main = SeoLanguages.Default(branch);
             var images = string.IsNullOrWhiteSpace(branch.Banner) ? Array.Empty<string>() : new[] { _seo.Absolute(branch.Banner) };
             var lastModified = new[] { branch.UpdatedUtc, site.UpdatedUtc }.Max();
-            foreach (var a in alternates)
+            foreach (var a in alternates.Where(a => Here(a.Url)))
                 entries.Add(new SitemapService.Entry(a.Url, alternates, await SiteUrlAsync(branch, null), lastModified, a.Language == main ? images : Array.Empty<string>()));
         }
+
+        var dishes = await _context.Products.CountAsync(p => p.BranchId == branch.Id && (p.IsAvailable || !branch.HideSoldOut));
+        if (SeoIndexing.Menu(branch, dishes) && Here(_seo.MenuUrl(branch)))
+        {
+            var alternates = languages.Select(l => new SeoAlternate(l, _seo.MenuUrl(branch, l))).ToList();
+            foreach (var a in alternates)
+                entries.Add(new SitemapService.Entry(a.Url, alternates, _seo.MenuUrl(branch), branch.UpdatedUtc, Array.Empty<string>()));
+        }
+
         var doc = SitemapService.UrlSet(entries, "weekly");
         return Content(doc.Declaration + "\n" + doc.Root, "application/xml", Encoding.UTF8);
     }

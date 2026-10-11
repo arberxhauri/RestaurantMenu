@@ -80,9 +80,17 @@ public class MenuController : Controller
         {
             return RedirectPermanent(_seo.MenuUrl(branch, lang, table, code));
         }
+        // The restaurant's own subdomain is its main address (SeoService.RestaurantHost): this
+        // address, the one printed on QR codes, forwards there with the table and language kept.
+        var onOwnHost = HttpContext.Items.ContainsKey(SiteHostMiddleware.ItemKey);
+        var home = onOwnHost ? null : _seo.RestaurantHost(canonicalSlug);
+        if (home != null && HttpMethods.IsGet(Request.Method))
+        {
+            return RedirectPermanent($"https://{home}/menu{(wrongLanguage ? SeoLanguages.QueryWithout(Request.Query) : Request.QueryString.Value)}");
+        }
         if (wrongLanguage)
         {
-            return RedirectPermanent($"/menu/{canonicalSlug}{SeoLanguages.QueryWithout(Request.Query)}");
+            return RedirectPermanent((onOwnHost ? "/menu" : $"/menu/{canonicalSlug}") + SeoLanguages.QueryWithout(Request.Query));
         }
 
         // Collected before any are hidden: a guest may have saved a dish to their list
@@ -116,14 +124,14 @@ public class MenuController : Controller
         var bookable = booking != null && BookingService.IsBookable(branch, booking, plan?.Has(BillingModule.Bookings) == true);
         if (table == null && bookable)
         {
-            ViewBag.BookUrl = $"/book/{canonicalSlug}" + SeoLanguages.Query(lang, mainLanguage);
+            ViewBag.BookUrl = (onOwnHost ? "/book" : $"/book/{canonicalSlug}") + SeoLanguages.Query(lang, mainLanguage);
         }
         ViewBag.SupportedLanguages = supportedLanguages;
         ViewBag.MainLanguage = mainLanguage;
         ViewBag.ThemeColors = branch.ThemeColors;
 
         ViewData["Seo"] = await BuildSeoAsync(branch, lang, supportedLanguages, mainLanguage, await LastModifiedAsync(branch),
-            bookable ? _seo.Url($"/book/{canonicalSlug}") + SeoLanguages.Query(lang, mainLanguage) : null);
+            bookable ? _seo.BookUrl(branch, lang) : null);
 
         // Counted only once the page is really served to a guest (not for the redirect above).
         if (MenuAnalytics.ShouldCount(HttpContext))

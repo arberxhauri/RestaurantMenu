@@ -5,7 +5,9 @@
     var mainLanguage = SeoLanguages.Default(Model.Branch);
     // The main language is the bare link, so switching to it never goes through a redirect.
     string Href(string l) => l != mainLanguage ? $"?lang={l}{Model.LanguageQuery}"
-        : string.IsNullOrEmpty(Model.LanguageQuery) ? Context.Request.Path.Value! : "?" + Model.LanguageQuery![1..];
+        : string.IsNullOrEmpty(Model.LanguageQuery)
+            ? (Context.Items.ContainsKey(RestaurantMenu.Services.SiteHostMiddleware.ItemKey) ? "/book" : Context.Request.Path.Value!)
+            : "?" + Model.LanguageQuery![1..];
 }
 <header class="b-hero">
     <div class="b-hero-inner">

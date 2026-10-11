@@ -1,3 +1,4 @@
+@inject RestaurantMenu.Services.SeoService Seo
 @using RestaurantMenu.Helpers
 @using RestaurantMenu.ViewModels
 @model Branch
@@ -8,7 +9,8 @@
     var dishCount = categories.Sum(c => c.Products?.Count ?? 0);
     var soldOutCount = categories.Sum(c => c.Products?.Count(p => !p.IsAvailable) ?? 0);
     var undeclaredCount = categories.Sum(c => c.Products?.Count(p => p.Allergens == null) ?? 0);
-    var menuUrl = Url.Action("Index", "Menu", new { branchName = Model.Slug }, Context.Request.Scheme);
+    // The menu's main address (its own subdomain once those are on); QR codes keep the permanent one.
+    var menuUrl = Seo.MenuUrl(Model);
     var languages = Model.SupportedLanguages.Split(',', StringSplitOptions.RemoveEmptyEntries);
     // Only what this person may do is shown; every action checks again on the server.
     var role = ViewBag.Role is BranchRole r ? r : BranchRole.None;

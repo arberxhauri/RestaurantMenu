@@ -50,6 +50,7 @@ public class SiteHosts
     private readonly SiteOptions _o;
     private readonly HashSet<string> _appHosts;
     private readonly string? _wildcard;
+    private readonly bool _subdomainHome;
     private readonly SemaphoreSlim _lock = new(1, 1);
     private Snapshot? _snapshot;
 
@@ -61,6 +62,8 @@ public class SiteHosts
         _scopes = scopes;
         _o = options.Value;
         _wildcard = SiteRules.NormalizeHost(_o.WildcardDomain);
+        // Sites__SubdomainIsHome=false: subdomains keep working, but nothing forwards to them.
+        _subdomainHome = config.GetValue("Sites:SubdomainIsHome", true);
         _appHosts = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "localhost", "127.0.0.1", "[::1]" };
         foreach (var h in (_o.AppHosts ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) _appHosts.Add(h);
         if (Uri.TryCreate(config["Seo:BaseUrl"], UriKind.Absolute, out var u)) _appHosts.Add(u.Host);
@@ -171,6 +174,6 @@ public class SiteHosts
     {
         var s = await SnapshotAsync();
         if (s.PrimaryHost.TryGetValue(branchId, out var h)) return h;
-        return _wildcard != null && Label(slug) is { } label ? $"{label}.{_wildcard}" : null;
+        return _wildcard != null && _subdomainHome && Label(slug) is { } label ? $"{label}.{_wildcard}" : null;
     }
 }

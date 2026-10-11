@@ -72,6 +72,42 @@ public class SeoRulesTests
         Assert.Equal("https://myquickmenu.com/menu/oliva?t=3&k=X1", seo.MenuUrl(b, "sq", 3, "X1"));
     }
 
+    private static SeoService Seo(string? wildcard, bool? subdomainHome = null) =>
+        new(new Microsoft.AspNetCore.Http.HttpContextAccessor(), new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Seo:BaseUrl"] = "https://myquickmenu.com",
+            ["Sites:WildcardDomain"] = wildcard,
+            ["Sites:SubdomainIsHome"] = subdomainHome?.ToString()
+        }).Build());
+
+    [Fact]
+    public void With_subdomains_the_menu_and_booking_live_on_the_restaurants_own_subdomain()
+    {
+        var seo = Seo("myquickmenu.com");
+        var b = B("sq,en", "sq");
+        Assert.Equal("oliva.myquickmenu.com", seo.RestaurantHost("oliva"));
+        Assert.Equal("https://oliva.myquickmenu.com/menu", seo.MenuUrl(b, "sq"));
+        Assert.Equal("https://oliva.myquickmenu.com/menu?lang=en", seo.MenuUrl(b, "en"));
+        Assert.Equal("https://oliva.myquickmenu.com/book?lang=en", seo.BookUrl(b, "en"));
+    }
+
+    [Fact]
+    public void Qr_codes_always_carry_the_permanent_address()
+    {
+        var b = B("en");
+        Assert.Equal("https://myquickmenu.com/menu/oliva?t=4&k=AB12", Seo("myquickmenu.com").QrMenuUrl(b, 4, "AB12"));
+        Assert.Equal("https://myquickmenu.com/menu/oliva", Seo(null).QrMenuUrl(b));
+    }
+
+    [Fact]
+    public void Without_subdomains_or_with_the_off_switch_everything_stays_on_the_app()
+    {
+        Assert.Null(Seo(null).RestaurantHost("oliva"));
+        Assert.Null(Seo("myquickmenu.com", subdomainHome: false).RestaurantHost("oliva"));
+        Assert.Equal("https://myquickmenu.com/menu/oliva", Seo("myquickmenu.com", subdomainHome: false).MenuUrl(B("en")));
+        Assert.Equal("https://myquickmenu.com/book/oliva", Seo(null).BookUrl(B("en")));
+    }
+
     // ------------------------------------------------------------------ meta copy
 
     [Theory]
