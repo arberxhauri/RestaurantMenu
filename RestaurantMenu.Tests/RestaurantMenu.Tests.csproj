@@ -35,4 +35,7 @@
         <None Remove="**/._*" />
     </ItemGroup>
 
+  <ItemGroup>
+    <None Include="Schemas/*.xsd" Exclude="Schemas/._*" />
+  </ItemGroup>
 </Project>
