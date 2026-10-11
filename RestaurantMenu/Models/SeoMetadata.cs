@@ -54,7 +54,10 @@ public class SeoMetadata
     public string? ThemeColor { get; set; }
 
     /// <summary>Favicon for this page. Branch menus override it with the restaurant's own logo.</summary>
-    public string FaviconUrl { get; set; } = "/logo.png";
+    public string FaviconUrl { get; set; } = DefaultFavicon;
+
+    /// <summary>My Quick Menu's icon, small (the 774 px logo.png is for structured data only).</summary>
+    public const string DefaultFavicon = "/img/brand/icon-32.png";
 
     /// <summary>The page's data last changed (sent as Last-Modified by HtmlCacheHeaders).</summary>
     public DateTime? LastModifiedUtc { get; set; }

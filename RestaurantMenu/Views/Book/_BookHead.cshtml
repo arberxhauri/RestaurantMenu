@@ -15,7 +15,7 @@ else
 {
     <meta name="theme-color" content="@theme.Primary" />
     <title>@Model.Title</title>
-    <link rel="icon" href="@(string.IsNullOrEmpty(Model.Branch.Logo) ? "/logo.png" : Model.Branch.Logo)" />
+    <link rel="icon" href="@(string.IsNullOrEmpty(Model.Branch.Logo) ? SeoMetadata.DefaultFavicon : ImageUrls.Sized(Model.Branch.Logo, 160))" />
 }
 <partial name="_HeadAssets" />
 <link rel="stylesheet" href="~/css/menu.css" asp-append-version="true" />

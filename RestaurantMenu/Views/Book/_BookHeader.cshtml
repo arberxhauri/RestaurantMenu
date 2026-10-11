@@ -11,7 +11,7 @@
     <div class="b-hero-inner">
         @if (!string.IsNullOrEmpty(Model.Branch.Logo))
         {
-            <img class="b-logo" src="@Model.Branch.Logo" alt="" width="56" height="56" />
+            <img class="b-logo" src="@ImageUrls.Sized(Model.Branch.Logo, 160)" alt="" width="56" height="56" />
         }
         else
         {

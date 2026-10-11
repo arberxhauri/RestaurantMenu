@@ -300,7 +300,7 @@ public class MenuController : Controller
         var theme = BrandTheme.Parse(branch.ThemeColors);
         var slug = branch.Slug;
         var icon = string.IsNullOrWhiteSpace(branch.Logo)
-            ? new { src = "/logo.png", sizes = "774x774", type = "image/png", purpose = "any" }
+            ? new { src = "/img/brand/icon-512.png", sizes = "512x512", type = "image/png", purpose = "any" }
             : new { src = branch.Logo, sizes = "any", type = branch.Logo.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ? "image/png" : branch.Logo.EndsWith(".webp", StringComparison.OrdinalIgnoreCase) ? "image/webp" : "image/jpeg", purpose = "any" };
         var manifest = new
         {
@@ -363,12 +363,14 @@ public class MenuController : Controller
             Description = SeoText.Own(branch.SeoDescription, branch.SeoDescriptionTranslations, language, SeoLanguages.BaseTextLanguage(branch))
                           ?? SeoText.MenuDescription(facts, language),
             CanonicalUrl = _seo.MenuUrl(branch, language),
-            ImageUrl = string.IsNullOrWhiteSpace(image) ? null : _seo.Absolute(image),
+            ImageUrl = string.IsNullOrWhiteSpace(image) ? null : _seo.Absolute(ImageUrls.Share(image).Url),
+            ImageWidth = string.IsNullOrWhiteSpace(image) ? null : ImageUrls.Share(image).Width,
+            ImageHeight = string.IsNullOrWhiteSpace(image) ? null : ImageUrls.Share(image).Height,
             ImageAlt = branch.Name,
             SiteName = branch.Name,
             OgType = "restaurant.menu",
             Locale = language,
-            FaviconUrl = string.IsNullOrWhiteSpace(branch.Logo) ? "/logo.png" : branch.Logo,
+            FaviconUrl = string.IsNullOrWhiteSpace(branch.Logo) ? SeoMetadata.DefaultFavicon : branch.Logo,
             NoIndex = !SeoIndexing.Menu(branch, dishes.Count),
             Alternates = supportedLanguages.Select(l => new SeoAlternate(l, _seo.MenuUrl(branch, l))).ToList(),
             XDefaultUrl = _seo.MenuUrl(branch),

@@ -41,7 +41,7 @@
                     <li class="dir-card">
                         @if (!string.IsNullOrEmpty(r.Logo))
                         {
-                            <img src="@r.Logo" alt="" width="56" height="56" loading="lazy" decoding="async" />
+                            <img src="@RestaurantMenu.Helpers.ImageUrls.Sized(r.Logo, 160)" alt="" width="56" height="56" loading="lazy" decoding="async" />
                         }
                         else
                         {

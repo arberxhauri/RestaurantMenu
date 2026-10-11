@@ -75,7 +75,7 @@ public class BookController : Controller
             SiteName = branch.Name,
             ImageUrl = !string.IsNullOrWhiteSpace(branch.Banner) ? _seo.Absolute(branch.Banner) : null,
             ImageAlt = branch.Name,
-            FaviconUrl = string.IsNullOrEmpty(branch.Logo) ? "/logo.png" : branch.Logo,
+            FaviconUrl = string.IsNullOrEmpty(branch.Logo) ? SeoMetadata.DefaultFavicon : branch.Logo,
             ThemeColor = BrandTheme.Parse(branch.ThemeColors).Primary
         };
         return View(await PageAsync(branch, language, date, guests, new BookRequest(), null));

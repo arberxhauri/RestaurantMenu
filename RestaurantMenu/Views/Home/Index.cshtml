@@ -174,7 +174,7 @@
                             <li>
                                 <a class="partner-logo" href="/menu/@branch.Slug"
                                    target="_blank" rel="noopener" title="@string.Format(t.PartnerMenu, branch.Name)">
-                                    <img src="@branch.Logo" alt="@branch.Name" width="140" height="64" loading="lazy" />
+                                    <img src="@ImageUrls.Sized(branch.Logo!, 320)" alt="@branch.Name" width="140" height="64" loading="lazy" decoding="async" />
                                 </a>
                             </li>
                         }
@@ -186,7 +186,7 @@
                             {
                                 <li>
                                     <span class="partner-logo">
-                                        <img src="@branch.Logo" alt="" width="140" height="64" loading="lazy" />
+                                        <img src="@ImageUrls.Sized(branch.Logo!, 320)" alt="" width="140" height="64" loading="lazy" decoding="async" />
                                     </span>
                                 </li>
                             }

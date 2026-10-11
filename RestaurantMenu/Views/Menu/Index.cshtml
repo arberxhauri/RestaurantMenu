@@ -112,7 +112,7 @@
     @await Html.PartialAsync("_SeoMeta", seo)
     @if (headerStyle == "photo")
     {
-        <link rel="preload" as="image" href="@Model.Banner" fetchpriority="high" />
+        <link rel="preload" as="image" href="@ImageUrls.Sized(Model.Banner!, 960)" imagesrcset="@ImageUrls.Srcset(Model.Banner, 480, 640, 960, 1280, 1920)" imagesizes="100vw" fetchpriority="high" />
     }
     <partial name="_HeadAssets" />
     <link rel="manifest" href="/menu/@Model.Slug/manifest.webmanifest@(currentLang == mainLang ? "" : $"?lang={currentLang}")" />
@@ -160,7 +160,7 @@
     <header class="m-hero m-hero--@headerStyle" id="top">
         @if (headerStyle == "photo")
         {
-            <img class="m-hero-img" src="@Model.Banner" alt="" fetchpriority="high" />
+            <img class="m-hero-img" src="@ImageUrls.Sized(Model.Banner!, 960)" srcset="@ImageUrls.Srcset(Model.Banner, 480, 640, 960, 1280, 1920)" sizes="100vw" alt="@Model.Name" fetchpriority="high" />
         }
         <div class="m-hero-scrim" aria-hidden="true"></div>
 
@@ -192,7 +192,7 @@
         <div class="m-hero-content">
             @if (!string.IsNullOrEmpty(Model.Logo))
             {
-                <img class="m-logo" src="@Model.Logo" alt="@Model.Name logo" width="84" height="84" />
+                <img class="m-logo" src="@ImageUrls.Sized(Model.Logo, 320)" srcset="@ImageUrls.Srcset(Model.Logo, 160, 320)" sizes="84px" alt="@Model.Name logo" width="84" height="84" />
             }
             else
             {
@@ -314,7 +314,7 @@
                                     <span class="m-feature-media">
                                         @if (!string.IsNullOrEmpty(fp.Image))
                                         {
-                                            <img src="@fp.Image" alt="" loading="lazy" decoding="async" />
+                                            <img src="@ImageUrls.Sized(fp.Image, 640)" srcset="@ImageUrls.Srcset(fp.Image, 320, 640, 960)" sizes="(max-width: 600px) 75vw, 320px" alt="@fName" loading="lazy" decoding="async" />
                                         }
                                         else
                                         {
@@ -403,7 +403,7 @@
                                 data-nutrition="@nutrition"
                                 data-price="@product.Price.ToString(CultureInfo.InvariantCulture)"
                                 data-price-label="@price"
-                                data-img="@product.Image"
+                                data-img="@(string.IsNullOrEmpty(product.Image) ? null : ImageUrls.Sized(product.Image, 960))"
                                 data-search="@($"{name} {desc}".ToLowerInvariant())">
                                 <button class="m-item-open" type="button" data-open aria-haspopup="dialog">
                                     <span class="m-item-text">
@@ -443,7 +443,7 @@
                                     </span>
                                     @if (hasImage)
                                     {
-                                        <img class="m-item-img" src="@product.Image" alt="" width="112" height="112" loading="lazy" decoding="async" />
+                                        <img class="m-item-img" src="@ImageUrls.Sized(product.Image!, 320)" srcset="@ImageUrls.Srcset(product.Image, 160, 320)" sizes="112px" alt="@name" width="112" height="112" loading="lazy" decoding="async" />
                                     }
                                 </button>
                                 @* Not saveable while sold out or outside the category's serving times. *@

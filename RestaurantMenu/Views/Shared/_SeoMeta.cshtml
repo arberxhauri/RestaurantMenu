@@ -69,10 +69,16 @@
     <meta name="theme-color" content="@Model.ThemeColor" />
 }
 
-@if (!string.IsNullOrEmpty(Model.FaviconUrl))
+@if (Model.FaviconUrl == SeoMetadata.DefaultFavicon)
 {
-    <link rel="icon" href="@Model.FaviconUrl" />
-    <link rel="apple-touch-icon" href="@Model.FaviconUrl" />
+    <link rel="icon" href="/img/brand/icon-32.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="/img/brand/icon-180.png" />
+}
+else if (!string.IsNullOrEmpty(Model.FaviconUrl))
+{
+    @* A restaurant's logo: a small copy, not the uploaded original. *@
+    <link rel="icon" href="@ImageUrls.Sized(Model.FaviconUrl, 160)" />
+    <link rel="apple-touch-icon" href="@ImageUrls.Sized(Model.FaviconUrl, 320)" />
 }
 
 @if (!string.IsNullOrEmpty(Model.JsonLd))

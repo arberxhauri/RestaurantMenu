@@ -128,6 +128,9 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 // Generate lowercase URLs so links, canonicals and the sitemap agree on one spelling.
 builder.Services.Configure<RouteOptions>(options => options.LowercaseUrls = true);
 
+// HSTS for a year (the default is 30 days). Not includeSubDomains: restaurants' subdomains are
+// configured separately.
+builder.Services.AddHsts(o => o.MaxAge = TimeSpan.FromDays(365));
 builder.Services.AddHttpContextAccessor();
 // Write ë, ç, € and every other letter as itself in HTML instead of &#xEB; entities: smaller pages
 // and readable source for crawlers. < > & " ' are still encoded.
@@ -338,11 +341,16 @@ app.UseMiddleware<SiteHostMiddleware>();
 var persistentImagesRoot = Path.Combine(diskMount, "images");
 Directory.CreateDirectory(persistentImagesRoot);
 
-// Serve persistent images at /images/...
+// Resized WebP copies (?w=) and link-preview crops (?og=1) of uploaded photos.
+app.UseMiddleware<ImageVariantsMiddleware>();
+
+// Serve persistent images at /images/... An upload never changes (a new one gets a new file
+// name), so browsers and the CDN may keep it for a year.
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(persistentImagesRoot),
-    RequestPath = "/images"
+    RequestPath = "/images",
+    OnPrepareResponse = ctx => ctx.Context.Response.Headers.CacheControl = ImageVariantsMiddleware.Immutable
 });
 
 
@@ -367,6 +375,20 @@ app.UseStaticFiles(new StaticFileOptions
         {
             ctx.Context.Response.Headers.CacheControl = "no-cache";
             ctx.Context.Response.Headers.ContentType = "text/javascript; charset=utf-8";
+        }
+        // Fingerprinted files (asp-append-version adds ?v=hash): a new version is a new URL.
+        else if (ctx.Context.Request.Query.ContainsKey("v"))
+        {
+            ctx.Context.Response.Headers.CacheControl = ImageVariantsMiddleware.Immutable;
+        }
+        // Fonts and photos that don't carry a version: a week, then revalidate (ETag).
+        else if (ctx.Context.Request.Path.StartsWithSegments("/lib/fonts") || ctx.Context.Request.Path.StartsWithSegments("/img"))
+        {
+            ctx.Context.Response.Headers.CacheControl = "public, max-age=604800";
+        }
+        else
+        {
+            ctx.Context.Response.Headers.CacheControl = "public, max-age=3600";
         }
     }
 });
