@@ -20,6 +20,9 @@ public class Branch : ISoftDeletable
     
     public string Currency { get; set; } = "ALL";
     public string SupportedLanguages { get; set; } = "en";
+    // The language the plain link (/menu/{slug}, /site/{slug}) opens in; the others get ?lang=.
+    // Null for branches saved before it was asked: SeoLanguages.Default picks en if listed, else the first.
+    public string? DefaultLanguage { get; set; }
     public string? ThemeColors { get; set; }
 
     // Leave sold-out dishes off the guest menu instead of showing them with a "Sold out" chip.
@@ -64,6 +67,41 @@ public class Branch : ISoftDeletable
     public bool FeedbackGoogleForAll { get; set; }
     public bool FeedbackEmailOwner { get; set; } = true;
     public ICollection<DiningTable>? Tables { get; set; }
+
+    // Search & sharing (Branch → Search & sharing): what Google, social previews and AI
+    // assistants are told about the restaurant. See docs/SEO-GEO.md.
+    /// <summary>The owner's "Show my menu in Google". Off = noindex and out of the sitemaps.</summary>
+    public bool ShowInSearch { get; set; } = true;
+    /// <summary>Set by an admin for demo and test restaurants: never indexed, whatever the owner chose.</summary>
+    public bool IsDemo { get; set; }
+    public string? City { get; set; }
+    /// <summary>Key from Helpers/Cuisines (e.g. "italian"), so it can be shown in every menu language.</summary>
+    public string? Cuisine { get; set; }
+    public BusinessType BusinessType { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+    /// <summary>The restaurant's Google Business Profile (Maps) link, given to Google as sameAs.</summary>
+    public string? GoogleBusinessUrl { get; set; }
+    /// <summary>Own title and description for search results, in the main language (translations as JSON, like dishes).</summary>
+    public string? SeoTitle { get; set; }
+    public string? SeoTitleTranslations { get; set; }
+    public string? SeoDescription { get; set; }
+    public string? SeoDescriptionTranslations { get; set; }
+    /// <summary>Image for link previews (WhatsApp, Facebook…); the banner when not set.</summary>
+    public string? ShareImage { get; set; }
+    /// <summary>Last change to the branch itself (ApplicationDbContext sets it on save).</summary>
+    public DateTime UpdatedUtc { get; set; }
+}
+
+/// <summary>What kind of place it is: the schema.org type Google is given. Persisted as int; never renumber.</summary>
+public enum BusinessType
+{
+    Restaurant = 0,
+    Cafe = 1,
+    Bar = 2,
+    Bakery = 3,
+    FastFood = 4,
+    IceCream = 5
 }
 
 /// <summary>

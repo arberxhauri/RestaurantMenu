@@ -1,3 +1,6 @@
+using RestaurantMenu.Helpers;
+using RestaurantMenu.Models;
+
 namespace RestaurantMenu.Services;
 
 /// <summary>
@@ -65,19 +68,22 @@ public class SeoService
     }
 
     /// <summary>
-    /// The public menu URL for a branch. <paramref name="language"/> is appended only
-    /// when it is a non-default language, so the English page stays on the bare URL
-    /// rather than competing with an identical ?lang=en duplicate.
-    /// <paramref name="table"/> (?t=) is the table a QR code was printed for. It never
-    /// goes into canonical or hreflang URLs, which always call this without it.
+    /// The public menu URL for a branch. <paramref name="language"/> is appended only when it isn't
+    /// the branch's main language (SeoLanguages.Default), so the main language stays on the bare URL
+    /// rather than competing with an identical ?lang= duplicate.
+    /// <paramref name="table"/> (?t=) is the table a QR code was printed for, and <paramref name="code"/>
+    /// (&amp;k=) its ordering code. They never go into canonical or hreflang URLs.
     /// </summary>
-    /// <paramref name="code"/> (&amp;k=) is the table's ordering code, only with a table.
-    /// <paramref name="slug"/> is the branch's stored link (Branch.Slug).
-    public string MenuUrl(string slug, string? language = null, int? table = null, string? code = null)
+    public string MenuUrl(Branch branch, string? language = null, int? table = null, string? code = null) =>
+        MenuUrl(branch.Slug, language, table, code, SeoLanguages.Default(branch));
+
+    /// <param name="slug">The branch's stored link (Branch.Slug).</param>
+    /// <param name="defaultLanguage">The branch's main language; English when not given.</param>
+    public string MenuUrl(string slug, string? language = null, int? table = null, string? code = null, string? defaultLanguage = null)
     {
         var url = $"{BaseUrl}/menu/{Uri.EscapeDataString(slug)}";
-        var query = new List<string>(2);
-        if (!string.IsNullOrEmpty(language) && language != DefaultLanguage)
+        var query = new List<string>(3);
+        if (!string.IsNullOrEmpty(language) && language != (defaultLanguage ?? DefaultLanguage))
         {
             query.Add($"lang={Uri.EscapeDataString(language)}");
         }
@@ -92,6 +98,7 @@ public class SeoService
         return query.Count == 0 ? url : $"{url}?{string.Join("&", query)}";
     }
 
+    /// <summary>The marketing site's main language, and the fallback for a branch without one.</summary>
     public const string DefaultLanguage = "en";
 
     /// <summary>Highest table number a menu link or QR code accepts.</summary>

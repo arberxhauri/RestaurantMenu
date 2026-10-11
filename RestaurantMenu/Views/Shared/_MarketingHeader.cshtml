@@ -1,0 +1,57 @@
+@model RestaurantMenu.Services.MarketingChrome
+@{
+    // The marketing site's header: home, product pages, pricing, FAQ, about, contact, directory.
+    // Every item is a plain link (the Products menu is a <details>), so it works without JavaScript
+    // and crawlers see every page.
+    var t = Model.T;
+    var isHome = ViewData["MarketingIsHome"] is true;
+    var current = ViewData["MarketingPage"] as string;
+    string? Current(string key) => current == key ? "page" : null;
+    var products = new[]
+    {
+        ("digital-menu", t.NavDigitalMenu, "ph-qr-code"),
+        ("restaurant-website", t.NavWebsite, "ph-globe-simple"),
+        ("table-bookings", t.NavBookings, "ph-calendar-check"),
+        ("restaurant-management", t.NavManagement, "ph-squares-four")
+    };
+}
+<a class="skip-link" href="#main">@t.SkipToContent</a>
+
+<header class="site-header @(isHome ? "" : "is-solid is-static")" data-header data-solid="@(isHome ? "false" : "true")">
+    <div class="header-inner">
+        @* The visible word is part of the link's name (screen readers and voice control match it). *@
+        <a class="brand" href="@Model.Link("/")">
+            <partial name="_BrandMark" model="30" />
+            <span class="brand-word">myquick<em>menu</em></span>
+            <span class="visually-hidden">, @t.HomeLabel</span>
+        </a>
+
+        <nav class="nav" id="primaryNav" aria-label="@t.NavPrimary">
+            <details class="nav-menu" data-nav-menu>
+                <summary>@t.NavProducts <i class="ph ph-caret-down" aria-hidden="true"></i></summary>
+                <ul>
+                    @foreach (var (key, label, icon) in products)
+                    {
+                        <li><a href="@Model.Link("/" + key)" aria-current="@Current(key)"><i class="ph @icon" aria-hidden="true"></i>@label</a></li>
+                    }
+                </ul>
+            </details>
+            <a href="@Model.Link("/pricing")" aria-current="@Current("pricing")">@t.NavPricing</a>
+            <a href="@Model.Link("/restaurants")" aria-current="@Current("restaurants")">@t.NavRestaurants</a>
+            <a href="@Model.Link("/faq")" aria-current="@Current("faq")">@t.NavFaq</a>
+            <a class="nav-lang" href="@Model.OtherLanguageHref" hreflang="@t.OtherLanguageCode" lang="@t.OtherLanguageCode">
+                <i class="ph ph-translate" aria-hidden="true"></i>@t.OtherLanguageName
+            </a>
+            @if (!Model.SignedIn)
+            {
+                <a href="/account/login">@t.SignIn</a>
+            }
+            <a class="btn btn-primary" href="@Model.CtaHref">@Model.CtaLabel</a>
+        </nav>
+
+        <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="primaryNav"
+                aria-label="@t.OpenNav" data-label-open="@t.OpenNav" data-label-close="@t.CloseNav">
+            <i class="ph ph-list" aria-hidden="true"></i>
+        </button>
+    </div>
+</header>

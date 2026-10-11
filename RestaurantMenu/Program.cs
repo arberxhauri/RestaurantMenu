@@ -38,6 +38,9 @@ if (string.IsNullOrEmpty(connectionString))
 
 // 2. Register Soft Delete Interceptor
 builder.Services.AddScoped<SoftDeleteInterceptor>();
+// Search engines: UpdatedUtc stamps and "these branches changed" (sitemap cache, IndexNow).
+builder.Services.AddSingleton<SeoChanges>();
+builder.Services.AddScoped<SeoChangeInterceptor>();
 
 // 3. DbContext with RETRY POLICY
 // The interceptor comes from the context's own scope (not a second, throwaway service
@@ -48,7 +51,7 @@ builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
             maxRetryCount: 5,
             maxRetryDelay: TimeSpan.FromSeconds(30),
             errorCodesToAdd: null))
-    .AddInterceptors(sp.GetRequiredService<SoftDeleteInterceptor>()));
+    .AddInterceptors(sp.GetRequiredService<SoftDeleteInterceptor>(), sp.GetRequiredService<SeoChangeInterceptor>()));
 
 builder.Services.AddScoped<ColorExtractionService>();
 
@@ -125,8 +128,24 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 // Generate lowercase URLs so links, canonicals and the sitemap agree on one spelling.
 builder.Services.Configure<RouteOptions>(options => options.LowercaseUrls = true);
 
+// HSTS for a year (the default is 30 days). Not includeSubDomains: restaurants' subdomains are
+// configured separately.
+builder.Services.AddHsts(o => o.MaxAge = TimeSpan.FromDays(365));
 builder.Services.AddHttpContextAccessor();
+// Write ë, ç, € and every other letter as itself in HTML instead of &#xEB; entities: smaller pages
+// and readable source for crawlers. < > & " ' are still encoded.
+builder.Services.Configure<Microsoft.Extensions.WebEncoders.WebEncoderOptions>(o =>
+    o.TextEncoderSettings = new System.Text.Encodings.Web.TextEncoderSettings(System.Text.Unicode.UnicodeRanges.All));
 builder.Services.AddScoped<SeoService>();
+builder.Services.AddScoped<SitemapService>();
+builder.Services.AddScoped<MarketingService>();
+builder.Services.AddScoped<RestaurantSeo>();
+// IndexNow: changed URLs to Bing & co. within minutes (IndexNow__Key; off without one).
+builder.Services.Configure<IndexNowOptions>(builder.Configuration.GetSection("IndexNow"));
+builder.Services.AddSingleton<IndexNowQueue>();
+builder.Services.AddHttpClient(nameof(IndexNowWorker), c => c.Timeout = TimeSpan.FromSeconds(20));
+builder.Services.AddHostedService<IndexNowWorker>();
+builder.Services.Configure<BrandOptions>(builder.Configuration.GetSection("Brand"));
 builder.Services.AddScoped<QrCodeService>();
 builder.Services.AddScoped<BranchSlugs>();
 // Plans and subscriptions: what each account may do (docs/PLAN-signup-payments.md).
@@ -297,12 +316,22 @@ builder.Services.AddAuthorization(options =>
 
 var app = builder.Build();
 
+// Unfinished facts in the marketing copy ([TODO: …]) are shown while developing, hidden elsewhere.
+RestaurantMenu.Helpers.Landing.LandingContent.ShowTodos = app.Environment.IsDevelopment();
+
 // Must run before anything reads Request.Scheme or Request.Host — including
 // UseHttpsRedirection and every SEO URL the views build.
 app.UseForwardedHeaders();
 
 // nosniff, referrer policy, no framing (except guest pages), and a strict policy on /billing.
 app.UseMiddleware<SecurityHeaders>();
+
+// One spelling per page: no trailing slash, lower case (301). On the address as typed, so before
+// SiteHostMiddleware rewrites it.
+app.UseMiddleware<HeadAsGetMiddleware>();
+app.UseMiddleware<UrlHygieneMiddleware>();
+// The IndexNow key file, on every host (own domains too), before they are routed to their sites.
+app.UseMiddleware<IndexNowKeyMiddleware>();
 
 // Restaurants' own domains: before static files and routing, so "/" on such a domain becomes
 // that restaurant's website and back-office paths go to the app's own address.
@@ -312,11 +341,16 @@ app.UseMiddleware<SiteHostMiddleware>();
 var persistentImagesRoot = Path.Combine(diskMount, "images");
 Directory.CreateDirectory(persistentImagesRoot);
 
-// Serve persistent images at /images/...
+// Resized WebP copies (?w=) and link-preview crops (?og=1) of uploaded photos.
+app.UseMiddleware<ImageVariantsMiddleware>();
+
+// Serve persistent images at /images/... An upload never changes (a new one gets a new file
+// name), so browsers and the CDN may keep it for a year.
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(persistentImagesRoot),
-    RequestPath = "/images"
+    RequestPath = "/images",
+    OnPrepareResponse = ctx => ctx.Context.Response.Headers.CacheControl = ImageVariantsMiddleware.Immutable
 });
 
 
@@ -342,10 +376,28 @@ app.UseStaticFiles(new StaticFileOptions
             ctx.Context.Response.Headers.CacheControl = "no-cache";
             ctx.Context.Response.Headers.ContentType = "text/javascript; charset=utf-8";
         }
+        // Fingerprinted files (asp-append-version adds ?v=hash): a new version is a new URL.
+        else if (ctx.Context.Request.Query.ContainsKey("v"))
+        {
+            ctx.Context.Response.Headers.CacheControl = ImageVariantsMiddleware.Immutable;
+        }
+        // Fonts and photos that don't carry a version: a week, then revalidate (ETag).
+        else if (ctx.Context.Request.Path.StartsWithSegments("/lib/fonts") || ctx.Context.Request.Path.StartsWithSegments("/img"))
+        {
+            ctx.Context.Response.Headers.CacheControl = "public, max-age=604800";
+        }
+        else
+        {
+            ctx.Context.Response.Headers.CacheControl = "public, max-age=3600";
+        }
     }
 });
 
 app.UseRouting();
+// Visits sent by AI assistants (ChatGPT, Perplexity, …), anonymous, for Admin → AI referrals.
+app.UseMiddleware<AiReferralMiddleware>();
+// ETag / Last-Modified / 304 for menus, websites and marketing pages.
+app.UseMiddleware<HtmlValidatorsMiddleware>();
 app.UseRateLimiter();
 
 // 🔥 CRITICAL: Authentication BEFORE Authorization

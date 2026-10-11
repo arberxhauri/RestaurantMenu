@@ -15,7 +15,8 @@
     var themeClass = theme.Appearance switch { "light" => "theme-light", "dark" => "theme-dark", _ => "" };
     string Iso(DateOnly d) => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
     var guestsQuery = $"&guests={Model.Guests}";
-    var langQuery = lang == "en" ? "" : $"&lang={lang}";
+    var mainLang = SeoLanguages.Default(b);
+    var langQuery = lang == mainLang ? "" : $"&lang={lang}";
     string? Err(string field) => Model.Errors.TryGetValue(field, out var m) ? m : null;
     var openSlots = Model.Slots.Where(x => x.Open && x.Remaining >= Model.Guests).ToList();
     var dayClosed = Model.Slots.Count == 0 || BookingRules.ClosedDates(s.ClosedDates).Contains(Model.Selected);
@@ -35,8 +36,6 @@
 <html lang="@lang">
 <head>
     <partial name="_BookHead" model="headModel" />
-    <meta name="description" content="@w.Title · @b.Name, @b.Address" />
-    <link rel="canonical" href="@Seo.Url("/book/" + slug)" />
 </head>
 <body class="menu-page book-page @themeClass">
     <partial name="_BookHeader" model="headerModel" />
@@ -49,7 +48,7 @@
                 <p>@string.Format(w.Unavailable, b.PhoneNumber)</p>
                 <div class="b-actions">
                     <a class="m-btn m-btn--brand" href="tel:@b.PhoneNumber"><i class="ph ph-phone" aria-hidden="true"></i>@b.PhoneNumber</a>
-                    <a class="m-btn m-btn--ghost" href="@Url.Content($"~/menu/{slug}")@(lang == "en" ? "" : $"?lang={lang}")">@w.SeeMenu</a>
+                    <a class="m-btn m-btn--ghost" href="@Url.Content($"~/menu/{slug}")@SeoLanguages.Query(lang, mainLang)">@w.SeeMenu</a>
                 </div>
             </section>
         }
@@ -157,15 +156,12 @@
                 <p class="b-hint b-privacy">@privacy.Text <a href="@Seo.Url("/home/privacy")#bookings" target="_blank" rel="noopener">@privacy.Link</a></p>
             </form>
 
-            <p class="b-foot"><a href="@Url.Content($"~/menu/{slug}")@(lang == "en" ? "" : $"?lang={lang}")"><i class="ph ph-book-open-text" aria-hidden="true"></i>@w.SeeMenu</a> · <a href="tel:@b.PhoneNumber">@b.PhoneNumber</a></p>
+            <p class="b-foot"><a href="@Url.Content($"~/menu/{slug}")@SeoLanguages.Query(lang, mainLang)"><i class="ph ph-book-open-text" aria-hidden="true"></i>@w.SeeMenu</a> · <a href="tel:@b.PhoneNumber">@b.PhoneNumber</a></p>
         }
     </main>
 
     <footer class="m-footer">
-        <a class="m-powered" href="/">
-            <partial name="_BrandMark" model="18" />
-            <span>Powered by <strong>My Quick Menu</strong></span>
-        </a>
+        <partial name="_PoweredBy" model="(PoweredBy.Kind.Booking, lang)" />
     </footer>
 
     <script type="application/json" id="bookConfig">@Html.Raw(config)</script>

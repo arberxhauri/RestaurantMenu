@@ -1,0 +1,14 @@
+@using RestaurantMenu.Helpers
+@inject RestaurantMenu.Services.SeoService Seo
+@model (PoweredBy.Kind Kind, string Language)
+@{
+    // "Digital menu by My Quick Menu" at the foot of guest pages: a normal, followed link to the
+    // product page that explains it, in the guest's language (absolute, so it works on own domains).
+    var (href, text) = PoweredBy.For(Model.Kind, Model.Language, Seo.BaseUrl);
+    var brand = "My Quick Menu";
+    var at = text.IndexOf(brand, StringComparison.Ordinal);
+}
+<a class="m-powered" href="@href">
+    <partial name="_BrandMark" model="16" />
+    <span>@if (at < 0) { @text } else { @text[..at]<strong>@brand</strong>@text[(at + brand.Length)..] }</span>
+</a>

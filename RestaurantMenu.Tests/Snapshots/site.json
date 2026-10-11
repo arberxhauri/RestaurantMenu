@@ -1,0 +1,106 @@
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Restaurant",
+      "@id": "https://www.olivers.al/#restaurant",
+      "name": "Oliver's Italian & Co",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://myquickmenu.com/images/logos/logo.png"
+      },
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Rruga Ismail Qemali 12",
+        "addressLocality": "Tirana",
+        "addressCountry": "AL"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": 41.3275,
+        "longitude": 19.8187
+      },
+      "telephone": "+355 69 000 0000",
+      "servesCuisine": [
+        "Italian"
+      ],
+      "priceRange": "€7–€11",
+      "currenciesAccepted": "EUR",
+      "slogan": "Pasta & pizza by the park",
+      "openingHoursSpecification": [
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": [
+            "https://schema.org/Monday",
+            "https://schema.org/Tuesday",
+            "https://schema.org/Wednesday",
+            "https://schema.org/Thursday",
+            "https://schema.org/Friday"
+          ],
+          "opens": "12:00",
+          "closes": "15:00"
+        },
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": [
+            "https://schema.org/Monday",
+            "https://schema.org/Tuesday",
+            "https://schema.org/Wednesday",
+            "https://schema.org/Thursday",
+            "https://schema.org/Friday"
+          ],
+          "opens": "19:00",
+          "closes": "23:00"
+        },
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": [
+            "https://schema.org/Saturday"
+          ],
+          "opens": "18:00",
+          "closes": "02:00"
+        },
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": [
+            "https://schema.org/Sunday"
+          ],
+          "opens": "00:00",
+          "closes": "23:59"
+        }
+      ],
+      "acceptsReservations": "https://myquickmenu.com/book/olivers-italian",
+      "hasMenu": "https://myquickmenu.com/menu/olivers-italian",
+      "hasMap": "https://maps.app.goo.gl/abc",
+      "potentialAction": [
+        {
+          "@type": "ReserveAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": "https://myquickmenu.com/book/olivers-italian",
+            "actionPlatform": [
+              "https://schema.org/DesktopWebPlatform",
+              "https://schema.org/MobileWebPlatform"
+            ]
+          }
+        }
+      ],
+      "url": "https://www.olivers.al/",
+      "description": "Family-run trattoria since 1998.",
+      "image": "https://myquickmenu.com/images/banners/room.jpg",
+      "sameAs": [
+        "https://www.instagram.com/olivers/"
+      ]
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://www.olivers.al/#webpage",
+      "name": "Oliver's Italian & Co · Italian restaurant · Tirana",
+      "about": {
+        "@id": "https://www.olivers.al/#restaurant"
+      },
+      "inLanguage": "en",
+      "url": "https://www.olivers.al/"
+    }
+  ]
+}

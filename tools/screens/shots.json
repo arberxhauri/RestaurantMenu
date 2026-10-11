@@ -1,0 +1,8 @@
+[
+  { "name": "menu", "path": "/menu/trattoria-demo", "width": 390, "height": 780, "scale": 2, "mobile": true, "colorScheme": "light" },
+  { "name": "menu-dish", "path": "/menu/trattoria-demo", "width": 390, "height": 780, "scale": 2, "mobile": true, "colorScheme": "light",
+    "script": "document.querySelector('.m-item.has-img [data-open]').click()", "after": 900 },
+  { "name": "booking", "path": "/book/trattoria-demo", "width": 390, "height": 780, "scale": 2, "mobile": true, "colorScheme": "light" },
+  { "name": "site", "path": "/site/trattoria-demo", "width": 1280, "height": 800, "colorScheme": "light" },
+  { "name": "kitchen", "path": "/kitchen/300", "width": 1280, "height": 800, "colorScheme": "dark", "wait": 2500 }
+]

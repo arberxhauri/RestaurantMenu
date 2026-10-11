@@ -15,7 +15,7 @@
     function setNav(open) {
         nav.classList.toggle('is-open', open);
         toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-        toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+        toggle.setAttribute('aria-label', open ? (toggle.dataset.labelClose || 'Close menu') : (toggle.dataset.labelOpen || 'Open menu'));
         toggle.innerHTML = open
             ? '<i class="ph ph-x" aria-hidden="true"></i>'
             : '<i class="ph ph-list" aria-hidden="true"></i>';
@@ -39,7 +39,7 @@
             slotGroup.querySelectorAll('.slot[aria-pressed]').forEach(function (b) {
                 b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
             });
-            if (slotNote) slotNote.textContent = 'Table for 4 held at ' + btn.textContent.trim() + '. Confirmation goes out by SMS or email.';
+            if (slotNote && slotNote.dataset.template) slotNote.textContent = slotNote.dataset.template.replace('{0}', btn.textContent.trim());
         });
     }
 

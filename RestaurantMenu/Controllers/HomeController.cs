@@ -10,48 +10,67 @@ namespace RestaurantMenu.Controllers;
 
 public class HomeController : Controller
 {
-    private const string LandingDescription =
-        "Digital menus, your restaurant website, table bookings and day-to-day management " +
-        "in one platform. Change a price once and it lands everywhere in seconds.";
-
     private readonly ApplicationDbContext _context;
     private readonly ILogger<HomeController> _logger;
     private readonly SeoService _seo;
+    private readonly MarketingService _marketing;
 
-    public HomeController(ApplicationDbContext context, ILogger<HomeController> logger, SeoService seo)
+    public HomeController(ApplicationDbContext context, ILogger<HomeController> logger, SeoService seo, MarketingService marketing)
     {
         _context = context;
         _logger = logger;
         _seo = seo;
+        _marketing = marketing;
     }
 
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index(string? lang)
     {
-        // Get all branches with logos for partners carousel
-        var branches = await _context.Branches
-            .Where(b => !b.IsDeleted && !string.IsNullOrEmpty(b.Logo))
+        // "/" is the home page's one address: /home and /home/index are the same page.
+        var (language, wrongLanguage) = MarketingPages.Resolve(MarketingPages.Get("home"), lang);
+        if (Request.Path != "/" || wrongLanguage)
+        {
+            return RedirectPermanent("/" + SeoLanguages.Query(language, "en"));
+        }
+
+        // Partners strip: restaurants with a logo that are happy to be found (not demos).
+        ViewBag.Branches = await _context.Branches
+            .Where(b => !string.IsNullOrEmpty(b.Logo) && b.ShowInSearch && !b.IsDemo)
             .OrderBy(b => b.Name)
             .ToListAsync();
 
-        ViewBag.Branches = branches;
-
-        ViewData["Seo"] = new SeoMetadata
-        {
-            Title = "My Quick Menu — digital menus, websites & bookings for restaurants",
-            Description = LandingDescription,
-            CanonicalUrl = _seo.Url("/"),
-            ImageUrl = _seo.Absolute("/logo.png"),
-            ImageAlt = "My Quick Menu",
-            OgType = "website",
-            ThemeColor = "#D55C13",
-            JsonLd = StructuredData.ForLandingPage(_seo, LandingDescription)
-        };
+        var t = MarketingText.For(language);
+        var chrome = await _marketing.ChromeAsync(language, "/");
+        var prices = await _marketing.PricesAsync();
+        ViewBag.Prices = prices;
+        ViewData["Marketing"] = chrome;
+        var facts = await _marketing.FactsAsync(language, _seo.BaseUrl);
+        ViewData["Seo"] = MarketingSeo(t.HomeTitle, string.Format(t.HomeDescription, chrome.TrialDays), language, MarketingPages.Get("home"),
+            StructuredData.ForMarketingPage(facts, _seo.Url("/" + SeoLanguages.Query(language, "en")), t.HomeTitle, null, withSoftware: true));
 
         return View();
     }
 
-    public IActionResult Privacy()
+    /// <summary>Head tags for a marketing page in English (bare URL) or Albanian (?lang=sq).</summary>
+    private SeoMetadata MarketingSeo(string title, string description, string language, MarketingPages.MarketingPage page, string? jsonLd) => new()
     {
+        Title = title,
+        Description = SeoText.Trim(description, SeoText.DescriptionMax),
+        CanonicalUrl = _seo.Url(MarketingPages.PathFor(page, language)),
+        Alternates = page.Languages.Select(l => new SeoAlternate(l, _seo.Url(MarketingPages.PathFor(page, l)))).ToList(),
+        XDefaultUrl = _seo.Url(page.Path),
+        Locale = language,
+        ImageUrl = _seo.Absolute($"/img/og/{page.Key}-{language}.png"),
+        ImageWidth = 1200,
+        ImageHeight = 630,
+        ImageAlt = title,
+        OgType = "website",
+        ThemeColor = "#D55C13",
+        JsonLd = jsonLd
+    };
+
+    public async Task<IActionResult> Privacy()
+    {
+        ViewData["Marketing"] = await _marketing.ChromeAsync("en", "/home/privacy");
         ViewData["Title"] = "Privacy Policy";
         ViewData["Seo"] = new SeoMetadata
         {
@@ -59,14 +78,17 @@ public class HomeController : Controller
             Description = "How My Quick Menu collects, uses and protects the data of restaurants and their guests.",
             CanonicalUrl = _seo.Url("/home/privacy"),
             OgType = "article",
-            ThemeColor = "#D55C13"
+            ThemeColor = "#D55C13",
+            JsonLd = StructuredData.ForMarketingPage(await _marketing.FactsAsync("en", _seo.BaseUrl), _seo.Url("/home/privacy"), "Privacy Policy — My Quick Menu",
+                new[] { ("Home", _seo.Url("/")), ("Privacy Policy", _seo.Url("/home/privacy")) }, withSoftware: false)
         };
 
         return View();
     }
 
-    public IActionResult Terms()
+    public async Task<IActionResult> Terms()
     {
+        ViewData["Marketing"] = await _marketing.ChromeAsync("en", "/home/terms");
         ViewData["Title"] = "Terms of use";
         ViewData["Seo"] = new SeoMetadata
         {
@@ -74,7 +96,9 @@ public class HomeController : Controller
             Description = "The terms for restaurants using My Quick Menu and for guests using their menus, bookings and ordering.",
             CanonicalUrl = _seo.Url("/home/terms"),
             OgType = "article",
-            ThemeColor = "#D55C13"
+            ThemeColor = "#D55C13",
+            JsonLd = StructuredData.ForMarketingPage(await _marketing.FactsAsync("en", _seo.BaseUrl), _seo.Url("/home/terms"), "Terms of use — My Quick Menu",
+                new[] { ("Home", _seo.Url("/")), ("Terms of use", _seo.Url("/home/terms")) }, withSoftware: false)
         };
 
         return View();
@@ -90,6 +114,13 @@ public class HomeController : Controller
         var originalPath = feature?.OriginalPath ?? "";
 
         ViewData["Title"] = code == 404 ? "Not found" : "Something went wrong";
+        // Out of the index, but its links (home, pricing) are followed.
+        ViewData["Seo"] = new SeoMetadata
+        {
+            Title = (code == 404 ? "Page not found" : "Something went wrong") + " · My Quick Menu",
+            Description = "This page isn't available. Find restaurant menus, websites and bookings on My Quick Menu.",
+            NoIndex = true
+        };
         ViewBag.Code = code;
         ViewBag.IsMenu = originalPath.StartsWith("/menu/", StringComparison.OrdinalIgnoreCase);
         Response.StatusCode = code;

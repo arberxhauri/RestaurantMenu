@@ -20,9 +20,11 @@ public class SiteController : Controller
     private readonly SiteHosts _hosts;
     private readonly IBranchAccess _access;
     private readonly BranchSlugs _slugs;
+    private readonly RestaurantSeo _restaurantSeo;
 
-    public SiteController(ApplicationDbContext context, SeoService seo, SiteHosts hosts, IBranchAccess access, BranchSlugs slugs)
+    public SiteController(ApplicationDbContext context, SeoService seo, SiteHosts hosts, IBranchAccess access, BranchSlugs slugs, RestaurantSeo restaurantSeo)
     {
+        _restaurantSeo = restaurantSeo;
         _slugs = slugs;
         _context = context;
         _seo = seo;
@@ -46,7 +48,7 @@ public class SiteController : Controller
     private async Task<string> SiteUrlAsync(Branch b, string? lang)
     {
         var host = await _hosts.PublicHostAsync(b.Id, b.Slug);
-        var query = lang == null || lang == SeoService.DefaultLanguage ? "" : $"?lang={lang}";
+        var query = lang == null ? "" : SeoLanguages.Query(lang, SeoLanguages.Default(b));
         return host != null ? $"https://{host}/{query}" : _seo.Url($"/site/{b.Slug}") + query;
     }
 
@@ -59,6 +61,14 @@ public class SiteController : Controller
         if (!string.Equals(slug, canonicalSlug, StringComparison.Ordinal))
             return RedirectPermanent($"/site/{canonicalSlug}{Request.QueryString}");
 
+        // One address per language: ?lang= the main language, or one the site doesn't have, goes to the bare URL.
+        var languages = SeoLanguages.Of(branch);
+        var mainLanguage = SeoLanguages.Default(branch);
+        var (language, wrongLanguage) = SeoLanguages.Resolve(languages, mainLanguage, lang);
+        var onOwnHost = HttpContext.Items.ContainsKey(SiteHostMiddleware.ItemKey);
+        if (wrongLanguage)
+            return RedirectPermanent((onOwnHost ? "/" : $"/site/{canonicalSlug}") + SeoLanguages.QueryWithout(Request.Query));
+
         // Not in the plan (or a paused branch, or a read-only account): the menu instead, for
         // now (302), so the address comes back as soon as the website does.
         if (!await _access.HasModuleAsync(branch.Id, BillingModule.Website))
@@ -70,8 +80,10 @@ public class SiteController : Controller
         if (preview && !(User.Identity?.IsAuthenticated == true && await _access.CanAsync(branch.Id, BranchPermission.EditBranch)))
             return NotFound();
 
-        var languages = branch.SupportedLanguages.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-        var language = lang != null && languages.Contains(lang) ? lang : languages.FirstOrDefault() ?? "en";
+        // Published, and the site has an address of its own (own domain or free subdomain): send
+        // /site/{slug} there, so links and ranking build up on the one address guests know.
+        if (!preview && !onOwnHost && await _hosts.PublicHostAsync(branch.Id, canonicalSlug) is { } ownHost)
+            return RedirectPermanent($"https://{ownHost}/{SeoLanguages.Query(language, mainLanguage)}");
 
         // Dishes to show: featured ones guests can order now, else dishes with photos, in menu order.
         var zone = OpeningHours.Zone(branch.TimeZone);
@@ -84,25 +96,38 @@ public class SiteController : Controller
         if (highlights.Count < 3) highlights = highlights.Concat(dishes.Where(p => !p.IsFeatured && !string.IsNullOrEmpty(p.Image))).Take(6).ToList();
 
         var bookingSettings = await _context.ReservationSettings.AsNoTracking().FirstOrDefaultAsync(s => s.BranchId == branch.Id);
-        var onOwnHost = HttpContext.Items.ContainsKey(SiteHostMiddleware.ItemKey);
-        var langQuery = language == SeoService.DefaultLanguage ? "" : $"?lang={language}";
+        var langQuery = SeoLanguages.Query(language, mainLanguage);
         var siteUrl = await SiteUrlAsync(branch, language);
+        var bookable = bookingSettings != null && BookingService.IsBookable(branch, bookingSettings, bookingsOn);
+        var about = TranslationHelper.GetTranslation(site.About ?? "", site.AboutTranslations, language);
+        var tagline = TranslationHelper.GetTranslation(site.Tagline ?? "", site.TaglineTranslations, language);
+        var image = !string.IsNullOrWhiteSpace(branch.ShareImage) ? branch.ShareImage
+            : !string.IsNullOrWhiteSpace(branch.Banner) ? branch.Banner : branch.Logo;
 
         ViewData["Seo"] = new SeoMetadata
         {
-            Title = string.IsNullOrWhiteSpace(site.Tagline) ? branch.Name : $"{branch.Name} · {TranslationHelper.GetTranslation(site.Tagline, site.TaglineTranslations, language)}",
-            Description = Describe(branch, site, language),
+            Title = SeoText.Own(branch.SeoTitle, branch.SeoTitleTranslations, language, SeoLanguages.BaseTextLanguage(branch))
+                    ?? SeoText.SiteTitle(branch.Name, branch.BusinessType, branch.Cuisine, branch.City, language),
+            Description = SeoText.Own(branch.SeoDescription, branch.SeoDescriptionTranslations, language, SeoLanguages.BaseTextLanguage(branch))
+                          ?? SeoText.SiteDescription(branch.Name, about, tagline, branch.BusinessType, branch.Cuisine, branch.City, bookable, language),
             CanonicalUrl = siteUrl,
-            ImageUrl = !string.IsNullOrWhiteSpace(branch.Banner) ? _seo.Absolute(branch.Banner) : !string.IsNullOrWhiteSpace(branch.Logo) ? _seo.Absolute(branch.Logo) : null,
+            ImageUrl = string.IsNullOrWhiteSpace(image) ? null : _seo.Absolute(ImageUrls.Share(image).Url),
+            ImageWidth = string.IsNullOrWhiteSpace(image) ? null : ImageUrls.Share(image).Width,
+            ImageHeight = string.IsNullOrWhiteSpace(image) ? null : ImageUrls.Share(image).Height,
             ImageAlt = branch.Name,
+            SiteName = branch.Name,
             OgType = "restaurant.restaurant",
             Locale = language,
-            FaviconUrl = string.IsNullOrWhiteSpace(branch.Logo) ? "/logo.png" : branch.Logo,
-            NoIndex = preview,
-            Alternates = languages.Length > 1 ? await Task.WhenAll(languages.Select(async l => new SeoAlternate(l, await SiteUrlAsync(branch, l)))) : Array.Empty<SeoAlternate>(),
-            JsonLd = StructuredData.ForBranchSite(branch, site, siteUrl, _seo.MenuUrl(branch.Slug, language),
-                bookingSettings != null && BookingService.IsBookable(branch, bookingSettings, bookingsOn), _seo)
+            FaviconUrl = string.IsNullOrWhiteSpace(branch.Logo) ? SeoMetadata.DefaultFavicon : branch.Logo,
+            NoIndex = !SeoIndexing.Site(branch, !preview),
+            Alternates = await Task.WhenAll(languages.Select(async l => new SeoAlternate(l, await SiteUrlAsync(branch, l)))),
+            XDefaultUrl = await SiteUrlAsync(branch, null),
+            LastModifiedUtc = new[] { branch.UpdatedUtc, site.UpdatedUtc }.Max(),
         };
+        var seoMeta = (SeoMetadata)ViewData["Seo"]!;
+        var facts = await _restaurantSeo.FactsAsync(branch, language, site,
+            bookable ? _seo.Url($"/book/{canonicalSlug}") + SeoLanguages.Query(language, mainLanguage) : null);
+        seoMeta.JsonLd = StructuredData.ForBranchSite(facts, siteUrl, seoMeta.Title);
 
         return View(new SitePage(branch, site, language, languages, preview, highlights,
             MenuUrl: (onOwnHost ? "/menu" : $"/menu/{canonicalSlug}") + langQuery,
@@ -111,38 +136,40 @@ public class SiteController : Controller
             Currency: CurrencyHelper.GetCurrencySymbol(branch.Currency)));
     }
 
-    private static string Describe(Branch b, BranchSite s, string lang)
-    {
-        var about = TranslationHelper.GetTranslation(s.About ?? "", s.AboutTranslations, lang);
-        var tagline = TranslationHelper.GetTranslation(s.Tagline ?? "", s.TaglineTranslations, lang);
-        var text = !string.IsNullOrWhiteSpace(about) ? about : !string.IsNullOrWhiteSpace(tagline) ? tagline : $"{b.Name}, {b.Address}. Menu, opening hours and bookings.";
-        text = text.Replace("\r", " ").Replace("\n", " ");
-        return text.Length > 160 ? text[..157].TrimEnd() + "…" : text;
-    }
-
-    /// <summary>robots.txt on a restaurant's own domain.</summary>
+    /// <summary>robots.txt on a restaurant's own domain (or free subdomain): everything open, its own sitemap.</summary>
     [HttpGet("site/{slug}/robots.txt")]
     public async Task<IActionResult> Robots(string slug)
     {
         var branch = await BranchAsync(slug);
         if (branch == null) return NotFound();
         var url = await SiteUrlAsync(branch, null);
-        return Content($"User-agent: *\nAllow: /\n\nSitemap: {url.TrimEnd('/')}/sitemap.xml\n", "text/plain", Encoding.UTF8);
+        return Content(RobotsTxt.Build($"{url.TrimEnd('/')}/sitemap.xml", Array.Empty<string>()), "text/plain", Encoding.UTF8);
     }
 
-    /// <summary>sitemap.xml on a restaurant's own domain: the site in each language.</summary>
+    /// <summary>
+    /// sitemap.xml on a restaurant's own domain: the website in each language, with hreflang and its
+    /// banner. The menu isn't listed: its address is on My Quick Menu, where its QR codes point.
+    /// </summary>
     [HttpGet("site/{slug}/sitemap.xml")]
     public async Task<IActionResult> Sitemap(string slug)
     {
         var branch = await BranchAsync(slug);
-        if (branch == null || !await _context.BranchSites.AnyAsync(s => s.BranchId == branch.Id && s.Enabled)
-            || !await _access.HasModuleAsync(branch.Id, BillingModule.Website)) return NotFound();
-        var languages = branch.SupportedLanguages.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-        var sb = new StringBuilder("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n");
-        foreach (var l in languages.DefaultIfEmpty("en"))
-            sb.Append($"  <url><loc>{System.Security.SecurityElement.Escape(await SiteUrlAsync(branch, l))}</loc><changefreq>weekly</changefreq></url>\n");
-        sb.Append("</urlset>\n");
-        return Content(sb.ToString(), "application/xml", Encoding.UTF8);
+        var site = branch == null ? null : await _context.BranchSites.AsNoTracking().FirstOrDefaultAsync(s => s.BranchId == branch.Id && s.Enabled);
+        if (branch == null || site == null || !await _access.HasModuleAsync(branch.Id, BillingModule.Website)) return NotFound();
+        var languages = SeoLanguages.Of(branch);
+        var entries = new List<SitemapService.Entry>();
+        if (SeoIndexing.Site(branch, true))
+        {
+            var alternates = new List<SeoAlternate>();
+            foreach (var l in languages) alternates.Add(new SeoAlternate(l, await SiteUrlAsync(branch, l)));
+            var main = SeoLanguages.Default(branch);
+            var images = string.IsNullOrWhiteSpace(branch.Banner) ? Array.Empty<string>() : new[] { _seo.Absolute(branch.Banner) };
+            var lastModified = new[] { branch.UpdatedUtc, site.UpdatedUtc }.Max();
+            foreach (var a in alternates)
+                entries.Add(new SitemapService.Entry(a.Url, alternates, await SiteUrlAsync(branch, null), lastModified, a.Language == main ? images : Array.Empty<string>()));
+        }
+        var doc = SitemapService.UrlSet(entries, "weekly");
+        return Content(doc.Declaration + "\n" + doc.Root, "application/xml", Encoding.UTF8);
     }
 }
 

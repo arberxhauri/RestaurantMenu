@@ -1,0 +1,59 @@
+@model RestaurantMenu.Services.MarketingChrome
+@{
+    // Every marketing page ends with links to every page (crawl paths, and the same links for
+    // visitors) and the same name, address and contact details (NAP): one consistent entity for
+    // search engines and AI assistants (docs/SEO-GEO.md, "Entity consistency").
+    var t = Model.T;
+    var b = Model.Brand;
+    var country = Model.Lang == "sq" ? "Shqipëri" : "Albania";
+    var locality = Model.Lang == "sq" && b.Locality == "Tirana" ? "Tiranë" : b.Locality;
+}
+<footer class="site-footer">
+    <div class="shell">
+        <div class="footer-grid">
+            <div class="footer-brand">
+                <partial name="_BrandMark" model="26" />
+                <span class="brand-word">myquick<em>menu</em></span>
+                <span class="footer-tag">@t.FooterTag</span>
+                <address class="footer-nap">
+                    <strong>@b.Name</strong>
+                    <span>@(string.IsNullOrWhiteSpace(b.StreetAddress) ? "" : b.StreetAddress + ", ")@locality, @country</span>
+                    <a href="mailto:@b.Email">@b.Email</a>
+                    @if (b.WhatsAppHref is { } whatsApp)
+                    {
+                        <a href="@whatsApp">WhatsApp @b.Phone</a>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(b.Phone))
+                    {
+                        <a href="@b.PhoneHref">@b.Phone</a>
+                    }
+                </address>
+            </div>
+            <nav class="footer-col" aria-label="@t.FooterProducts">
+                <h2>@t.FooterProducts</h2>
+                <a href="@Model.Link("/digital-menu")">@t.NavDigitalMenu</a>
+                <a href="@Model.Link("/restaurant-website")">@t.NavWebsite</a>
+                <a href="@Model.Link("/table-bookings")">@t.NavBookings</a>
+                <a href="@Model.Link("/restaurant-management")">@t.NavManagement</a>
+                <a href="@Model.Link("/pricing")">@t.NavPricing</a>
+            </nav>
+            <nav class="footer-col" aria-label="@t.FooterCompany">
+                <h2>@t.FooterCompany</h2>
+                <a href="@Model.Link("/restaurants")">@t.NavRestaurants</a>
+                <a href="@Model.Link("/faq")">@t.NavFaq</a>
+                <a href="@Model.Link("/about")">@t.NavAbout</a>
+                <a href="@Model.Link("/contact")">@t.NavContact</a>
+            </nav>
+            <nav class="footer-col" aria-label="@t.FooterLegal">
+                <h2>@t.FooterLegal</h2>
+                <a href="/home/privacy">@t.Privacy</a>
+                <a href="/home/terms">@t.Terms</a>
+                <a href="@Model.OtherLanguageHref" hreflang="@t.OtherLanguageCode" lang="@t.OtherLanguageCode">@t.OtherLanguageName</a>
+            </nav>
+        </div>
+        <div class="footer-end">
+            <partial name="_FourCsCredit" />
+            <span>&copy; @DateTime.Now.Year @b.Name</span>
+        </div>
+    </div>
+</footer>

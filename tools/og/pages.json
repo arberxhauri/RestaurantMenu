@@ -1,0 +1,152 @@
+{
+  "home": {
+    "photo": "hero-table.webp",
+    "title": {
+      "en": "The whole restaurant, one platform",
+      "sq": "I gjithë restoranti, në një platformë"
+    },
+    "subtitle": {
+      "en": "QR digital menus, a website and online bookings from one dashboard.",
+      "sq": "Menu dixhitale me QR, faqe interneti dhe rezervime online nga një panel."
+    },
+    "pill": {
+      "en": "14-day free trial",
+      "sq": "14 ditë provë falas"
+    }
+  },
+  "pricing": {
+    "photo": "plates-overhead.webp",
+    "title": {
+      "en": "Pay for what you use",
+      "sq": "Paguani vetëm për atë që përdorni"
+    },
+    "subtitle": {
+      "en": "Start with the menu, add a website, bookings or management per branch.",
+      "sq": "Filloni me menunë, shtoni faqen, rezervimet ose menaxhimin për çdo degë."
+    },
+    "pill": {
+      "en": "Pricing",
+      "sq": "Çmimet"
+    }
+  },
+  "digital-menu": {
+    "photo": "guest-dining.webp",
+    "title": {
+      "en": "QR code menu for restaurants",
+      "sq": "Menu dixhitale me QR për restorante"
+    },
+    "subtitle": {
+      "en": "7 languages, photos, the 14 EU allergens and table ordering.",
+      "sq": "7 gjuhë, foto, 14 alergjenët e BE-së dhe porosi nga tavolina."
+    },
+    "pill": {
+      "en": "Digital menu",
+      "sq": "Menu dixhitale"
+    }
+  },
+  "restaurant-website": {
+    "photo": "cafe-interior.webp",
+    "title": {
+      "en": "Website builder for restaurants",
+      "sq": "Faqe interneti për restorant"
+    },
+    "subtitle": {
+      "en": "Built from your menu, hours and photos. Always up to date.",
+      "sq": "E ndërtuar nga menuja, orari dhe fotot. Gjithmonë e përditësuar."
+    },
+    "pill": {
+      "en": "Restaurant website",
+      "sq": "Faqe interneti"
+    }
+  },
+  "table-bookings": {
+    "photo": "terrace.webp",
+    "title": {
+      "en": "Online table reservation system",
+      "sq": "Rezervim tavoline online"
+    },
+    "subtitle": {
+      "en": "Guests book a free time themselves, with confirmation and reminder.",
+      "sq": "Klientët rezervojnë vetë një orë të lirë, me konfirmim dhe kujtesë."
+    },
+    "pill": {
+      "en": "Table bookings",
+      "sq": "Rezervime"
+    }
+  },
+  "restaurant-management": {
+    "photo": "chef-plating.webp",
+    "title": {
+      "en": "Restaurant management software",
+      "sq": "Program menaxhimi për restorante"
+    },
+    "subtitle": {
+      "en": "Kitchen display, stock and recipes, shifts and daily sales.",
+      "sq": "Ekran kuzhine, magazinë me receta, turne dhe shitje ditore."
+    },
+    "pill": {
+      "en": "Management",
+      "sq": "Menaxhimi"
+    }
+  },
+  "faq": {
+    "photo": "dining-room.webp",
+    "title": {
+      "en": "Frequently asked questions",
+      "sq": "Pyetje të shpeshta"
+    },
+    "subtitle": {
+      "en": "Prices, languages, QR codes, websites and bookings.",
+      "sq": "Çmimet, gjuhët, kodet QR, faqet dhe rezervimet."
+    },
+    "pill": {
+      "en": "FAQ",
+      "sq": "Pyetje"
+    }
+  },
+  "about": {
+    "photo": "evening-room.webp",
+    "title": {
+      "en": "About My Quick Menu",
+      "sq": "Rreth nesh"
+    },
+    "subtitle": {
+      "en": "A restaurant platform made in Tirana by 4CS.",
+      "sq": "Platformë për restorante, e bërë në Tiranë nga 4CS."
+    },
+    "pill": {
+      "en": "About",
+      "sq": "Rreth nesh"
+    }
+  },
+  "contact": {
+    "photo": "fine-dining.webp",
+    "title": {
+      "en": "Contact My Quick Menu",
+      "sq": "Kontakt"
+    },
+    "subtitle": {
+      "en": "info@myquickmenu.com · +355 69 633 7906 · Tirana",
+      "sq": "info@myquickmenu.com · +355 69 633 7906 · Tiranë"
+    },
+    "pill": {
+      "en": "Contact",
+      "sq": "Kontakt"
+    }
+  },
+  "restaurants": {
+    "photo": "plates-overhead.webp",
+    "title": {
+      "en": "Restaurants with online menus",
+      "sq": "Restorante me menu online"
+    },
+    "subtitle": {
+      "en": "Current prices, photos and allergens, by city.",
+      "sq": "Çmime të sakta, foto dhe alergjenë, sipas qytetit."
+    },
+    "pill": {
+      "en": "Restaurants",
+      "sq": "Restorantet"
+    }
+  }
+}

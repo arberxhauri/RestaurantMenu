@@ -1,132 +1,66 @@
 using System.Text;
 using System.Xml.Linq;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using RestaurantMenu.Models;
+using RestaurantMenu.Helpers;
 using RestaurantMenu.Services;
 
 namespace RestaurantMenu.Controllers;
 
 /// <summary>
-/// Serves robots.txt and sitemap.xml. Both are generated rather than static files so
-/// the sitemap tracks branches as they are created and the absolute URLs always match
-/// whatever host the site is actually served from.
+/// robots.txt and the sitemaps of the app's own host. Generated rather than static so the
+/// sitemaps track restaurants as they change and every URL uses the host the site is really
+/// served from. A restaurant's own domain gets its own (SiteController, via SiteHostMiddleware).
 /// </summary>
 public class SeoController : Controller
 {
-    private readonly ApplicationDbContext _context;
     private readonly SeoService _seo;
+    private readonly SitemapService _sitemaps;
+    private readonly MarketingService _marketing;
 
-    /// <summary>Areas that sit behind auth and must never be crawled.</summary>
-    private static readonly string[] DisallowedPaths =
+    public SeoController(SeoService seo, SitemapService sitemaps, MarketingService marketing)
     {
-        "/account/",
-        "/admin/",
-        "/branch/",
-        "/category/",
-        "/dashboard/",
-        "/kitchen/",
-        "/product/",
-        "/home/error"
-    };
-
-    private readonly SiteHosts _hosts;
-
-    public SeoController(ApplicationDbContext context, SeoService seo, SiteHosts hosts)
-    {
-        _context = context;
         _seo = seo;
-        _hosts = hosts;
+        _sitemaps = sitemaps;
+        _marketing = marketing;
     }
 
-    [Route("robots.txt")]
+    [HttpGet("robots.txt")]
     [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any)]
-    public IActionResult Robots()
-    {
-        var builder = new StringBuilder();
-        builder.AppendLine("User-agent: *");
+    public IActionResult Robots() =>
+        Content(RobotsTxt.Build(_seo.Url("/sitemap.xml"), RobotsTxt.AppOnlyPaths), "text/plain", Encoding.UTF8);
 
-        foreach (var path in DisallowedPaths)
-        {
-            builder.AppendLine($"Disallow: {path}");
-        }
-
-        builder.AppendLine("Allow: /");
-        builder.AppendLine();
-        builder.AppendLine($"Sitemap: {_seo.Url("/sitemap.xml")}");
-
-        return Content(builder.ToString(), "text/plain", Encoding.UTF8);
-    }
-
-    [Route("sitemap.xml")]
+    [HttpGet("sitemap.xml")]
     [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any)]
-    public async Task<IActionResult> Sitemap()
+    public async Task<IActionResult> Sitemap() => Xml(await _sitemaps.IndexAsync());
+
+    [HttpGet("sitemaps/{name:regex(^(pages|menus|sites)$)}.xml")]
+    [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any)]
+    public async Task<IActionResult> File(string name) =>
+        await _sitemaps.FileAsync(name) is { } doc ? Xml(doc) : NotFound();
+
+    [HttpGet("sitemaps/menus-{part:int}.xml")]
+    [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any)]
+    public async Task<IActionResult> MenuPart(int part) =>
+        part >= 2 && await _sitemaps.FileAsync("menus", part) is { } doc ? Xml(doc) : NotFound();
+
+    /// <summary>A short guide for AI assistants (llmstxt.org): what My Quick Menu is, its pages and prices.</summary>
+    [HttpGet("llms.txt")]
+    [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any)]
+    public async Task<IActionResult> Llms() =>
+        Content(LlmsText.Summary(await LlmsInputAsync()), "text/plain", Encoding.UTF8);
+
+    /// <summary>The full text of the content pages in English and Albanian, for AI assistants.</summary>
+    [HttpGet("llms-full.txt")]
+    [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any)]
+    public async Task<IActionResult> LlmsFull() =>
+        Content(LlmsText.Full(await LlmsInputAsync()), "text/plain", Encoding.UTF8);
+
+    private async Task<LlmsText.Input> LlmsInputAsync()
     {
-        XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
-        XNamespace xhtml = "http://www.w3.org/1999/xhtml";
-
-        var root = new XElement(ns + "urlset",
-            new XAttribute(XNamespace.Xmlns + "xhtml", xhtml));
-
-        root.Add(Url(ns, _seo.Url("/"), "weekly", "1.0"));
-        root.Add(Url(ns, _seo.Url("/home/privacy"), "yearly", "0.3"));
-        root.Add(Url(ns, _seo.Url("/home/terms"), "yearly", "0.3"));
-
-        var branches = await _context.Branches
-            .Where(b => !b.IsDeleted)
-            .OrderBy(b => b.Name)
-            .ToListAsync();
-
-        foreach (var branch in branches)
-        {
-            var languages = (branch.SupportedLanguages ?? SeoService.DefaultLanguage)
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Distinct()
-                .ToList();
-
-            if (languages.Count == 0)
-            {
-                languages.Add(SeoService.DefaultLanguage);
-            }
-
-            // One <url> per language, and each entry cross-links every translation so
-            // Google treats them as one page in several languages rather than duplicates.
-            foreach (var language in languages)
-            {
-                var entry = Url(ns, _seo.MenuUrl(branch.Slug, language), "weekly", "0.8");
-
-                if (languages.Count > 1)
-                {
-                    foreach (var alternate in languages)
-                    {
-                        entry.Add(new XElement(xhtml + "link",
-                            new XAttribute("rel", "alternate"),
-                            new XAttribute("hreflang", alternate),
-                            new XAttribute("href", _seo.MenuUrl(branch.Slug, alternate))));
-                    }
-                }
-
-                root.Add(entry);
-            }
-        }
-
-        // Published websites without a domain of their own (those have their own sitemap).
-        var sites = await _context.BranchSites.Where(s => s.Enabled).Select(s => new { s.Branch!.Slug, s.BranchId }).ToListAsync();
-        var withDomain = await _context.Domains.Where(d => d.Verified).Select(d => d.BranchId).Distinct().ToListAsync();
-        foreach (var site in sites.Where(s => !withDomain.Contains(s.BranchId)))
-        {
-            // The address the site's canonical uses: its subdomain of the wildcard domain, or /site/{slug}.
-            var host = await _hosts.PublicHostAsync(site.BranchId, site.Slug);
-            root.Add(Url(ns, host != null ? $"https://{host}/" : _seo.Url($"/site/{site.Slug}"), "weekly", "0.9"));
-        }
-
-        var document = new XDocument(new XDeclaration("1.0", "utf-8", null), root);
-        return Content(document.Declaration + document.ToString(), "application/xml", Encoding.UTF8);
+        var restaurants = (await _sitemaps.MenuEntriesAsync()).Select(e => e.XDefault).Distinct().Count();
+        return new LlmsText.Input(_seo.BaseUrl, _marketing.Brand, await _marketing.TokensAsync("en"), await _marketing.TokensAsync("sq"), restaurants);
     }
 
-    private static XElement Url(XNamespace ns, string location, string changeFrequency, string priority) =>
-        new(ns + "url",
-            new XElement(ns + "loc", location),
-            new XElement(ns + "changefreq", changeFrequency),
-            new XElement(ns + "priority", priority));
+    private ContentResult Xml(XDocument doc) =>
+        Content(doc.Declaration + "\n" + doc.Root, "application/xml", Encoding.UTF8);
 }

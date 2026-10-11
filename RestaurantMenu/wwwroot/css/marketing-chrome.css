@@ -1,0 +1,64 @@
+/* =========================================================================
+   The marketing header and footer (_MarketingHeader / _MarketingFooter) on
+   pages that use the app layout (pricing, privacy, terms). The same look as
+   landing.css, scoped under .mchrome so it can't touch the Bootstrap page.
+   ========================================================================= */
+.mchrome { --header-h: 68px; display: contents; }
+.mchrome .shell { width: 100%; max-width: 1240px; margin: 0 auto; padding: 0 32px; }
+.mchrome .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 11px 18px; border: 1px solid transparent; border-radius: var(--r-pill);
+    font: 600 15px/1.2 var(--font-body); text-decoration: none; white-space: nowrap;
+}
+.mchrome .btn-primary { background: var(--accent); color: var(--on-accent); }
+.mchrome .btn-primary:hover { background: var(--accent-hover); color: var(--on-accent); }
+
+.mchrome .site-header {
+    position: sticky; top: 0; z-index: var(--z-header);
+    color: var(--ink);
+    background: color-mix(in oklab, var(--bg) 84%, transparent);
+    backdrop-filter: blur(16px) saturate(150%); -webkit-backdrop-filter: blur(16px) saturate(150%);
+    border-bottom: 1px solid var(--line);
+    padding-top: env(safe-area-inset-top);
+}
+.mchrome .header-inner {
+    max-width: 1240px; height: var(--header-h); margin: 0 auto; padding: 0 32px;
+    display: flex; align-items: center; justify-content: space-between; gap: 32px;
+}
+.mchrome .brand { display: inline-flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
+.mchrome .brand-word { font-size: 21px; }
+.mchrome .nav { display: flex; align-items: center; gap: 28px; font-size: 15px; }
+.mchrome .nav a:not(.btn) { color: inherit; opacity: .82; text-decoration: none; }
+.mchrome .nav a:not(.btn):hover { opacity: 1; }
+.mchrome .nav-lang { display: inline-flex; align-items: center; gap: 6px; }
+.mchrome .nav-toggle {
+    display: none; width: 44px; height: 44px; align-items: center; justify-content: center;
+    border: 1px solid currentColor; border-radius: var(--r-pill); background: transparent;
+    color: inherit; font-size: 22px; cursor: pointer; opacity: .9;
+}
+
+.mchrome .site-footer { border-top: 1px solid var(--line); padding: 40px 0 calc(40px + env(safe-area-inset-bottom)); margin-top: 64px; }
+.mchrome .footer-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 24px 40px; }
+.mchrome .footer-brand { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mchrome .footer-brand .brand-word { font-size: 17px; }
+.mchrome .footer-tag { font-size: 14px; color: var(--ink-3); margin-left: 6px; }
+.mchrome .footer-links { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 14px; }
+.mchrome .footer-links a, .mchrome .footer-nap a { color: var(--ink-2); text-decoration: none; }
+.mchrome .footer-links a:hover, .mchrome .footer-nap a:hover { color: var(--ink); text-decoration: underline; }
+.mchrome .footer-nap { display: flex; flex-wrap: wrap; gap: 4px 16px; font-style: normal; font-size: 14px; color: var(--ink-3); width: 100%; margin: 0; }
+.mchrome .footer-nap strong { color: var(--ink-2); font-weight: 600; }
+.mchrome .footer-end { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; font-size: 14px; color: var(--ink-3); }
+
+@media (max-width: 899px) {
+    .mchrome .shell, .mchrome .header-inner { padding-left: 20px; padding-right: 20px; }
+    .mchrome .nav { display: none; }
+    .mchrome .nav-toggle { display: inline-flex; }
+    .mchrome .nav.is-open {
+        display: flex; position: fixed; inset: var(--header-h) 0 auto 0; flex-direction: column; align-items: stretch;
+        gap: 2px; padding: 12px 20px 24px; background: var(--bg); color: var(--ink);
+        border-bottom: 1px solid var(--line); box-shadow: var(--shadow-md); font-size: 18px;
+    }
+    .mchrome .nav.is-open a:not(.btn) { padding: 12px 0; opacity: 1; }
+    .mchrome .nav.is-open .btn { margin-top: 10px; padding: 14px; }
+    .mchrome .footer-tag { margin-left: 0; width: 100%; }
+}

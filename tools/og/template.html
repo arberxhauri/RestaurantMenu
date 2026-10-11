@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<!-- Share image (1200x630) for one marketing page. tools/og/generate.py fills the query string:
+     ?title=...&subtitle=...&photo=hero-table.webp&lang=en -->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Geist:wght@400..600&display=block">
+<style>
+  html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; }
+  body { position: relative; font-family: Geist, system-ui, sans-serif; color: #fff; background: #0F1A15; }
+  .photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .scrim { position: absolute; inset: 0; background: linear-gradient(100deg, rgba(15,26,21,.94) 0%, rgba(15,26,21,.82) 48%, rgba(15,26,21,.25) 100%); }
+  .inner { position: absolute; inset: 64px 72px; display: flex; flex-direction: column; justify-content: space-between; max-width: 780px; }
+  .brand { display: flex; align-items: center; gap: 14px; font-family: "Bricolage Grotesque", sans-serif; font-size: 34px; font-weight: 700; letter-spacing: -.01em; }
+  .brand em { font-style: normal; color: #FFB27D; }
+  .brand svg { color: #fff; }
+  .brand svg .dot { fill: #D55C13; }
+  h1 { font-family: "Bricolage Grotesque", sans-serif; font-size: 68px; line-height: 1.02; font-weight: 800; letter-spacing: -.02em; margin: 0 0 22px; }
+  p { font-size: 30px; line-height: 1.3; margin: 0; color: rgba(255,255,255,.86); }
+  .foot { display: flex; align-items: center; gap: 18px; font-size: 24px; color: rgba(255,255,255,.8); }
+  .pill { background: #D55C13; color: #fff; font-weight: 600; padding: 10px 20px; border-radius: 999px; }
+</style>
+</head>
+<body>
+  <img class="photo" id="photo" alt="">
+  <div class="scrim"></div>
+  <div class="inner">
+    <div class="brand">
+      <svg width="44" height="44" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+        <rect x="4.5" y="4.5" width="15" height="15" rx="4" stroke="currentColor" stroke-width="5"></rect>
+        <rect x="26" y="2" width="20" height="20" rx="6.5" fill="currentColor"></rect>
+        <rect x="2" y="26" width="20" height="20" rx="6.5" fill="currentColor"></rect>
+        <circle class="dot" cx="36" cy="36" r="10"></circle>
+      </svg>
+      <span>myquick<em>menu</em></span>
+    </div>
+    <div>
+      <h1 id="title"></h1>
+      <p id="subtitle"></p>
+    </div>
+    <div class="foot"><span class="pill" id="pill"></span><span>myquickmenu.com</span></div>
+  </div>
+  <script>
+    var q = new URLSearchParams(location.search);
+    document.getElementById('title').textContent = q.get('title');
+    document.getElementById('subtitle').textContent = q.get('subtitle');
+    document.getElementById('pill').textContent = q.get('pill');
+    document.getElementById('photo').src = q.get('photo') || 'hero-table.webp';
+    document.documentElement.lang = q.get('lang') || 'en';
+  </script>
+</body>
+</html>

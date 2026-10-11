@@ -25,6 +25,13 @@
     var tableLabel = table == null ? null : TableText.Label(table.Value, currentLang);
     var tableCode = ViewBag.TableCode as string;
     var tableQuery = table == null ? "" : $"&t={table}" + (tableCode == null ? "" : $"&k={tableCode}");
+    var mainLang = ViewBag.MainLanguage as string ?? "en";
+    // The main language is the bare link (no ?lang=, so no redirect), the table always kept.
+    string LangHref(string l)
+    {
+        var q = (l == mainLang ? "" : $"&lang={l}") + tableQuery;
+        return q.Length == 0 ? Context.Request.Path.Value! : "?" + q[1..];
+    }
 
 
     // Allergens & dietary tags. The filter button only appears once the restaurant has
@@ -105,10 +112,10 @@
     @await Html.PartialAsync("_SeoMeta", seo)
     @if (headerStyle == "photo")
     {
-        <link rel="preload" as="image" href="@Model.Banner" fetchpriority="high" />
+        <link rel="preload" as="image" href="@ImageUrls.Sized(Model.Banner!, 960)" imagesrcset="@ImageUrls.Srcset(Model.Banner, 480, 640, 960, 1280, 1920)" imagesizes="100vw" fetchpriority="high" />
     }
     <partial name="_HeadAssets" />
-    <link rel="manifest" href="/menu/@Model.Slug/manifest.webmanifest@(currentLang == "en" ? "" : $"?lang={currentLang}")" />
+    <link rel="manifest" href="/menu/@Model.Slug/manifest.webmanifest@(currentLang == mainLang ? "" : $"?lang={currentLang}")" />
     <link rel="stylesheet" href="~/css/menu.css" asp-append-version="true" />
     <style>
         :root {
@@ -153,7 +160,7 @@
     <header class="m-hero m-hero--@headerStyle" id="top">
         @if (headerStyle == "photo")
         {
-            <img class="m-hero-img" src="@Model.Banner" alt="" fetchpriority="high" />
+            <img class="m-hero-img" src="@ImageUrls.Sized(Model.Banner!, 960)" srcset="@ImageUrls.Srcset(Model.Banner, 480, 640, 960, 1280, 1920)" sizes="100vw" alt="@Model.Name" fetchpriority="high" />
         }
         <div class="m-hero-scrim" aria-hidden="true"></div>
 
@@ -169,7 +176,7 @@
                     @foreach (var lang in supportedLanguages)
                     {
                         <li>
-                            <a href="?lang=@lang@tableQuery" lang="@lang" hreflang="@lang" aria-current="@(lang == currentLang ? "true" : null)">
+                            <a href="@LangHref(lang)" lang="@lang" hreflang="@lang" aria-current="@(lang == currentLang ? "true" : null)">
                                 @LanguageHelper.GetLanguageName(lang)
                                 @if (lang == currentLang)
                                 {
@@ -185,13 +192,22 @@
         <div class="m-hero-content">
             @if (!string.IsNullOrEmpty(Model.Logo))
             {
-                <img class="m-logo" src="@Model.Logo" alt="@Model.Name logo" width="84" height="84" />
+                <img class="m-logo" src="@ImageUrls.Sized(Model.Logo, 320)" srcset="@ImageUrls.Srcset(Model.Logo, 160, 320)" sizes="84px" alt="@Model.Name logo" width="84" height="84" />
             }
             else
             {
                 <span class="m-logo m-logo--initial" aria-hidden="true">@Model.Name.Substring(0, 1)</span>
             }
             <h1 class="m-name" translate="no">@Model.Name</h1>
+            @{
+                // What and where, in the guest's language (Search & sharing). Also given to Google as servesCuisine/address.
+                var kind = Model.BusinessType == BusinessType.Restaurant && Cuisines.Find(Model.Cuisine) == null ? null : Cuisines.Phrase(Model.BusinessType, Model.Cuisine, currentLang);
+                var kindLine = string.Join(" · ", new[] { kind, Model.City }.Where(x => !string.IsNullOrWhiteSpace(x)));
+            }
+            @if (kindLine.Length > 0)
+            {
+                <p class="m-kind">@kindLine</p>
+            }
             @if (tableLabel != null)
             {
                 <p class="m-table"><i class="ph-fill ph-armchair" aria-hidden="true"></i><span>@tableLabel</span></p>
@@ -298,7 +314,7 @@
                                     <span class="m-feature-media">
                                         @if (!string.IsNullOrEmpty(fp.Image))
                                         {
-                                            <img src="@fp.Image" alt="" loading="lazy" decoding="async" />
+                                            <img src="@ImageUrls.Sized(fp.Image, 640)" srcset="@ImageUrls.Srcset(fp.Image, 320, 640, 960)" sizes="(max-width: 600px) 75vw, 320px" alt="@fName" loading="lazy" decoding="async" />
                                         }
                                         else
                                         {
@@ -387,7 +403,7 @@
                                 data-nutrition="@nutrition"
                                 data-price="@product.Price.ToString(CultureInfo.InvariantCulture)"
                                 data-price-label="@price"
-                                data-img="@product.Image"
+                                data-img="@(string.IsNullOrEmpty(product.Image) ? null : ImageUrls.Sized(product.Image, 960))"
                                 data-search="@($"{name} {desc}".ToLowerInvariant())">
                                 <button class="m-item-open" type="button" data-open aria-haspopup="dialog">
                                     <span class="m-item-text">
@@ -427,7 +443,7 @@
                                     </span>
                                     @if (hasImage)
                                     {
-                                        <img class="m-item-img" src="@product.Image" alt="" width="112" height="112" loading="lazy" decoding="async" />
+                                        <img class="m-item-img" src="@ImageUrls.Sized(product.Image!, 320)" srcset="@ImageUrls.Srcset(product.Image, 160, 320)" sizes="112px" alt="@name" width="112" height="112" loading="lazy" decoding="async" />
                                     }
                                 </button>
                                 @* Not saveable while sold out or outside the category's serving times. *@
@@ -471,7 +487,9 @@
                             <button type="button" class="m-star" data-pick="@n" role="radio" aria-checked="false" aria-label="@(n == 1 ? fw.Star : string.Format(fw.StarsN, n))"><i class="ph-fill ph-star" aria-hidden="true"></i></button>
                         }
                     </div>
-                    <h2 id="rateSheetTitle" data-rate-title>@fw.Prompt</h2>
+                    @* Not a heading: the footer already has "How was your visit?" as one, and menu.js puts
+                       the right title here (low or high rating) when the sheet opens. *@
+                    <p class="m-sheet-title" id="rateSheetTitle" data-rate-title>@fw.Prompt</p>
                     <p class="m-list-hint" data-rate-private hidden><i class="ph ph-lock-simple" aria-hidden="true"></i> @fw.LowHint</p>
                     <label class="m-order-note">
                         <span class="visually-hidden">@fw.CommentPlaceholder</span>
@@ -499,10 +517,7 @@
     }
 
     <footer class="m-footer">
-        <a class="m-powered" asp-controller="Home" asp-action="Index">
-            <partial name="_BrandMark" model="18" />
-            <span>Powered by <strong>My Quick Menu</strong></span>
-        </a>
+        <partial name="_PoweredBy" model="(PoweredBy.Kind.Menu, currentLang)" />
         <partial name="_FourCsCredit" />
         <small>&copy; @DateTime.Now.Year <span translate="no">@Model.Name</span></small>
     </footer>

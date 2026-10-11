@@ -45,6 +45,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Shift> Shifts { get; set; }
     public DbSet<DailySales> DailySales { get; set; }
     public DbSet<Feedback> Feedback { get; set; }
+    public DbSet<ReferralVisit> ReferralVisits { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -86,6 +87,24 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 
         builder.Entity<Branch>()
             .HasQueryFilter(b => !b.IsDeleted);
+        builder.Entity<ReferralVisit>(e =>
+        {
+            e.Property(x => x.Source).HasMaxLength(20);
+            e.Property(x => x.Via).HasMaxLength(100);
+            e.Property(x => x.Host).HasMaxLength(100);
+            e.Property(x => x.Path).HasMaxLength(300);
+            e.HasIndex(x => x.CreatedUtc);
+        });
+        builder.Entity<Branch>(e =>
+        {
+            e.Property(b => b.DefaultLanguage).HasMaxLength(5);
+            e.Property(b => b.City).HasMaxLength(100);
+            e.Property(b => b.Cuisine).HasMaxLength(40);
+            e.Property(b => b.GoogleBusinessUrl).HasMaxLength(500);
+            e.Property(b => b.SeoTitle).HasMaxLength(70);
+            e.Property(b => b.SeoDescription).HasMaxLength(200);
+            e.Property(b => b.ShareImage).HasMaxLength(300);
+        });
 
         // Deleting is a soft delete (SoftDeleteInterceptor), so a category or dish is
         // only hidden and can be restored. Deleting a category also deletes its dishes.

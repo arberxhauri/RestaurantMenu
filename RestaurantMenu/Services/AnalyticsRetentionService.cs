@@ -46,6 +46,7 @@ public class AnalyticsRetentionService : BackgroundService
                     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                     var cutoff = DateTime.UtcNow.AddDays(-_retentionDays);
                     var deleted = await db.MenuEvents.Where(e => e.CreatedUtc < cutoff).ExecuteDeleteAsync(stoppingToken);
+                    await db.ReferralVisits.Where(e => e.CreatedUtc < cutoff).ExecuteDeleteAsync(stoppingToken);
                     if (deleted > 0)
                     {
                         _logger.LogInformation("Analytics retention: deleted {Count} menu events older than {Days} days", deleted, _retentionDays);

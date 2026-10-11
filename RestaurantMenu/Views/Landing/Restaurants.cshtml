@@ -1,0 +1,81 @@
+@using RestaurantMenu.Controllers
+@using RestaurantMenu.Services
+@model DirectoryPage
+@{
+    Layout = "_MarketingLayout";
+    var c = (MarketingChrome)ViewData["Marketing"]!;
+    var t = c.T;
+}
+
+<nav class="lp-crumbs shell" aria-label="@t.Breadcrumbs">
+    <ol>
+        <li><a href="@c.Link("/")">@t.Home</a></li>
+        <li aria-current="page">@t.DirectoryTitle</li>
+    </ol>
+</nav>
+
+<header class="lp-hero lp-hero--plain shell">
+    <div class="lp-hero-copy">
+        <h1>@t.DirectoryTitle</h1>
+        <p class="lp-lede">@t.DirectoryIntro</p>
+        @if (Model.Pages > 1)
+        {
+            <p class="lp-updated">@string.Format(t.PageOf, Model.Page, Model.Pages)</p>
+        }
+    </div>
+</header>
+
+<div class="shell">
+    @if (Model.Total == 0)
+    {
+        <p class="lp-empty">@t.DirectoryEmpty</p>
+    }
+    @for (var n = 0; n < Model.Cities.Count; n++)
+    {
+        var city = Model.Cities[n];
+        <section class="dir-city" aria-labelledby="city-@n">
+            <h2 id="city-@n">@city.City</h2>
+            <ul class="dir-list">
+                @foreach (var r in city.Restaurants)
+                {
+                    <li class="dir-card">
+                        @if (!string.IsNullOrEmpty(r.Logo))
+                        {
+                            <img src="@RestaurantMenu.Helpers.ImageUrls.Sized(r.Logo, 160)" alt="" width="56" height="56" loading="lazy" decoding="async" />
+                        }
+                        else
+                        {
+                            <span class="dir-initial" aria-hidden="true">@r.Name.Substring(0, 1)</span>
+                        }
+                        <div class="dir-text">
+                            <h3><a href="@r.MenuUrl" translate="no">@r.Name</a></h3>
+                            @if (r.Kind != null) { <p>@r.Kind</p> }
+                            <p class="dir-links">
+                                <a href="@r.MenuUrl">@t.DirectoryMenu<span class="visually-hidden">: @r.Name</span></a>
+                                @if (r.SiteUrl != null) { <a href="@r.SiteUrl">@t.DirectoryWebsite<span class="visually-hidden">: @r.Name</span></a> }
+                                @if (r.BookUrl != null) { <a href="@r.BookUrl">@t.DirectoryBook<span class="visually-hidden">: @r.Name</span></a> }
+                            </p>
+                        </div>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+
+    @if (Model.Pages > 1)
+    {
+        <nav class="dir-pages" aria-label="@string.Format(t.PageOf, Model.Page, Model.Pages)">
+            @if (Model.PreviousUrl != null) { <a class="btn btn-outline" href="@Model.PreviousUrl" rel="prev"><i class="ph ph-arrow-left" aria-hidden="true"></i>@t.PagePrevious</a> }
+            <span>@string.Format(t.PageOf, Model.Page, Model.Pages)</span>
+            @if (Model.NextUrl != null) { <a class="btn btn-outline" href="@Model.NextUrl" rel="next">@t.PageNext<i class="ph ph-arrow-right" aria-hidden="true"></i></a> }
+        </nav>
+    }
+</div>
+
+<section class="lp-cta" aria-labelledby="cta-title">
+    <div class="shell">
+        <h2 id="cta-title">@t.DirectoryJoinTitle</h2>
+        <p>@t.DirectoryJoinText</p>
+        <a class="btn btn-primary btn-lg" href="@c.Link("/digital-menu")">@t.NavDigitalMenu <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+    </div>
+</section>

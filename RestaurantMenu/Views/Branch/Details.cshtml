@@ -68,6 +68,12 @@
                 <i class="ph ph-globe-simple" aria-hidden="true"></i>Website
             </a>
         }
+        @if (Can(BranchPermission.EditBranch) || User.IsInRole("ADMIN"))
+        {
+            <a class="btn btn-outline-secondary btn-sm" asp-controller="Search" asp-action="Index" asp-route-id="@Model.Id">
+                <i class="ph ph-magnifying-glass" aria-hidden="true"></i>Search &amp; sharing
+            </a>
+        }
         @if (Can(BranchPermission.EditBranch))
         {
             <a class="btn btn-outline-secondary btn-sm" asp-controller="Tables" asp-action="Index" asp-route-id="@Model.Id">
@@ -114,6 +120,21 @@
 </section>
 
 @Html.AntiForgeryToken()
+
+@if (ViewBag.Checklist is ProfileChecklist checklist && checklist.Score < 100)
+{
+    var next = checklist.Items.Where(i => !i.Done && i.Scored).Take(3).Select(i => i.Title).ToList();
+    <section class="panel seo-card mb-4" aria-labelledby="seo-card-title">
+        <div class="panel-body">
+            <div>
+                <h2 id="seo-card-title" class="h6 mb-1">Share &amp; get found · @checklist.Score% complete</h2>
+                <div class="seo-meter" role="progressbar" aria-valuenow="@checklist.Score" aria-valuemin="0" aria-valuemax="100" aria-labelledby="seo-card-title"><span style="width: @checklist.Score%"></span></div>
+                <p class="hint m-0">A complete profile helps Google, Maps and AI assistants describe @Model.Name. Next: @string.Join(", ", next).</p>
+            </div>
+            <a class="btn btn-outline-secondary btn-sm" asp-controller="Search" asp-action="Index" asp-route-id="@Model.Id"><i class="ph ph-magnifying-glass" aria-hidden="true"></i>Improve</a>
+        </div>
+    </section>
+}
 
 <div class="row g-4">
     <div class="col-lg-5 col-xl-4">

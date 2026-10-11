@@ -33,7 +33,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     @await Html.PartialAsync("_SeoMeta", seo)
-    @if (photoHero) { <link rel="preload" as="image" href="@b.Banner" fetchpriority="high" /> }
+    @if (photoHero) { <link rel="preload" as="image" href="@ImageUrls.Sized(b.Banner!, 1280)" imagesrcset="@ImageUrls.Srcset(b.Banner, 640, 960, 1280, 1920)" imagesizes="100vw" fetchpriority="high" /> }
     <partial name="_HeadAssets" />
     <link rel="stylesheet" href="~/css/menu.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/website.css" asp-append-version="true" />
@@ -62,7 +62,7 @@
 
     <header class="w-bar">
         <a class="w-brand" href="#top">
-            @if (!string.IsNullOrEmpty(b.Logo)) { <img src="@b.Logo" alt="" width="36" height="36" /> }
+            @if (!string.IsNullOrEmpty(b.Logo)) { <img src="@ImageUrls.Sized(b.Logo, 160)" alt="" width="36" height="36" /> }
             <span translate="no">@b.Name</span>
         </a>
         <nav class="w-links" aria-label="@b.Name">
@@ -78,7 +78,7 @@
                 <ul>
                     @foreach (var l in Model.Languages)
                     {
-                        <li><a href="?lang=@l" lang="@l" hreflang="@l" aria-current="@(l == lang ? "true" : null)">@LanguageHelper.GetLanguageName(l)</a></li>
+                        <li><a href="@(l == SeoLanguages.Default(b) ? (Context.Items.ContainsKey(RestaurantMenu.Services.SiteHostMiddleware.ItemKey) ? "/" : Context.Request.Path.Value) : "?lang=" + l)" lang="@l" hreflang="@l" aria-current="@(l == lang ? "true" : null)">@LanguageHelper.GetLanguageName(l)</a></li>
                     }
                 </ul>
             </details>
@@ -87,10 +87,15 @@
     </header>
 
     <section class="w-hero @(photoHero ? "w-hero--photo" : "w-hero--colour")" id="top">
-        @if (photoHero) { <img class="w-hero-img" src="@b.Banner" alt="" fetchpriority="high" /> }
+        @if (photoHero) { <img class="w-hero-img" src="@ImageUrls.Sized(b.Banner!, 1280)" srcset="@ImageUrls.Srcset(b.Banner, 640, 960, 1280, 1920)" sizes="100vw" alt="@b.Name" fetchpriority="high" /> }
         <div class="w-hero-scrim" aria-hidden="true"></div>
         <div class="w-hero-content">
             <h1 translate="no">@b.Name</h1>
+            @{
+                var kind = b.BusinessType == BusinessType.Restaurant && Cuisines.Find(b.Cuisine) == null ? null : Cuisines.Phrase(b.BusinessType, b.Cuisine, lang);
+                var kindLine = string.Join(" · ", new[] { kind, b.City }.Where(x => !string.IsNullOrWhiteSpace(x)));
+            }
+            @if (kindLine.Length > 0) { <p class="w-kind">@kindLine</p> }
             @if (tagline != null) { <p class="w-tagline">@tagline</p> }
             @if (Model.Status != null)
             {
@@ -128,7 +133,7 @@
                             var name = TranslationHelper.GetTranslation(p.Name, p.NameTranslations, lang);
                             var desc = TranslationHelper.GetTranslation(p.Description ?? "", p.DescriptionTranslations, lang);
                             <li class="w-dish">
-                                @if (!string.IsNullOrEmpty(p.Image)) { <img src="@p.Image" alt="@name" loading="lazy" width="600" height="450" /> }
+                                @if (!string.IsNullOrEmpty(p.Image)) { <img src="@ImageUrls.Sized(p.Image, 640)" srcset="@ImageUrls.Srcset(p.Image, 320, 640, 960)" sizes="(max-width: 700px) 90vw, 400px" alt="@name" loading="lazy" decoding="async" width="600" height="450" /> }
                                 else { <div class="w-dish-noimg" aria-hidden="true"><i class="ph ph-fork-knife"></i></div> }
                                 <div class="w-dish-body">
                                     <h3>@name</h3>
@@ -192,9 +197,7 @@
                 </div>
             }
             <p><span translate="no">@b.Name</span> · @b.Address · <a href="tel:@b.PhoneNumber">@b.PhoneNumber</a></p>
-            <a class="m-powered" href="@((Config["Seo:BaseUrl"] ?? "").TrimEnd('/'))/" rel="noopener">
-                <partial name="_BrandMark" model="16" /><span>Powered by <strong>My Quick Menu</strong></span>
-            </a>
+            <partial name="_PoweredBy" model="(PoweredBy.Kind.Site, lang)" />
         </div>
     </footer>
 

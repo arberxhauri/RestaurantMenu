@@ -768,3 +768,29 @@
         document.querySelectorAll('[data-sortable]').forEach(initSortable);
     });
 })();
+
+/* Search & sharing: live Google preview and character counters (Views/Search/Index.cshtml). */
+(function () {
+    var form = document.querySelector('[data-seo-form]');
+    if (!form) return;
+    var title = form.querySelector('[data-seo-title]');
+    var description = form.querySelector('[data-seo-description]');
+    var previewTitle = form.querySelector('[data-preview-title]');
+    var previewDescription = form.querySelector('[data-preview-description]');
+    function count(field) {
+        var label = form.querySelector('[data-count-for="' + field.id + '"]');
+        if (!label) return;
+        var ideal = parseInt(label.dataset.countIdeal, 10);
+        var n = (field.value || '').trim().length;
+        label.textContent = n === 0 ? 'Using ours' : n + ' / ' + ideal;
+        label.classList.toggle('is-over', n > ideal);
+    }
+    function update() {
+        previewTitle.textContent = title.value.trim() || title.placeholder;
+        previewDescription.textContent = description.value.trim() || description.placeholder;
+        count(title);
+        count(description);
+    }
+    [title, description].forEach(function (f) { f.addEventListener('input', update); });
+    update();
+})();

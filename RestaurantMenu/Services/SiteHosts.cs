@@ -114,7 +114,8 @@ public class SiteHosts
             {
                 var b = byId[d.BranchId];
                 map[d.Host] = new SiteTarget(d.BranchId, b.Slug, d.Host, true, d.Verified, b.Published, d.Token, website[b.Id], ownDomain[b.Id]);
-                if (d.Verified && !primary.ContainsKey(d.BranchId)) primary[d.BranchId] = d.Host;
+                // Only a domain that really serves the site (verified, and in the plan) is its address.
+                if (d.Verified && website[b.Id] && ownDomain[b.Id] && !primary.ContainsKey(d.BranchId)) primary[d.BranchId] = d.Host;
             }
             var labels = new Dictionary<string, SiteTarget>(StringComparer.OrdinalIgnoreCase);
             if (_wildcard != null)

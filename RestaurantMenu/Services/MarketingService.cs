@@ -1,0 +1,143 @@
+using Microsoft.Extensions.Options;
+using RestaurantMenu.Helpers;
+using RestaurantMenu.Models;
+
+namespace RestaurantMenu.Services;
+
+/// <summary>What the marketing pages' header and footer need: language, links and the call to action.</summary>
+public record MarketingChrome(
+    MarketingText T,
+    string Lang,
+    bool SignedIn,
+    bool SignupOpen,
+    int TrialDays,
+    string CtaHref,
+    string CtaLabel,
+    string ContactHref,
+    string OtherLanguageHref,
+    BrandOptions Brand)
+{
+    /// <summary>A marketing path in this page's language: "/pricing" or "/pricing?lang=sq".</summary>
+    public string Link(string path) => path + SeoLanguages.Query(Lang, "en");
+}
+
+/// <summary>Prices for the marketing pages, schema.org offers and llms.txt, always read from the price book.</summary>
+public record MarketingPrices(string Currency, IReadOnlyList<(string Key, Quote Quote)> Presets,
+    IReadOnlyDictionary<BillingModule, int> ModuleMonthlyCents)
+{
+    public string? Preset(string key) => Presets.FirstOrDefault(p => p.Key == key) is { Key: not null } p && p.Quote.Complete
+        ? PricingRules.Money(p.Quote.PerMonthCents, Currency) : null;
+
+    public string? Module(BillingModule module) =>
+        ModuleMonthlyCents.TryGetValue(module, out var cents) ? PricingRules.Money(cents, Currency) : null;
+
+    /// <summary>The cheapest complete monthly preset ("€5"), or null when no prices are set.</summary>
+    public string? Lowest => Presets.Where(p => p.Quote.Complete).OrderBy(p => p.Quote.PerMonthCents)
+        .Select(p => PricingRules.Money(p.Quote.PerMonthCents, Currency)).FirstOrDefault();
+}
+
+/// <summary>
+/// Shared by the home page, the landing pages, pricing, llms.txt and the Organization schema, so
+/// the definition, prices and calls to action read the same everywhere.
+/// </summary>
+public class MarketingService
+{
+    private readonly SignupService _signup;
+    private readonly PlanSettingsService _plans;
+    private readonly IConfiguration _config;
+    private readonly BrandOptions _brand;
+    private readonly IHttpContextAccessor _http;
+    private readonly PaddleBilling _paddle;
+
+    public MarketingService(SignupService signup, PlanSettingsService plans, IConfiguration config, IOptions<BrandOptions> brand, IHttpContextAccessor http, PaddleBilling paddle)
+    {
+        _paddle = paddle;
+        _signup = signup;
+        _plans = plans;
+        _config = config;
+        _brand = brand.Value;
+        _http = http;
+    }
+
+    public BrandOptions Brand => _brand;
+
+    /// <summary>Where "Get in touch" goes while self-serve signup is closed.</summary>
+    public string ContactHref(string lang) =>
+        _config["Landing:ContactUrl"] is { Length: > 0 } configured ? configured : "/contact" + SeoLanguages.Query(lang, "en");
+
+    public async Task<MarketingPrices> PricesAsync()
+    {
+        var table = await _plans.PriceTableAsync(DateTime.UtcNow);
+        var currency = (await _plans.GetAsync()).Currency;
+        var presets = PricingRules.Presets
+            .Select(p => (p.Key, PricingRules.Quote(PricingRules.Parse(null, "1", "Month", p.Key), table, currency)))
+            .ToList();
+        var modules = table.Where(p => p.Key.Item2 == BillingInterval.Month).ToDictionary(p => p.Key.Item1, p => p.Value);
+        return new MarketingPrices(currency, presets, modules);
+    }
+
+    /// <summary>
+    /// The values of the content pages' tokens (Helpers/Landing/LandingContent): the definition, each
+    /// plan's and module's monthly price from the price book, and the trial days. A price that isn't
+    /// set reads "price on request", never a guess.
+    /// </summary>
+    public async Task<Dictionary<string, string>> TokensAsync(string lang)
+    {
+        var prices = await PricesAsync();
+        var onRequest = SignupText.For(lang).PriceOnRequest.ToLowerInvariant();
+        string P(string? v) => v ?? onRequest;
+        return new Dictionary<string, string>
+        {
+            ["definition"] = await DefinitionAsync(lang),
+            ["menu"] = P(prices.Preset("menu")),
+            ["guests"] = P(prices.Preset("guests")),
+            ["everything"] = P(prices.Preset("everything")),
+            ["website"] = P(prices.Module(BillingModule.Website)),
+            ["bookings"] = P(prices.Module(BillingModule.Bookings)),
+            ["ordering"] = P(prices.Module(BillingModule.Ordering)),
+            ["management"] = P(prices.Module(BillingModule.Management)),
+            ["domain"] = P(prices.Module(BillingModule.OwnDomain)),
+            ["trial"] = (await _signup.TrialDaysAsync()).ToString(System.Globalization.CultureInfo.InvariantCulture),
+            // How restaurants pay: card shows up by itself once card payments are switched on (Admin → Plans & prices).
+            ["payment"] = await _paddle.IsOfferedAsync()
+                ? lang == "sq" ? "Me kartë, çdo muaj ose çdo vit me rinovim automatik, ose me transfertë bankare kundrejt faturës."
+                               : "By card, monthly or yearly with automatic renewal, or by bank transfer against an invoice."
+                : lang == "sq" ? "Me transfertë bankare kundrejt faturës, çdo muaj ose çdo vit. Pagesa me kartë po shtohet së shpejti."
+                               : "By bank transfer against an invoice, monthly or yearly. Card payment is being added soon."
+        };
+    }
+
+    /// <summary>The one-sentence definition with the current lowest price.</summary>
+    public async Task<string> DefinitionAsync(string lang)
+    {
+        var t = MarketingText.For(lang);
+        return (await PricesAsync()).Lowest is { } lowest ? string.Format(t.Definition, lowest) : t.DefinitionNoPrice;
+    }
+
+    /// <summary>What the marketing pages' structured data says about My Quick Menu (StructuredData.MarketingFacts).</summary>
+    public async Task<StructuredData.MarketingFacts> FactsAsync(string lang, string baseUrl)
+    {
+        var prices = await PricesAsync();
+        var words = SignupText.For(lang);
+        var plans = prices.Presets.Where(p => p.Quote.Complete)
+            .Select(p => (SignupText.Preset(words, p.Key).Title, p.Quote.PerMonthCents))
+            .ToList();
+        return new StructuredData.MarketingFacts(baseUrl, lang, await DefinitionAsync(lang), _brand, prices.Currency, plans);
+    }
+
+    /// <param name="path">This page's path without ?lang (for the language switch).</param>
+    public async Task<MarketingChrome> ChromeAsync(string lang, string path)
+    {
+        var t = MarketingText.For(lang);
+        var signedIn = _http.HttpContext?.User.Identity?.IsAuthenticated == true;
+        var signupOpen = !signedIn && await _signup.IsOpenAsync();
+        var trialDays = await _signup.TrialDaysAsync();
+        var contact = ContactHref(lang);
+        var langQuery = SeoLanguages.Query(lang, "en");
+        var (label, href) = signedIn ? (t.Dashboard, "/dashboard")
+            : signupOpen ? (t.StartTrial, "/pricing" + langQuery)
+            : (t.GetInTouch, contact);
+        return new MarketingChrome(t, lang, signedIn, signupOpen, trialDays, href, label, contact,
+            path + SeoLanguages.Query(t.OtherLanguageCode, "en"), _brand);
+    }
+}

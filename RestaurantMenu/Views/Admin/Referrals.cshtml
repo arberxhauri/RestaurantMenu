@@ -1,0 +1,76 @@
+@{
+    ViewData["Title"] = "AI referrals";
+    int days = ViewBag.Days;
+    int total = ViewBag.Total;
+    var bySource = (List<(string Source, int Count)>)ViewBag.BySource;
+    var byDay = (Dictionary<DateOnly, int>)ViewBag.ByDay;
+    var pages = (List<(string Host, string Path, int Count, string Sources)>)ViewBag.Pages;
+    DateOnly since = ViewBag.Since;
+    var max = Math.Max(1, byDay.Count == 0 ? 1 : byDay.Values.Max());
+}
+
+<header class="page-head">
+    <div>
+        <h1>AI referrals</h1>
+        <p>Visits to public pages (marketing site, menus, websites) that came from ChatGPT, Perplexity, Claude, Gemini or Copilot, by referrer or utm_source. Anonymous: no IP address, browser or cookie is stored.</p>
+    </div>
+    <div class="page-actions">
+        @foreach (var d in new[] { 30, 90, 365 })
+        {
+            <a class="btn btn-sm @(d == days ? "btn-primary" : "btn-outline-secondary")" asp-action="Referrals" asp-route-days="@d">@d days</a>
+        }
+    </div>
+</header>
+
+<div class="panel mb-4">
+    <div class="panel-body">
+        <h2 class="h5">@total visit@(total == 1 ? "" : "s") since @since.ToString("d MMM yyyy")</h2>
+        @if (total == 0)
+        {
+            <p class="hint mb-0">None yet. They appear here as soon as an assistant links to one of the pages and someone clicks.</p>
+        }
+        else
+        {
+            <table class="table mb-0">
+                <thead><tr><th scope="col">Assistant</th><th scope="col" class="text-end">Visits</th></tr></thead>
+                <tbody>
+                    @foreach (var (source, count) in bySource)
+                    {
+                        <tr><td>@source</td><td class="text-end tabular">@count</td></tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@if (total > 0)
+{
+    <div class="panel mb-4">
+        <div class="panel-body">
+            <h2 class="h5">Per day</h2>
+            <ol class="ref-days" aria-label="Visits per day">
+                @for (var d = since; d <= DateOnly.FromDateTime(DateTime.UtcNow); d = d.AddDays(1))
+                {
+                    var n = byDay.GetValueOrDefault(d);
+                    <li title="@d.ToString("d MMM"): @n"><span style="height: @(n * 100 / max)%"></span><span class="visually-hidden">@d.ToString("d MMM"): @n</span></li>
+                }
+            </ol>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-body">
+            <h2 class="h5">Landing pages</h2>
+            <table class="table mb-0">
+                <thead><tr><th scope="col">Page</th><th scope="col">From</th><th scope="col" class="text-end">Visits</th></tr></thead>
+                <tbody>
+                    @foreach (var p in pages)
+                    {
+                        <tr><td class="mono">@p.Host@p.Path</td><td>@p.Sources</td><td class="text-end tabular">@p.Count</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

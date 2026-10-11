@@ -438,9 +438,24 @@ namespace RestaurantMenu.Migrations
                     b.Property<string>("Banner")
                         .HasColumnType("text");
 
+                    b.Property<int>("BusinessType")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("City")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Cuisine")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
                     b.Property<string>("Currency")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<string>("DefaultLanguage")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
 
                     b.Property<DateTime?>("DeletedOnUtc")
                         .HasColumnType("timestamp with time zone");
@@ -458,6 +473,10 @@ namespace RestaurantMenu.Migrations
                     b.Property<bool>("FeedbackGoogleForAll")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("GoogleBusinessUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<string>("GoogleReviewUrl")
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
@@ -471,11 +490,20 @@ namespace RestaurantMenu.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsDemo")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("KeepActive")
                         .HasColumnType("boolean");
 
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("double precision");
+
                     b.Property<string>("Logo")
                         .HasColumnType("text");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("double precision");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -497,6 +525,27 @@ namespace RestaurantMenu.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("SeoDescription")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("SeoDescriptionTranslations")
+                        .HasColumnType("text");
+
+                    b.Property<string>("SeoTitle")
+                        .HasMaxLength(70)
+                        .HasColumnType("character varying(70)");
+
+                    b.Property<string>("SeoTitleTranslations")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ShareImage")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<bool>("ShowInSearch")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Slug")
                         .HasMaxLength(60)
                         .HasColumnType("character varying(60)");
@@ -514,6 +563,9 @@ namespace RestaurantMenu.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasDefaultValue("Europe/Tirane");
+
+                    b.Property<DateTime>("UpdatedUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UserId")
                         .IsRequired()
@@ -698,6 +750,9 @@ namespace RestaurantMenu.Migrations
 
                     b.Property<int>("Priority")
                         .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
@@ -1552,6 +1607,9 @@ namespace RestaurantMenu.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<DateTime>("UpdatedUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CategoryId");
@@ -1625,6 +1683,44 @@ namespace RestaurantMenu.Migrations
                     b.HasIndex("ProductId");
 
                     b.ToTable("ProductOptionGroups");
+                });
+
+            modelBuilder.Entity("RestaurantMenu.Models.ReferralVisit", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Host")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Via")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedUtc");
+
+                    b.ToTable("ReferralVisits");
                 });
 
             modelBuilder.Entity("RestaurantMenu.Models.Reservation", b =>

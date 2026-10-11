@@ -487,7 +487,9 @@
     display: inline-flex; align-items: center;
     padding: 2px 9px;
     border-radius: var(--r-pill);
-    background: color-mix(in oklab, var(--brand-3) 16%, var(--surface)); color: var(--accent-ink);
+    /* --accent-ink reaches 4.5:1 on the plain surface; on this tint it is pulled a little towards
+       the ink so the small text keeps that contrast in light and dark themes. */
+    background: color-mix(in oklab, var(--brand-3) 10%, var(--surface)); color: color-mix(in oklab, var(--accent-ink) 72%, var(--ink));
     font-size: 12px; font-weight: 700;
 }
 .m-item-badge[hidden] { display: none; }
@@ -592,7 +594,7 @@
 .m-dish-img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; margin-top: 10px; }
 .m-dish-img[hidden] { display: none; } /* a global img { display: block } would otherwise leave an empty box */
 .m-sheet-body { padding: 20px 22px calc(24px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; }
-.m-sheet-body h2 { font-family: var(--font-display); font-size: 26px; letter-spacing: -.03em; line-height: 1.1; padding-right: 44px; }
+.m-sheet-body h2, .m-sheet-body .m-sheet-title { font-family: var(--font-display); font-size: 26px; font-weight: 700; letter-spacing: -.03em; line-height: 1.1; padding-right: 44px; margin: 0; }
 .m-dish-desc { color: var(--ink-2); font-size: 15.5px; }
 .m-dish-nutri { padding: 12px 14px; border-radius: var(--r-sm); background: var(--bg-2); font-size: 14px; }
 .m-dish-nutri span { display: block; font-weight: 600; font-size: 12.5px; color: var(--ink-3); margin-bottom: 2px; }
@@ -763,3 +765,6 @@
     .m-item-open { border: 0; padding: 8px 0; }
     .m-items { grid-template-columns: 1fr; }
 }
+
+/* What and where, under the name ("Italian restaurant · Durrës"). */
+.m-kind { margin: 2px 0 0; font-size: 14px; font-weight: 500; opacity: .85; color: var(--hero-ink, inherit); }

@@ -41,6 +41,8 @@ public class Product : ISoftDeletable
 
     public bool IsDeleted { get; set; }
     public DateTime? DeletedOnUtc { get; set; }
+    /// <summary>Last change (ApplicationDbContext sets it on save): the menu's Last-Modified and sitemap lastmod.</summary>
+    public DateTime UpdatedUtc { get; set; }
 }
 
 /// <summary>A fixed set so guests see it in their language. Persisted as int; never renumber.</summary>

@@ -115,6 +115,8 @@ public async Task<IActionResult> Create(Branch branch, IFormFile? logo, IFormFil
     {
         branch.SupportedLanguages = "en"; // Default to English
     }
+    // The main language: what the bare menu link opens in (SeoLanguages). One of the ticked ones.
+    branch.DefaultLanguage = SeoLanguages.Default(SeoLanguages.Of(branch), form["defaultLanguage"].ToString());
     
     ModelState.Remove("UserId");
     ModelState.Remove("User");
@@ -291,6 +293,8 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
         {
             existingBranch.SupportedLanguages = "en";
         }
+        // The main language (bare menu link). A language no longer ticked falls back to the rule.
+        existingBranch.DefaultLanguage = SeoLanguages.Default(SeoLanguages.Of(existingBranch), form["defaultLanguage"].ToString());
 
         // Handle logo upload and extract colors
         if (logo != null && logo.Length > 0)
@@ -365,6 +369,21 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
                     .OrderBy(m => m.User!.FullName)
                     .Select(m => new TeamMemberRow(m.Id, m.User!.FullName, m.User.Email!, m.Role, m.User.PasswordHash == null))
                     .ToListAsync();
+            }
+            if (BranchAccess.Allows(role, BranchPermission.EditBranch))
+            {
+                // "Share & get found": how complete the restaurant's public profile is (Search & sharing).
+                var dishes = branch.Categories?.SelectMany(c => c.Products ?? new List<Product>()).ToList() ?? new List<Product>();
+                var site = await _context.BranchSites.AsNoTracking().FirstOrDefaultAsync(s => s.BranchId == id);
+                var hours = await _context.BranchHours.AsNoTracking().Where(h => h.BranchId == id).ToListAsync();
+                ViewBag.Checklist = ProfileChecklist.For(
+                    new Branch { Id = branch.Id, Name = branch.Name, Address = branch.Address, PhoneNumber = branch.PhoneNumber, UserId = branch.UserId,
+                        City = branch.City, Cuisine = branch.Cuisine, BusinessType = branch.BusinessType, Logo = branch.Logo, Banner = branch.Banner,
+                        ShareImage = branch.ShareImage, Latitude = branch.Latitude, Longitude = branch.Longitude, GoogleBusinessUrl = branch.GoogleBusinessUrl,
+                        ShowInSearch = branch.ShowInSearch, IsDemo = branch.IsDemo, HoursEnabled = branch.HoursEnabled, OpeningHours = hours },
+                    dishes.Count, dishes.Count(p => !string.IsNullOrEmpty(p.Image)), site,
+                    await _context.Domains.AnyAsync(d => d.BranchId == id && d.Verified),
+                    site?.Enabled == true && await _access.HasModuleAsync(id, BillingModule.Website));
             }
             if (BranchAccess.Allows(role, BranchPermission.ViewInsights))
             {

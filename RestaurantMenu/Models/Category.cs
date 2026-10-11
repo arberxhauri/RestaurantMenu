@@ -25,6 +25,8 @@ public class Category : ISoftDeletable
 
     public bool IsDeleted { get; set; }
     public DateTime? DeletedOnUtc { get; set; }
+    /// <summary>Last change (ApplicationDbContext sets it on save): the menu's Last-Modified and sitemap lastmod.</summary>
+    public DateTime UpdatedUtc { get; set; }
 }
 
 /// <summary>Days a category is served. None (0) means every day. Persisted as int; never renumber.</summary>

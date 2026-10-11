@@ -23,7 +23,7 @@
     function branches() { var n = parseInt(branchesInput.value, 10); return isNaN(n) ? 1 : Math.min(50, Math.max(1, n)); }
     function nameOf(box) { return box.closest('label').querySelector('strong').textContent; }
 
-    function render() {
+    function render(initial) {
         // A module whose base is off can't be on (own domain needs the website).
         boxes.forEach(function (b) {
             var needs = b.dataset.needs && form.querySelector('[data-module="' + b.dataset.needs + '"]');
@@ -69,11 +69,16 @@
         var q = boxes.filter(function (b) { return b.checked; }).map(function (b) { return 'm=' + b.dataset.module; });
         q.push('b=' + n, 'i=' + i);
         var lang = root.dataset.lang === 'en' ? '' : '&lang=' + root.dataset.lang;
-        root.querySelector('[data-start]').href = '/signup?' + q.join('&') + lang;
-        try { history.replaceState(null, '', '/pricing?' + q.join('&') + lang + '#build'); } catch (e) { /* file:// or old browsers */ }
+        var start = root.querySelector('[data-start]');
+        if (start) start.href = '/signup?' + q.join('&') + lang;
+        // Only once the visitor changes something: on the first render, a #build in the URL would make
+        // the browser jump down to the form as the page finishes loading.
+        if (!initial) {
+            try { history.replaceState(null, '', '/pricing?' + q.join('&') + lang + '#build'); } catch (e) { /* file:// or old browsers */ }
+        }
     }
 
-    form.addEventListener('change', render);
-    branchesInput.addEventListener('input', render);
-    render();
+    form.addEventListener('change', function () { render(false); });
+    branchesInput.addEventListener('input', function () { render(false); });
+    render(true);
 })();
