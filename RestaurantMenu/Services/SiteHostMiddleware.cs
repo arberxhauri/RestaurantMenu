@@ -64,9 +64,10 @@ public class SiteHostMiddleware
                 "If it's yours, add it on the Website page of your branch in My Quick Menu.");
             return;
         }
-        // Not in the plan: the menu on the app's own address (302, so the site comes back with
-        // the plan). An own domain needs both the website and own-domain modules.
-        if (target.Verified && (!target.WebsiteOn || target.IsCustomDomain && !target.DomainOn) && _appBase != null)
+        // An own domain needs the website and own-domain modules; without them, the menu on the
+        // app's own address (302, so the site comes back with the plan). A free subdomain always
+        // serves the restaurant's menu and booking page: it is the restaurant's main address.
+        if (target.IsCustomDomain && target.Verified && (!target.WebsiteOn || !target.DomainOn) && _appBase != null)
         {
             context.Response.Redirect($"{_appBase}/menu/{target.Slug}{context.Request.QueryString}");
             return;
@@ -77,7 +78,7 @@ public class SiteHostMiddleware
                 "The domain was added and is waiting for its DNS record. It's usually live within a few hours.");
             return;
         }
-        if (!target.Published)
+        if (target.IsCustomDomain && !target.Published)
         {
             await Message(context, 404, "This website isn't published yet", "Check back soon.");
             return;
@@ -92,6 +93,19 @@ public class SiteHostMiddleware
         }
 
         var slug = target.Slug;
+        // On a subdomain the menu and booking page live at /menu and /book: the long form forwards.
+        if (!target.IsCustomDomain && (path.Equals($"/menu/{slug}", StringComparison.OrdinalIgnoreCase)
+                                       || path.Equals($"/book/{slug}", StringComparison.OrdinalIgnoreCase)))
+        {
+            context.Response.Redirect(path[..5] + context.Request.QueryString, permanent: true);
+            return;
+        }
+        // A subdomain whose website isn't published (or isn't in the plan) opens on the menu.
+        if (!target.IsCustomDomain && (!target.Published || !target.WebsiteOn) && path is "/" or "")
+        {
+            context.Response.Redirect("/menu" + context.Request.QueryString);
+            return;
+        }
         string? rewrite = path switch
         {
             "/" or "" => $"/site/{slug}",

@@ -114,9 +114,9 @@ public class LandingController : Controller
                 string.IsNullOrWhiteSpace(r.City) ? null : SeoText.OneLine(r.City),
                 kind,
                 r.Logo,
-                "/menu/" + r.Slug + SeoLanguages.Query(pageLanguage, SeoLanguages.Default(stub)),
+                _seo.MenuUrl(stub, pageLanguage),
                 site,
-                r.Bookings && plan?.Has(BillingModule.Bookings) == true ? "/book/" + r.Slug + SeoLanguages.Query(pageLanguage, SeoLanguages.Default(stub)) : null));
+                r.Bookings && plan?.Has(BillingModule.Bookings) == true ? _seo.BookUrl(stub, pageLanguage) : null));
         }
 
         // Cities with the most restaurants first, then alphabetically; restaurants by name.

@@ -58,9 +58,14 @@ public class BookController : Controller
         var languages = SeoLanguages.Of(branch);
         var mainLanguage = SeoLanguages.Default(branch);
         var (language, wrongLanguage) = SeoLanguages.Resolve(languages, mainLanguage, lang);
+        var onOwnHost = HttpContext.Items.ContainsKey(SiteHostMiddleware.ItemKey);
+        // The restaurant's subdomain is its main address: forward there (date and guests kept).
+        if (!onOwnHost && _seo.RestaurantHost(canonical) is { } home)
+        {
+            return RedirectPermanent($"https://{home}/book{(wrongLanguage ? SeoLanguages.QueryWithout(Request.Query) : Request.QueryString.Value)}");
+        }
         if (wrongLanguage)
         {
-            var onOwnHost = HttpContext.Items.ContainsKey(SiteHostMiddleware.ItemKey);
             return RedirectPermanent((onOwnHost ? "/book" : $"/book/{canonical}") + SeoLanguages.QueryWithout(Request.Query));
         }
 
@@ -69,7 +74,7 @@ public class BookController : Controller
         {
             Title = SeoText.BookTitle(branch.Name, language),
             Description = SeoText.BookDescription(branch.Name, language),
-            CanonicalUrl = _seo.Url($"/book/{canonical}") + SeoLanguages.Query(language, mainLanguage),
+            CanonicalUrl = _seo.BookUrl(branch, language),
             NoIndex = true,
             Locale = language,
             SiteName = branch.Name,

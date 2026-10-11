@@ -16,6 +16,8 @@ public class SeoService
     {
         _accessor = accessor;
         _configuredBaseUrl = configuration["Seo:BaseUrl"]?.TrimEnd('/');
+        _wildcard = SiteRules.NormalizeHost(configuration["Sites:WildcardDomain"]);
+        _subdomainHome = _wildcard != null && configuration.GetValue("Sites:SubdomainIsHome", true);
     }
 
     public string SiteName => "My Quick Menu";
@@ -77,11 +79,42 @@ public class SeoService
     public string MenuUrl(Branch branch, string? language = null, int? table = null, string? code = null) =>
         MenuUrl(branch.Slug, language, table, code, SeoLanguages.Default(branch));
 
+    private readonly string? _wildcard;
+    private readonly bool _subdomainHome;
+
+    /// <summary>
+    /// The restaurant's own subdomain ("oliva.myquickmenu.com") when it is its main address: with
+    /// Sites__WildcardDomain set, and unless Sites__SubdomainIsHome=false (the off switch if the
+    /// subdomains ever stop working). Then its menu is https://{host}/menu and its booking page
+    /// https://{host}/book, and the myquickmenu.com/menu/{slug} address that printed QR codes carry
+    /// forwards there (301). Null: everything stays on the app's own address.
+    /// </summary>
+    public string? RestaurantHost(string slug) =>
+        _subdomainHome && SiteHosts.Label(slug) is { } label ? $"{label}.{_wildcard}" : null;
+
+    /// <summary>
+    /// The address printed on QR codes: always myquickmenu.com/menu/{slug}, which never depends on
+    /// DNS and keeps working forever; it forwards to the restaurant's main address.
+    /// </summary>
+    public string QrMenuUrl(Branch branch, int? table = null, string? code = null)
+    {
+        var url = $"{BaseUrl}/menu/{Uri.EscapeDataString(branch.Slug)}";
+        if (table == null) return url;
+        return $"{url}?t={table}" + (string.IsNullOrEmpty(code) ? "" : $"&k={Uri.EscapeDataString(code)}");
+    }
+
+    /// <summary>The booking page in a language, on the restaurant's main address.</summary>
+    public string BookUrl(Branch branch, string? language = null)
+    {
+        var query = language == null ? "" : SeoLanguages.Query(language, SeoLanguages.Default(branch));
+        return RestaurantHost(branch.Slug) is { } host ? $"https://{host}/book{query}" : $"{BaseUrl}/book/{Uri.EscapeDataString(branch.Slug)}{query}";
+    }
+
     /// <param name="slug">The branch's stored link (Branch.Slug).</param>
     /// <param name="defaultLanguage">The branch's main language; English when not given.</param>
     public string MenuUrl(string slug, string? language = null, int? table = null, string? code = null, string? defaultLanguage = null)
     {
-        var url = $"{BaseUrl}/menu/{Uri.EscapeDataString(slug)}";
+        var url = RestaurantHost(slug) is { } host ? $"https://{host}/menu" : $"{BaseUrl}/menu/{Uri.EscapeDataString(slug)}";
         var query = new List<string>(3);
         if (!string.IsNullOrEmpty(language) && language != (defaultLanguage ?? DefaultLanguage))
         {

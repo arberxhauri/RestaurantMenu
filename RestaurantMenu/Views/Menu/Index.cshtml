@@ -30,7 +30,8 @@
     string LangHref(string l)
     {
         var q = (l == mainLang ? "" : $"&lang={l}") + tableQuery;
-        return q.Length == 0 ? Context.Request.Path.Value! : "?" + q[1..];
+        var bare = Context.Items.ContainsKey(RestaurantMenu.Services.SiteHostMiddleware.ItemKey) ? "/menu" : Context.Request.Path.Value!;
+        return q.Length == 0 ? bare : "?" + q[1..];
     }
 
 

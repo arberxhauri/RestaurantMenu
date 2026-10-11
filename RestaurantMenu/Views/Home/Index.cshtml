@@ -1,3 +1,4 @@
+@inject RestaurantMenu.Services.SeoService Seo
 @using RestaurantMenu.Helpers
 @using RestaurantMenu.Services
 @{
@@ -172,7 +173,7 @@
                         @foreach (var branch in partners)
                         {
                             <li>
-                                <a class="partner-logo" href="/menu/@branch.Slug"
+                                <a class="partner-logo" href="@Seo.MenuUrl(branch)"
                                    target="_blank" rel="noopener" title="@string.Format(t.PartnerMenu, branch.Name)">
                                     <img src="@ImageUrls.Sized(branch.Logo!, 320)" alt="@branch.Name" width="140" height="64" loading="lazy" decoding="async" />
                                 </a>

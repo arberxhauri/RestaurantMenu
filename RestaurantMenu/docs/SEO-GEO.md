@@ -284,16 +284,35 @@ landing page for 30, 90 or 365 days.
   7.7 → 2.8 s, 11.1 → 5.3 s and 10.8 → 3.2 s; CLS ≤ 0.005 throughout. Production adds Brotli on top.
   Re-measure on the live site after deploy.
 
-## 13. Custom domains
+## 13. Restaurants' own addresses (subdomains and custom domains)
 
-- A site's canonical is its own address: a verified own domain whose plan includes own domains,
-  otherwise its free subdomain of `Sites__WildcardDomain`, otherwise `/site/{slug}`. Once a
-  published site has its own address, `myquickmenu.com/site/{slug}` 301s to it.
-- Menus keep their `myquickmenu.com/menu/{slug}` canonical even on an own domain. Printed QR codes
-  point there, and a menu must not depend on a restaurant's DNS.
-- `*.myquickmenu.com` subdomains need the wildcard DNS record and the Render wildcard domain first.
-  Set `Sites__WildcardDomain=myquickmenu.com` only after `https://anything.myquickmenu.com` answers;
-  until then canonicals would point at addresses that don't resolve.
+**Free subdomain = main address.** With `Sites__WildcardDomain=myquickmenu.com` set, each restaurant's
+subdomain (`oliva.myquickmenu.com`, from its link name) is its main address:
+
+| Address | Serves |
+|---|---|
+| `oliva.myquickmenu.com/` | the website if published (and in the plan), otherwise a redirect to `/menu` |
+| `oliva.myquickmenu.com/menu` (`?lang=xx`, `?t=&k=`) | the menu (canonical, sitemap, structured data) |
+| `oliva.myquickmenu.com/book` | the booking page |
+| `oliva.myquickmenu.com/robots.txt`, `/sitemap.xml` | this host's pages |
+
+The old addresses are **never removed**; they forward with a 301, keeping table, code, language and
+date: `myquickmenu.com/menu/oliva?t=4&k=AB12` → `oliva.myquickmenu.com/menu?t=4&k=AB12`, and the
+same for `/book/oliva` and `/site/oliva`. Printed QR codes keep working. **New QR codes still print
+the permanent `myquickmenu.com/menu/...` address** (`SeoService.QrMenuUrl`), so a table card never
+depends on DNS. The dashboard's "Copy link", the directory and the sitemaps use the subdomain.
+
+**Off switch.** `Sites__SubdomainIsHome=false` stops all forwarding at once (subdomains still answer).
+Use it if the wildcard certificate or DNS ever breaks.
+
+**Turning it on.** Add the wildcard records first: `*`, `_acme-challenge` and `_cf-custom-hostname`
+CNAMEs, as Render shows them under Custom Domains. Wait until `https://test.myquickmenu.com` loads
+securely ("This address isn't connected to a restaurant"), then set `Sites__WildcardDomain`. Until the
+certificate is issued, browsers show `ERR_SSL_VERSION_OR_CIPHER_MISMATCH`.
+
+**Own domains** (`www.oliva.al`) carry the website: its canonical is the own domain, and
+`/site/{slug}` and the subdomain's `/` forward there. The menu stays on the subdomain or
+myquickmenu.com, so a lapsed restaurant domain can never break its QR codes.
 
 ## 14. Configuration
 
@@ -303,7 +322,8 @@ landing page for 30, 90 or 365 days.
 | `Seo__RedirectRenderHost` | `true` to 301 `*.onrender.com` to `Seo__BaseUrl` (default off). |
 | `Brand__Email`, `Brand__Phone`, `Brand__WhatsApp`, `Brand__StreetAddress`, `Brand__PostalCode`, `Brand__SameAs__0…` | The brand's facts on every page and in the schema. |
 | `IndexNow__Key` | Turns IndexNow on. |
-| `Sites__WildcardDomain` | Free subdomains (see §13). |
+| `Sites__WildcardDomain` | `myquickmenu.com`: each restaurant's subdomain becomes its main address (see §13). Only after the wildcard certificate works. |
+| `Sites__SubdomainIsHome` | `false` = off switch: no forwarding to subdomains (default true). |
 | `Analytics__RetentionDays` | Also how long AI referral rows are kept. |
 
 ## 15. Verifying

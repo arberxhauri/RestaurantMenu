@@ -1,3 +1,4 @@
+@inject RestaurantMenu.Services.SeoService Seo
 @using RestaurantMenu.Services
 @using RestaurantMenu.ViewModels
 @model IEnumerable<Branch>
@@ -125,7 +126,7 @@ else
         @foreach (var branch in branches)
         {
             var slug = branch.Slug;
-            var menuUrl = Url.Action("Index", "Menu", new { branchName = slug }, Context.Request.Scheme);
+            var menuUrl = Seo.MenuUrl(branch);
             var cats = branch.Categories?.Count ?? 0;
             var dishes = branch.Categories?.Sum(c => c.Products?.Count ?? 0) ?? 0;
 
