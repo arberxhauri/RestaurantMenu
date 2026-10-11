@@ -51,9 +51,9 @@
                             <h3><a href="@r.MenuUrl" translate="no">@r.Name</a></h3>
                             @if (r.Kind != null) { <p>@r.Kind</p> }
                             <p class="dir-links">
-                                <a href="@r.MenuUrl">@t.DirectoryMenu</a>
-                                @if (r.SiteUrl != null) { <a href="@r.SiteUrl">@t.DirectoryWebsite</a> }
-                                @if (r.BookUrl != null) { <a href="@r.BookUrl">@t.DirectoryBook</a> }
+                                <a href="@r.MenuUrl">@t.DirectoryMenu<span class="visually-hidden">: @r.Name</span></a>
+                                @if (r.SiteUrl != null) { <a href="@r.SiteUrl">@t.DirectoryWebsite<span class="visually-hidden">: @r.Name</span></a> }
+                                @if (r.BookUrl != null) { <a href="@r.BookUrl">@t.DirectoryBook<span class="visually-hidden">: @r.Name</span></a> }
                             </p>
                         </div>
                     </li>

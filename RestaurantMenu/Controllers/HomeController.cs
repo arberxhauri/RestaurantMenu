@@ -78,7 +78,9 @@ public class HomeController : Controller
             Description = "How My Quick Menu collects, uses and protects the data of restaurants and their guests.",
             CanonicalUrl = _seo.Url("/home/privacy"),
             OgType = "article",
-            ThemeColor = "#D55C13"
+            ThemeColor = "#D55C13",
+            JsonLd = StructuredData.ForMarketingPage(await _marketing.FactsAsync("en", _seo.BaseUrl), _seo.Url("/home/privacy"), "Privacy Policy — My Quick Menu",
+                new[] { ("Home", _seo.Url("/")), ("Privacy Policy", _seo.Url("/home/privacy")) }, withSoftware: false)
         };
 
         return View();
@@ -94,7 +96,9 @@ public class HomeController : Controller
             Description = "The terms for restaurants using My Quick Menu and for guests using their menus, bookings and ordering.",
             CanonicalUrl = _seo.Url("/home/terms"),
             OgType = "article",
-            ThemeColor = "#D55C13"
+            ThemeColor = "#D55C13",
+            JsonLd = StructuredData.ForMarketingPage(await _marketing.FactsAsync("en", _seo.BaseUrl), _seo.Url("/home/terms"), "Terms of use — My Quick Menu",
+                new[] { ("Home", _seo.Url("/")), ("Terms of use", _seo.Url("/home/terms")) }, withSoftware: false)
         };
 
         return View();

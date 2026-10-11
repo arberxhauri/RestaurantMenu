@@ -19,9 +19,11 @@
 
 <header class="site-header @(isHome ? "" : "is-solid is-static")" data-header data-solid="@(isHome ? "false" : "true")">
     <div class="header-inner">
-        <a class="brand" href="@Model.Link("/")" aria-label="@t.HomeLabel">
+        @* The visible word is part of the link's name (screen readers and voice control match it). *@
+        <a class="brand" href="@Model.Link("/")">
             <partial name="_BrandMark" model="30" />
             <span class="brand-word">myquick<em>menu</em></span>
+            <span class="visually-hidden">, @t.HomeLabel</span>
         </a>
 
         <nav class="nav" id="primaryNav" aria-label="@t.NavPrimary">

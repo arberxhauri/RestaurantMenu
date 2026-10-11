@@ -487,7 +487,9 @@
                             <button type="button" class="m-star" data-pick="@n" role="radio" aria-checked="false" aria-label="@(n == 1 ? fw.Star : string.Format(fw.StarsN, n))"><i class="ph-fill ph-star" aria-hidden="true"></i></button>
                         }
                     </div>
-                    <h2 id="rateSheetTitle" data-rate-title>@fw.Prompt</h2>
+                    @* Not a heading: the footer already has "How was your visit?" as one, and menu.js puts
+                       the right title here (low or high rating) when the sheet opens. *@
+                    <p class="m-sheet-title" id="rateSheetTitle" data-rate-title>@fw.Prompt</p>
                     <p class="m-list-hint" data-rate-private hidden><i class="ph ph-lock-simple" aria-hidden="true"></i> @fw.LowHint</p>
                     <label class="m-order-note">
                         <span class="visually-hidden">@fw.CommentPlaceholder</span>
