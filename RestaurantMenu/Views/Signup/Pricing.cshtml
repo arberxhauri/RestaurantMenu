@@ -26,9 +26,6 @@
 <div class="pricing" data-pricing data-prices="@priceJson" data-currency="@Model.Currency"
      data-per-month="@w.PerMonth" data-per-year="@w.PerYear" data-on-request="@w.PriceOnRequest" data-saving="@w.YearlySaving" data-lang="@lang">
     <header class="pricing-head">
-        <a class="pricing-lang" href="/pricing?@sel.ToQuery()&lang=@w.SwitchLanguageCode" hreflang="@w.SwitchLanguageCode" lang="@w.SwitchLanguageCode">
-            <i class="ph ph-translate" aria-hidden="true"></i>@w.SwitchLanguage
-        </a>
         <h1>@w.PricingTitle</h1>
         <p class="lead">@string.Format(w.PricingIntro, Model.TrialDays)</p>
     </header>
@@ -125,8 +122,16 @@
                     }
                 </p>
                 <p class="quote-saving" data-saving-line @(q.YearlySavingCents == null ? "hidden" : "")>@(q.YearlySavingCents is { } saving ? string.Format(w.YearlySaving, Money(saving)) : "")</p>
-                <a class="btn btn-primary btn-lg w-100" href="@signupUrl" data-start>@w.StartTrial <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
-                <p class="hint mt-2">@string.Format(w.TrialNote, Model.TrialDays)</p>
+                @if (Model.SignupOpen)
+                {
+                    <a class="btn btn-primary btn-lg w-100" href="@signupUrl" data-start>@w.StartTrial <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+                    <p class="hint mt-2">@string.Format(w.TrialNote, Model.TrialDays)</p>
+                }
+                else
+                {
+                    @* Self-serve signup is closed (e.g. while card payments are being set up): the same prices, set up with us. *@
+                    <a class="btn btn-primary btn-lg w-100" href="@Model.ContactHref">@RestaurantMenu.Helpers.MarketingText.For(lang).GetInTouch <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+                }
                 <p class="hint">@w.VatNote</p>
             </div>
         </aside>

@@ -59,7 +59,7 @@
                 }
                 else
                 {
-                    <a class="m-btn m-btn--brand" href="/book/@slug@(lang == "en" ? "" : $"?lang={lang}")"><i class="ph ph-calendar-check" aria-hidden="true"></i>@w.BookAgain</a>
+                    <a class="m-btn m-btn--brand" href="/book/@slug@SeoLanguages.Query(lang, SeoLanguages.Default(Model.Branch))"><i class="ph ph-calendar-check" aria-hidden="true"></i>@w.BookAgain</a>
                 }
                 <a class="m-btn m-btn--ghost" href="@Model.MenuUrl"><i class="ph ph-book-open-text" aria-hidden="true"></i>@w.SeeMenu</a>
             </div>

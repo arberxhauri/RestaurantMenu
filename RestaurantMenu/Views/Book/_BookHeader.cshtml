@@ -1,7 +1,11 @@
 @using RestaurantMenu.Helpers
 @model (Branch Branch, string Language, string Subtitle, string? LanguageQuery)
 @{
-    var languages = Model.Branch.SupportedLanguages.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+    var languages = SeoLanguages.Of(Model.Branch);
+    var mainLanguage = SeoLanguages.Default(Model.Branch);
+    // The main language is the bare link, so switching to it never goes through a redirect.
+    string Href(string l) => l != mainLanguage ? $"?lang={l}{Model.LanguageQuery}"
+        : string.IsNullOrEmpty(Model.LanguageQuery) ? Context.Request.Path.Value! : "?" + Model.LanguageQuery![1..];
 }
 <header class="b-hero">
     <div class="b-hero-inner">
@@ -22,7 +26,7 @@
             <nav class="b-langs" aria-label="Language">
                 @foreach (var l in languages)
                 {
-                    <a href="?lang=@l@Model.LanguageQuery" lang="@l" hreflang="@l" aria-current="@(l == Model.Language ? "true" : null)">@l.ToUpperInvariant()</a>
+                    <a href="@Href(l)" lang="@l" hreflang="@l" aria-current="@(l == Model.Language ? "true" : null)">@l.ToUpperInvariant()</a>
                 }
             </nav>
         }

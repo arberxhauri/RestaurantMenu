@@ -557,3 +557,11 @@ p { text-wrap: pretty; }
 .teaser-more a { color: inherit; }
 @media (max-width: 899.98px) { .teaser-grid { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { .teaser, .teaser:hover { transition: none; transform: none; } }
+
+/* Shared marketing chrome (_MarketingHeader / _MarketingFooter) */
+.site-header.is-static { position: sticky; top: 0; }
+.nav-lang { display: inline-flex; align-items: center; gap: 6px; }
+.footer-nap { display: flex; flex-wrap: wrap; gap: 4px 16px; font-style: normal; font-size: 14px; color: var(--ink-3); width: 100%; }
+.footer-nap strong { color: var(--ink-2); font-weight: 600; }
+.footer-nap a { color: var(--ink-2); text-decoration: none; }
+.footer-nap a:hover { color: var(--ink); text-decoration: underline; }

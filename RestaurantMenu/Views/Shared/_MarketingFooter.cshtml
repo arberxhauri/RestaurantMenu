@@ -1,0 +1,41 @@
+@model RestaurantMenu.Services.MarketingChrome
+@{
+    // Every marketing page ends with the same name, address and contact details (NAP): one
+    // consistent entity for search engines and AI assistants (docs/SEO-GEO.md, "Entity consistency").
+    var t = Model.T;
+    var b = Model.Brand;
+    var isHome = ViewData["MarketingIsHome"] is true;
+    string Anchor(string id) => isHome ? "#" + id : Model.Link("/") + "#" + id;
+    var country = Model.Lang == "sq" ? "Shqipëri" : "Albania";
+    var locality = Model.Lang == "sq" && b.Locality == "Tirana" ? "Tiranë" : b.Locality;
+}
+<footer class="site-footer">
+    <div class="shell footer-inner">
+        <div class="footer-brand">
+            <partial name="_BrandMark" model="26" />
+            <span class="brand-word">myquick<em>menu</em></span>
+            <span class="footer-tag">@t.FooterTag</span>
+        </div>
+        <nav class="footer-links" aria-label="@t.FooterNav">
+            <a href="@Anchor("products")">@t.NavProducts</a>
+            <a href="@Anchor("features")">@t.NavFeatures</a>
+            <a href="@Model.Link("/pricing")">@t.NavPricing</a>
+            <a href="/home/privacy">@t.Privacy</a>
+            <a href="/home/terms">@t.Terms</a>
+            <a href="@Model.OtherLanguageHref" hreflang="@t.OtherLanguageCode" lang="@t.OtherLanguageCode">@t.OtherLanguageName</a>
+        </nav>
+        <address class="footer-nap">
+            <strong>@b.Name</strong>
+            <span>@(string.IsNullOrWhiteSpace(b.StreetAddress) ? "" : b.StreetAddress + ", ")@locality, @country</span>
+            <a href="mailto:@b.Email">@b.Email</a>
+            @if (!string.IsNullOrWhiteSpace(b.Phone))
+            {
+                <a href="@b.PhoneHref">@b.Phone</a>
+            }
+        </address>
+        <div class="footer-end">
+            <partial name="_FourCsCredit" />
+            <span>&copy; @DateTime.Now.Year @b.Name</span>
+        </div>
+    </div>
+</footer>

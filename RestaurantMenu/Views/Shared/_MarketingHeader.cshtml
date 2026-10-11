@@ -1,0 +1,42 @@
+@model RestaurantMenu.Services.MarketingChrome
+@{
+    // The marketing site's header: home, landing pages, FAQ, about, contact, directory.
+    var t = Model.T;
+    var isHome = ViewData["MarketingIsHome"] is true;
+    var showPartners = ViewData["MarketingShowPartners"] is true;
+    string Anchor(string id) => isHome ? "#" + id : Model.Link("/") + "#" + id;
+}
+<a class="skip-link" href="#main">@t.SkipToContent</a>
+
+<header class="site-header @(isHome ? "" : "is-solid is-static")" data-header data-solid="@(isHome ? "false" : "true")">
+    <div class="header-inner">
+        <a class="brand" href="@Model.Link("/")" aria-label="@t.HomeLabel">
+            <partial name="_BrandMark" model="30" />
+            <span class="brand-word">myquick<em>menu</em></span>
+        </a>
+
+        <nav class="nav" id="primaryNav" aria-label="@t.NavPrimary">
+            <a href="@Anchor("products")">@t.NavProducts</a>
+            <a href="@Anchor("features")">@t.NavFeatures</a>
+            <a href="@Anchor("how-it-works")">@t.NavHow</a>
+            <a href="@Model.Link("/pricing")">@t.NavPricing</a>
+            @if (showPartners)
+            {
+                <a href="@Anchor("partners")">@t.NavPartners</a>
+            }
+            <a class="nav-lang" href="@Model.OtherLanguageHref" hreflang="@t.OtherLanguageCode" lang="@t.OtherLanguageCode">
+                <i class="ph ph-translate" aria-hidden="true"></i>@t.OtherLanguageName
+            </a>
+            @if (!Model.SignedIn)
+            {
+                <a href="/account/login">@t.SignIn</a>
+            }
+            <a class="btn btn-primary" href="@Model.CtaHref">@Model.CtaLabel</a>
+        </nav>
+
+        <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="primaryNav"
+                aria-label="@t.OpenNav" data-label-open="@t.OpenNav" data-label-close="@t.CloseNav">
+            <i class="ph ph-list" aria-hidden="true"></i>
+        </button>
+    </div>
+</header>

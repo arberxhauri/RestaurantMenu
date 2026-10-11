@@ -22,7 +22,7 @@ public static class StructuredData
     private static string Serialize(object value) => JsonSerializer.Serialize(value, Options);
 
     /// <summary>Organization + WebSite + SoftwareApplication for the marketing landing page.</summary>
-    public static string ForLandingPage(SeoService seo, string description)
+    public static string ForLandingPage(SeoService seo, string description, string language = "en")
     {
         var baseUrl = seo.BaseUrl;
 
@@ -49,7 +49,7 @@ public static class StructuredData
             ["url"] = seo.Url("/"),
             ["name"] = seo.SiteName,
             ["description"] = description,
-            ["inLanguage"] = SeoService.DefaultLanguage,
+            ["inLanguage"] = language,
             ["publisher"] = new Dictionary<string, object?> { ["@id"] = $"{baseUrl}/#organization" }
         };
 
@@ -81,7 +81,7 @@ public static class StructuredData
     /// </summary>
     public static string ForBranchMenu(Branch branch, string language, SeoService seo)
     {
-        var canonical = seo.MenuUrl(branch.Slug, language);
+        var canonical = seo.MenuUrl(branch, language);
 
         var sections = new List<object>();
         foreach (var category in (branch.Categories ?? new List<Category>()).OrderBy(c => c.Priority))

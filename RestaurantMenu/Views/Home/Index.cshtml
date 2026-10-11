@@ -1,42 +1,27 @@
-@using Microsoft.AspNetCore.Identity
-@inject SignInManager<ApplicationUser> SignInManager
-@inject IConfiguration Configuration
-@inject RestaurantMenu.Services.SignupService Signup
-@inject RestaurantMenu.Services.PlanSettingsService PlanSettings
 @using RestaurantMenu.Helpers
+@using RestaurantMenu.Services
 @{
-    ViewData["Title"] = "Menus, websites & bookings for restaurants";
     Layout = null;
-
+    var chrome = (MarketingChrome)ViewData["Marketing"]!;
+    var prices = ViewBag.Prices as MarketingPrices;
+    var t = chrome.T;
+    var lang = chrome.Lang;
     var branches = ViewBag.Branches as IEnumerable<Branch> ?? new List<Branch>();
     var partners = branches.Where(b => !string.IsNullOrEmpty(b.Logo)).ToList();
-
-    var isSignedIn = SignInManager.IsSignedIn(User);
-    // One label per intent, used in the nav, the hero and the closing CTA. With self-serve
-    // signup open (Signup__Enabled and working email) visitors start a free trial from the
-    // pricing page; otherwise accounts are created by an admin, so they're sent to whoever
-    // sets them up (Landing__ContactUrl: a mailto:, a form or a WhatsApp link).
-    var contactUrl = Configuration["Landing:ContactUrl"] is { Length: > 0 } configured ? configured : "https://4cs.al/";
-    var signupOpen = !isSignedIn && await Signup.IsOpenAsync();
-    var trialDays = signupOpen ? await Signup.TrialDaysAsync() : 0;
-    var ctaLabel = isSignedIn ? "Go to dashboard" : signupOpen ? "Start free trial" : "Get in touch";
-    var ctaHref = isSignedIn ? Url.Action("Index", "Dashboard") : signupOpen ? "/pricing" : contactUrl;
-    var trialWords = SignupText.For("en");
-    var presetQuotes = new List<(string Key, Quote Quote)>();
-    if (signupOpen)
-    {
-        var prices = await PlanSettings.PriceTableAsync(DateTime.UtcNow);
-        var currency = (await PlanSettings.GetAsync()).Currency;
-        foreach (var p in PricingRules.Presets)
-            presetQuotes.Add((p.Key, PricingRules.Quote(PricingRules.Parse(null, "1", "Month", p.Key), prices, currency)));
-    }
+    var ctaLabel = chrome.CtaLabel;
+    var ctaHref = chrome.CtaHref;
+    var signupOpen = chrome.SignupOpen;
+    var trialDays = chrome.TrialDays;
+    var trialWords = SignupText.For(lang);
     var showPartners = partners.Any();
     // A marquee only reads as "lots of restaurants" when there are lots of them.
     var partnersAsMarquee = partners.Count >= 6;
+    ViewData["MarketingIsHome"] = true;
+    ViewData["MarketingShowPartners"] = showPartners;
 }
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="@lang">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -47,43 +32,7 @@
     <link rel="stylesheet" href="~/css/landing.css" asp-append-version="true" />
 </head>
 <body>
-    <a class="skip-link" href="#main">Skip to content</a>
-
-    <header class="site-header" data-header>
-        <div class="header-inner">
-            <a class="brand" asp-controller="Home" asp-action="Index" aria-label="My Quick Menu, home">
-                <partial name="_BrandMark" model="30" />
-                <span class="brand-word">myquick<em>menu</em></span>
-            </a>
-
-            <nav class="nav" id="primaryNav" aria-label="Primary">
-                <a href="#products">Products</a>
-                <a href="#features">Features</a>
-                <a href="#how-it-works">How it works</a>
-                @if (signupOpen)
-                {
-                    <a href="#pricing">Pricing</a>
-                }
-                @if (showPartners)
-                {
-                    <a href="#partners">Partners</a>
-                }
-                @if (isSignedIn)
-                {
-                    <a asp-controller="Dashboard" asp-action="Index">Dashboard</a>
-                }
-                else
-                {
-                    <a asp-controller="Account" asp-action="Login">Sign in</a>
-                }
-                <a class="btn btn-primary" href="@ctaHref">@ctaLabel</a>
-            </nav>
-
-            <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="primaryNav" aria-label="Open menu">
-                <i class="ph ph-list" aria-hidden="true"></i>
-            </button>
-        </div>
-    </header>
+    <partial name="_MarketingHeader" model="chrome" />
 
     <main id="main">
         @* ================================================================
@@ -99,7 +48,7 @@
                     <div class="hero-media" data-hero-media>
                         <img class="hero-img hero-img--table" data-hero-table
                              src="~/img/hero-table.webp" width="1920" height="1280"
-                             alt="Friends sharing breakfast plates around a wooden table"
+                             alt="@t.HeroImageAlt"
                              fetchpriority="high" decoding="async" />
                         <img class="hero-img hero-img--plate" data-hero-plate
                              src="~/img/hero-plate.webp" width="900" height="900"
@@ -108,30 +57,27 @@
                     </div>
 
                     <div class="hero-copy" data-hero-copy>
-                        <h1 id="hero-title">The whole restaurant, one platform</h1>
-                        <p class="hero-lede">
-                            Digital menus, your website, bookings and the back office on one set of data.
-                            Change a price once and it lands everywhere.
-                        </p>
+                        <h1 id="hero-title">@t.HeroTitle</h1>
+                        <p class="hero-lede">@t.HeroLede</p>
                         <div class="hero-actions">
                             <a class="btn btn-primary btn-lg" href="@ctaHref">
                                 @ctaLabel <i class="ph ph-arrow-right" aria-hidden="true"></i>
                             </a>
-                            <a class="btn btn-glass btn-lg" href="#how-it-works">See how it works</a>
+                            <a class="btn btn-glass btn-lg" href="#how-it-works">@t.SeeHow</a>
                         </div>
                     </div>
                 </div>
 
                 <div class="story" data-story>
                     <div class="story-text" data-story-text>
-                        <h2>Change it once. It's on every table.</h2>
-                        <p>One menu lives behind every QR code, so a price, a language or a sold-out dish updates wherever guests are looking.</p>
+                        <h2>@t.StoryTitle</h2>
+                        <p>@t.StoryText</p>
                     </div>
 
                     <div class="device" data-device>
                         <div class="device-screen">
                             <img class="device-banner" src="~/img/hero-plate.webp" width="900" height="900" alt="" aria-hidden="true" loading="lazy" />
-                            <div class="device-ui" data-device-ui aria-label="Example of a guest's menu">
+                            <div class="device-ui" data-device-ui aria-label="@t.DeviceLabel">
                                 <div class="dui-head">
                                     <div>
                                         <div class="dui-name">Oliva Kitchen</div>
@@ -193,22 +139,22 @@
                         <li class="callout" data-callout>
                             <i class="ph ph-tag" aria-hidden="true"></i>
                             <div>
-                                <strong>Price changed in the dashboard</strong>
-                                <span>The next guest to open the menu sees the new price.</span>
+                                <strong>@t.Callout1Title</strong>
+                                <span>@t.Callout1Text</span>
                             </div>
                         </li>
                         <li class="callout" data-callout>
                             <i class="ph ph-translate" aria-hidden="true"></i>
                             <div>
-                                <strong>Guest switched to Shqip</strong>
-                                <span>Seven languages, written once by you.</span>
+                                <strong>@t.Callout2Title</strong>
+                                <span>@t.Callout2Text</span>
                             </div>
                         </li>
                         <li class="callout" data-callout>
                             <i class="ph ph-prohibit" aria-hidden="true"></i>
                             <div>
-                                <strong>Marked as sold out</strong>
-                                <span>Guests can no longer order it from the table.</span>
+                                <strong>@t.Callout3Title</strong>
+                                <span>@t.Callout3Text</span>
                             </div>
                         </li>
                     </ol>
@@ -219,15 +165,14 @@
         @if (showPartners)
         {
             <section id="partners" class="partners" aria-labelledby="partners-title">
-                <h2 id="partners-title" class="partners-title">Restaurants already serving with My Quick Menu</h2>
+                <h2 id="partners-title" class="partners-title">@t.PartnersTitle</h2>
                 <div class="partners-track @(partnersAsMarquee ? "is-marquee" : "")">
                     <ul class="partners-row">
                         @foreach (var branch in partners)
                         {
                             <li>
-                                <a class="partner-logo" asp-controller="Menu" asp-action="Index"
-                                   asp-route-branchName="@branch.Slug"
-                                   target="_blank" rel="noopener" title="@branch.Name menu">
+                                <a class="partner-logo" href="/menu/@branch.Slug"
+                                   target="_blank" rel="noopener" title="@string.Format(t.PartnerMenu, branch.Name)">
                                     <img src="@branch.Logo" alt="@branch.Name" width="140" height="64" loading="lazy" />
                                 </a>
                             </li>
@@ -253,52 +198,52 @@
         <section id="products" class="section products" aria-labelledby="products-title">
             <div class="shell">
                 <header class="section-head" data-reveal>
-                    <h2 id="products-title">Four products, one back office</h2>
-                    <p>Start with the menu and add the rest when you need it. Dishes, hours and branches are entered once and shared across everything.</p>
+                    <h2 id="products-title">@t.ProductsTitle</h2>
+                    <p>@t.ProductsText</p>
                 </header>
 
                 <div class="bento">
                     <article class="tile tile--menus" data-reveal>
                         <img class="tile-photo" src="~/img/guest-dining.webp" width="1200" height="800"
-                             alt="A guest enjoying dinner in a warmly lit restaurant" loading="lazy" />
+                             alt="@t.MenusImageAlt" loading="lazy" />
                         <div class="tile-body tile-body--overlay">
-                            <h3><i class="ph ph-qr-code" aria-hidden="true"></i>Digital menus</h3>
-                            <p>QR menus guests scan at the table. Multilingual, photo-rich, allergen-aware and editable mid-service, with orders sent straight to the kitchen.</p>
+                            <h3><i class="ph ph-qr-code" aria-hidden="true"></i>@t.MenusTitle</h3>
+                            <p>@t.MenusText</p>
                             <ul class="tags">
-                                <li>QR &amp; table tents</li><li>Table ordering</li><li>Allergens</li>
+                                @foreach (var tag in t.MenusTags) { <li>@tag</li> }
                             </ul>
                         </div>
                     </article>
 
                     <article class="tile tile--ops" data-reveal>
                         <div class="tile-body">
-                            <h3><i class="ph ph-squares-four" aria-hidden="true"></i>Management system</h3>
-                            <p>Kitchen display, stock, staff shifts and end-of-day sales in one dashboard. Multi-branch from day one, with every branch on one overview.</p>
+                            <h3><i class="ph ph-squares-four" aria-hidden="true"></i>@t.OpsTitle</h3>
+                            <p>@t.OpsText</p>
                             <ul class="tags">
-                                <li>Kitchen display</li><li>Stock &amp; recipes</li><li>Shifts &amp; sales</li>
+                                @foreach (var tag in t.OpsTags) { <li>@tag</li> }
                             </ul>
                         </div>
                         <img class="tile-photo tile-photo--inset" src="~/img/chef-plating.webp" width="900" height="1385"
-                             alt="A chef finishing plates under copper pass lights" loading="lazy" />
+                             alt="@t.OpsImageAlt" loading="lazy" />
                     </article>
 
                     <article class="tile tile--web" data-reveal>
                         <img class="tile-photo tile-photo--top" src="~/img/cafe-interior.webp" width="1200" height="900"
-                             alt="A bright café dining room with wooden tables" loading="lazy" />
+                             alt="@t.WebImageAlt" loading="lazy" />
                         <div class="tile-body">
-                            <h3><i class="ph ph-globe-simple" aria-hidden="true"></i>Restaurant websites</h3>
-                            <p>A fast site on a free subdomain or your own domain. It pulls its dishes, photos and hours straight from your dashboard, so it's never out of date.</p>
+                            <h3><i class="ph ph-globe-simple" aria-hidden="true"></i>@t.WebTitle</h3>
+                            <p>@t.WebText</p>
                             <ul class="tags">
-                                <li>Free subdomain</li><li>Own domain</li><li>SEO ready</li>
+                                @foreach (var tag in t.WebTags) { <li>@tag</li> }
                             </ul>
                         </div>
                     </article>
 
                     <article class="tile tile--book" data-reveal>
                         <div class="tile-body">
-                            <h3><i class="ph ph-calendar-check" aria-hidden="true"></i>Bookings</h3>
-                            <p>Take reservations from the site, the menu QR or your Instagram link. Confirmations and reminders by SMS or email, no-shows tracked.</p>
-                            <div class="slots" role="group" aria-label="Try it: pick a time for Friday">
+                            <h3><i class="ph ph-calendar-check" aria-hidden="true"></i>@t.BookTitle</h3>
+                            <p>@t.BookText</p>
+                            <div class="slots" role="group" aria-label="@t.SlotsLabel">
                                 <button type="button" class="slot" disabled>18:00</button>
                                 <button type="button" class="slot" aria-pressed="false">18:30</button>
                                 <button type="button" class="slot" aria-pressed="true">19:00</button>
@@ -306,10 +251,10 @@
                                 <button type="button" class="slot" disabled>20:00</button>
                                 <button type="button" class="slot" aria-pressed="false">20:30</button>
                             </div>
-                            <p class="slot-note" aria-live="polite" data-slot-note>Table for 4 held at 19:00. Confirmation goes out by SMS or email.</p>
+                            <p class="slot-note" aria-live="polite" data-slot-note data-template="@t.SlotNote">@string.Format(t.SlotNote, "19:00")</p>
                         </div>
                         <img class="tile-photo tile-photo--side" src="~/img/terrace.webp" width="1200" height="900"
-                             alt="A seaside restaurant terrace set for dinner" loading="lazy" />
+                             alt="@t.BookImageAlt" loading="lazy" />
                     </article>
                 </div>
             </div>
@@ -318,40 +263,19 @@
         <section id="features" class="section features" aria-labelledby="features-title">
             <div class="shell features-grid">
                 <header class="features-head">
-                    <h2 id="features-title">Shared across every product</h2>
-                    <p>Built for the way restaurants actually work: mid-service edits, seasonal swaps, and guests who don't all speak your language.</p>
+                    <h2 id="features-title">@t.FeaturesTitle</h2>
+                    <p>@t.FeaturesText</p>
                 </header>
                 <ul class="feature-list">
-                    <li data-reveal>
-                        <i class="ph ph-translate" aria-hidden="true"></i>
-                        <h3>Multilingual support</h3>
-                        <p>Serve international guests in their own language. They switch in one tap; you write it once.</p>
-                    </li>
-                    <li data-reveal>
-                        <i class="ph ph-device-mobile" aria-hidden="true"></i>
-                        <h3>Mobile optimised</h3>
-                        <p>Menus built phone-first: legible in low light, thumb-reachable, and once opened they keep working when the Wi-Fi drops.</p>
-                    </li>
-                    <li data-reveal>
-                        <i class="ph ph-lightning" aria-hidden="true"></i>
-                        <h3>Instant updates</h3>
-                        <p>Sold out at 19:40? One tap. The next guest to open the menu sees it, and table orders for it are refused.</p>
-                    </li>
-                    <li data-reveal>
-                        <i class="ph ph-palette" aria-hidden="true"></i>
-                        <h3>Custom branding</h3>
-                        <p>Your colours, your logo, your banner. The menu looks like your room, not like software.</p>
-                    </li>
-                    <li data-reveal>
-                        <i class="ph ph-hand-grabbing" aria-hidden="true"></i>
-                        <h3>Easy management</h3>
-                        <p>Branches, categories and dishes in one dashboard. Drag to reorder, no training needed.</p>
-                    </li>
-                    <li data-reveal>
-                        <i class="ph ph-shield-check" aria-hidden="true"></i>
-                        <h3>Secure &amp; reliable</h3>
-                        <p>Encrypted connections, role-based access, and deleted branches you can recover. Your menu is up when your doors are.</p>
-                    </li>
+                    @{ var featureIcons = new[] { "ph-translate", "ph-device-mobile", "ph-lightning", "ph-palette", "ph-hand-grabbing", "ph-shield-check" }; }
+                    @for (var n = 0; n < t.Features.Length; n++)
+                    {
+                        <li data-reveal>
+                            <i class="ph @featureIcons[n]" aria-hidden="true"></i>
+                            <h3>@t.Features[n].Title</h3>
+                            <p>@t.Features[n].Text</p>
+                        </li>
+                    }
                 </ul>
             </div>
         </section>
@@ -359,61 +283,61 @@
         <section id="how-it-works" class="section steps" aria-labelledby="steps-title">
             <div class="shell">
                 <header class="section-head" data-reveal>
-                    <h2 id="steps-title">Three steps to going live</h2>
+                    <h2 id="steps-title">@t.StepsTitle</h2>
                 </header>
             </div>
             <div class="stack" data-stack>
                 <article class="stack-card" data-stack-card>
                     <div class="stack-inner">
                         <div class="stack-copy">
-                            <h3>Create your branch</h3>
-                            <p>Name, address, logo and banner. Each location gets its own menu, its own colours and its own link.</p>
+                            <h3>@t.Steps[0].Title</h3>
+                            <p>@t.Steps[0].Text</p>
                         </div>
-                        <img src="~/img/dining-room.webp" width="1400" height="934" alt="An empty dining room ready for service" loading="lazy" />
+                        <img src="~/img/dining-room.webp" width="1400" height="934" alt="@t.Steps[0].ImageAlt" loading="lazy" />
                     </div>
                 </article>
                 <article class="stack-card" data-stack-card>
                     <div class="stack-inner">
                         <div class="stack-copy">
-                            <h3>Add your menu</h3>
-                            <p>Categories, dishes, prices, photos and allergens. Translate each dish once and every guest reads it in their language.</p>
+                            <h3>@t.Steps[1].Title</h3>
+                            <p>@t.Steps[1].Text</p>
                         </div>
-                        <img src="~/img/chef-prep.webp" width="900" height="1350" alt="A chef chopping herbs on a board" loading="lazy" />
+                        <img src="~/img/chef-prep.webp" width="900" height="1350" alt="@t.Steps[1].ImageAlt" loading="lazy" />
                     </div>
                 </article>
                 <article class="stack-card" data-stack-card>
                     <div class="stack-inner">
                         <div class="stack-copy">
-                            <h3>Switch on the rest</h3>
-                            <p>Print the QR, publish the website, open the booking calendar. Same data, three new front doors.</p>
+                            <h3>@t.Steps[2].Title</h3>
+                            <p>@t.Steps[2].Text</p>
                         </div>
-                        <img src="~/img/fine-dining.webp" width="1400" height="934" alt="A plated dish on a set table" loading="lazy" />
+                        <img src="~/img/fine-dining.webp" width="1400" height="934" alt="@t.Steps[2].ImageAlt" loading="lazy" />
                     </div>
                 </article>
             </div>
         </section>
 
-        @if (signupOpen)
+        @if (prices != null && prices.Presets.Any(p => p.Quote.Complete))
         {
             <section id="pricing" class="section pricing-teaser" aria-labelledby="pricing-title">
                 <div class="shell">
                     <header class="section-head" data-reveal>
-                        <h2 id="pricing-title">Pay for what you use</h2>
-                        <p>Every plan starts with the menu. Add the rest per branch, switch it off when you don't need it. @trialDays days free, no card needed.</p>
+                        <h2 id="pricing-title">@t.PricingTitle</h2>
+                        <p>@string.Format(t.PricingText, trialDays)</p>
                     </header>
                     <div class="teaser-grid">
-                        @foreach (var (key, quote) in presetQuotes)
+                        @foreach (var (key, quote) in prices.Presets)
                         {
                             var (title, text) = SignupText.Preset(trialWords, key);
-                            <a class="teaser" href="/pricing?preset=@key#build" data-reveal>
+                            <a class="teaser" href="@chrome.Link("/pricing")@(lang == "en" ? "?" : "&")preset=@key#build" data-reveal>
                                 <h3>@title</h3>
                                 <p>@text</p>
                                 <span class="teaser-price">@(quote.Complete ? string.Format(trialWords.FromPerMonth, PricingRules.Money(quote.PerMonthCents, quote.Currency)) : trialWords.PriceOnRequest)</span>
-                                <span class="teaser-go">Start free trial <i class="ph ph-arrow-right" aria-hidden="true"></i></span>
+                                <span class="teaser-go">@(signupOpen ? t.StartTrial : t.SeePricing) <i class="ph ph-arrow-right" aria-hidden="true"></i></span>
                             </a>
                         }
                     </div>
-                    <p class="teaser-more"><a href="/pricing">Build your own plan</a> · <a href="/pricing?lang=sq" lang="sq" hreflang="sq">Çmimet në shqip</a></p>
+                    <p class="teaser-more"><a href="@chrome.Link("/pricing")">@t.BuildOwnPlan</a></p>
                 </div>
             </section>
         }
@@ -421,8 +345,8 @@
         <section id="cta" class="cta" aria-labelledby="cta-title">
             <img class="cta-photo" src="~/img/evening-room.webp" width="1200" height="1812" alt="" aria-hidden="true" loading="lazy" />
             <div class="cta-inner" data-reveal>
-                <h2 id="cta-title">Run the whole room from one place</h2>
-                <p>Menus, website, bookings and back office. Start with one, add the rest whenever. @(signupOpen ? $"Try it free for {trialDays} days, no card needed." : "Tell us about your restaurant and we'll set up your account.")</p>
+                <h2 id="cta-title">@t.CtaTitle</h2>
+                <p>@t.CtaText @(signupOpen ? string.Format(t.CtaTrial, trialDays) : t.CtaContact)</p>
                 <a class="btn btn-primary btn-lg" href="@ctaHref">
                     @ctaLabel <i class="ph ph-arrow-right" aria-hidden="true"></i>
                 </a>
@@ -430,33 +354,7 @@
         </section>
     </main>
 
-    <footer class="site-footer">
-        <div class="shell footer-inner">
-            <div class="footer-brand">
-                <partial name="_BrandMark" model="26" />
-                <span class="brand-word">myquick<em>menu</em></span>
-                <span class="footer-tag">Menus, websites &amp; bookings</span>
-            </div>
-            <nav class="footer-links" aria-label="Footer">
-                <a href="#products">Products</a>
-                <a href="#features">Features</a>
-                @if (signupOpen)
-                {
-                    <a href="/pricing">Pricing</a>
-                }
-                @if (showPartners)
-                {
-                    <a href="#partners">Partners</a>
-                }
-                <a asp-controller="Home" asp-action="Privacy">Privacy</a>
-                <a asp-controller="Home" asp-action="Terms">Terms</a>
-            </nav>
-            <div class="footer-end">
-                <partial name="_FourCsCredit" />
-                <span>&copy; @DateTime.Now.Year My Quick Menu</span>
-            </div>
-        </div>
-    </footer>
+    <partial name="_MarketingFooter" model="chrome" />
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>

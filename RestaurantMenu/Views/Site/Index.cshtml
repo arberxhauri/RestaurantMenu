@@ -78,7 +78,7 @@
                 <ul>
                     @foreach (var l in Model.Languages)
                     {
-                        <li><a href="?lang=@l" lang="@l" hreflang="@l" aria-current="@(l == lang ? "true" : null)">@LanguageHelper.GetLanguageName(l)</a></li>
+                        <li><a href="@(l == SeoLanguages.Default(b) ? (Context.Items.ContainsKey(RestaurantMenu.Services.SiteHostMiddleware.ItemKey) ? "/" : Context.Request.Path.Value) : "?lang=" + l)" lang="@l" hreflang="@l" aria-current="@(l == lang ? "true" : null)">@LanguageHelper.GetLanguageName(l)</a></li>
                     }
                 </ul>
             </details>

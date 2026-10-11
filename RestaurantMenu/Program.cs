@@ -38,6 +38,9 @@ if (string.IsNullOrEmpty(connectionString))
 
 // 2. Register Soft Delete Interceptor
 builder.Services.AddScoped<SoftDeleteInterceptor>();
+// Search engines: UpdatedUtc stamps and "these branches changed" (sitemap cache, IndexNow).
+builder.Services.AddSingleton<SeoChanges>();
+builder.Services.AddScoped<SeoChangeInterceptor>();
 
 // 3. DbContext with RETRY POLICY
 // The interceptor comes from the context's own scope (not a second, throwaway service
@@ -48,7 +51,7 @@ builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
             maxRetryCount: 5,
             maxRetryDelay: TimeSpan.FromSeconds(30),
             errorCodesToAdd: null))
-    .AddInterceptors(sp.GetRequiredService<SoftDeleteInterceptor>()));
+    .AddInterceptors(sp.GetRequiredService<SoftDeleteInterceptor>(), sp.GetRequiredService<SeoChangeInterceptor>()));
 
 builder.Services.AddScoped<ColorExtractionService>();
 
@@ -127,6 +130,9 @@ builder.Services.Configure<RouteOptions>(options => options.LowercaseUrls = true
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<SeoService>();
+builder.Services.AddScoped<SitemapService>();
+builder.Services.AddScoped<MarketingService>();
+builder.Services.Configure<BrandOptions>(builder.Configuration.GetSection("Brand"));
 builder.Services.AddScoped<QrCodeService>();
 builder.Services.AddScoped<BranchSlugs>();
 // Plans and subscriptions: what each account may do (docs/PLAN-signup-payments.md).
@@ -304,6 +310,10 @@ app.UseForwardedHeaders();
 // nosniff, referrer policy, no framing (except guest pages), and a strict policy on /billing.
 app.UseMiddleware<SecurityHeaders>();
 
+// One spelling per page: no trailing slash, lower case (301). On the address as typed, so before
+// SiteHostMiddleware rewrites it.
+app.UseMiddleware<UrlHygieneMiddleware>();
+
 // Restaurants' own domains: before static files and routing, so "/" on such a domain becomes
 // that restaurant's website and back-office paths go to the app's own address.
 app.UseMiddleware<SiteHostMiddleware>();
@@ -346,6 +356,8 @@ app.UseStaticFiles(new StaticFileOptions
 });
 
 app.UseRouting();
+// ETag / Last-Modified / 304 for menus, websites and marketing pages.
+app.UseMiddleware<HtmlValidatorsMiddleware>();
 app.UseRateLimiter();
 
 // 🔥 CRITICAL: Authentication BEFORE Authorization

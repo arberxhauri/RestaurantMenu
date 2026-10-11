@@ -1,41 +1,45 @@
 @model SeoMetadata
+@using RestaurantMenu.Helpers
 @*
-    Every <head> tag that search engines and social scrapers read.
-    Include this inside <head>, after <meta charset> and the viewport tag.
+    Every <head> tag that search engines, social scrapers and AI assistants read.
+    Include this inside <head>, after <meta charset> and the viewport tag. Every public page goes
+    through here; see docs/SEO-GEO.md.
 *@
+@{
+    // For HtmlValidatorsMiddleware's Last-Modified header (the page is buffered, so headers can still change).
+    if (Model.LastModifiedUtc is { } lastModified) Context.Items[RestaurantMenu.Services.HtmlValidatorsMiddleware.LastModifiedKey] = lastModified;
+    var xDefault = Model.XDefaultUrl ?? Model.Alternates.FirstOrDefault()?.Url;
+}
 <title>@Model.Title</title>
 <meta name="description" content="@Model.Description" />
-
-@if (Model.NoIndex)
-{
-    <meta name="robots" content="noindex, nofollow" />
-}
-else
-{
-    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
-}
+<meta name="robots" content="@Model.RobotsContent" />
 
 @if (!string.IsNullOrEmpty(Model.CanonicalUrl))
 {
     <link rel="canonical" href="@Model.CanonicalUrl" />
 }
 
-@foreach (var alternate in Model.Alternates)
+@if (Model.Alternates.Count > 1)
 {
-    <link rel="alternate" hreflang="@alternate.Language" href="@alternate.Url" />
-}
-@if (Model.Alternates.Count > 0)
-{
-    var fallback = Model.Alternates.FirstOrDefault(a => a.Language == SeoService.DefaultLanguage)
-                   ?? Model.Alternates[0];
-    <link rel="alternate" hreflang="x-default" href="@fallback.Url" />
+    foreach (var alternate in Model.Alternates)
+    {
+        <link rel="alternate" hreflang="@alternate.Language" href="@alternate.Url" />
+    }
+    <link rel="alternate" hreflang="x-default" href="@xDefault" />
 }
 
 <meta property="og:type" content="@Model.OgType" />
 <meta property="og:title" content="@Model.Title" />
 <meta property="og:description" content="@Model.Description" />
-<meta property="og:site_name" content="My Quick Menu" />
-<meta property="og:locale" content="@Model.Locale" />
+<meta property="og:site_name" content="@Model.SiteName" />
+<meta property="og:locale" content="@SeoLanguages.OgLocale(Model.Locale)" />
+@if (Model.Alternates.Count > 1)
+{
+    foreach (var alternate in Model.Alternates.Where(a => a.Language != Model.Locale))
+    {
+        <meta property="og:locale:alternate" content="@SeoLanguages.OgLocale(alternate.Language)" />
+    }
+}
 @if (!string.IsNullOrEmpty(Model.CanonicalUrl))
 {
     <meta property="og:url" content="@Model.CanonicalUrl" />
@@ -43,6 +47,11 @@ else
 @if (!string.IsNullOrEmpty(Model.ImageUrl))
 {
     <meta property="og:image" content="@Model.ImageUrl" />
+    @if (Model.ImageWidth is { } width && Model.ImageHeight is { } height)
+    {
+        <meta property="og:image:width" content="@width" />
+        <meta property="og:image:height" content="@height" />
+    }
     <meta property="og:image:alt" content="@(Model.ImageAlt ?? Model.Title)" />
 }
 
@@ -69,9 +78,8 @@ else
 @if (!string.IsNullOrEmpty(Model.JsonLd))
 {
     @*
-        Raw is safe here: StructuredData serialises with the default System.Text.Json
-        encoder, which escapes < > & into \uXXXX so restaurant-supplied names and
-        descriptions cannot close this script element.
+        Raw is safe here: JsonLd.Serialize escapes < > & ' " into \uXXXX, so restaurant-supplied
+        names and descriptions cannot close this script element.
     *@
     <script type="application/ld+json">@Html.Raw(Model.JsonLd)</script>
 }

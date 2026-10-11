@@ -1,0 +1,210 @@
+@using RestaurantMenu.Controllers
+@using RestaurantMenu.Helpers
+@model SearchPage
+@{
+    var b = Model.Branch;
+    ViewData["Title"] = "Search & sharing - " + b.Name;
+    var baseName = LanguageHelper.GetLanguageName(Model.BaseLanguage);
+    string Tr(string? json, string lang)
+    {
+        if (string.IsNullOrEmpty(json)) return "";
+        try { return System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json)?.GetValueOrDefault(lang) ?? ""; }
+        catch (System.Text.Json.JsonException) { return ""; }
+    }
+    var menuShort = Model.MenuUrl.Replace("https://", "").Replace("http://", "");
+    var checklist = Model.Checklist;
+    var todo = checklist.Items.Where(i => !i.Done).ToList();
+}
+
+<ol class="crumbs">
+    <li><a asp-controller="Dashboard" asp-action="Index">My branches</a></li>
+    <li><a asp-controller="Branch" asp-action="Details" asp-route-id="@b.Id">@b.Name</a></li>
+    <li aria-current="page">Search &amp; sharing</li>
+</ol>
+
+<header class="page-head">
+    <div>
+        <h1>Search &amp; sharing</h1>
+        <p>How @b.Name shows up on Google, in link previews and when guests ask ChatGPT, Gemini or other assistants for a place to eat.</p>
+    </div>
+    <div class="page-actions">
+        <a class="btn btn-outline-secondary btn-sm" href="@Model.MenuUrl" target="_blank" rel="noopener"><i class="ph ph-eye" aria-hidden="true"></i>Open menu</a>
+    </div>
+</header>
+
+@if (Model.Errors?.Count > 0)
+{
+    <div class="flash flash--danger mb-4" role="alert"><i class="ph ph-warning-octagon" aria-hidden="true"></i><p>@string.Join(" ", Model.Errors)</p></div>
+}
+
+<div class="ws-layout">
+    <form method="post" asp-action="Save" asp-route-id="@b.Id" enctype="multipart/form-data" class="panel" data-seo-form>
+        <div class="panel-body">
+            <div class="form-check form-switch mb-1">
+                <input type="checkbox" class="form-check-input" role="switch" id="showInSearch" name="showInSearch" value="true" @(b.ShowInSearch ? "checked" : "") />
+                <label class="form-check-label fw-semibold" for="showInSearch">Show my menu in Google</label>
+                <input type="hidden" name="showInSearch" value="false" />
+            </div>
+            <p class="hint mt-0">
+                On: your menu and website can appear in Google, Bing and AI assistants. Off: they still work for guests with the link or QR code, but search engines are asked to leave them out.
+                @if (b.IsDemo) { <strong>An administrator has marked this branch as a demo, so it stays hidden either way.</strong> }
+                else if (Model.Dishes == 0) { <strong>It will appear once the menu has dishes.</strong> }
+            </p>
+
+            <h2 class="h6 mt-4">What and where</h2>
+            <div class="ws-grid">
+                <div>
+                    <label class="form-label" for="businessType">Type of place</label>
+                    <select id="businessType" name="businessType" class="form-select">
+                        @foreach (var type in Enum.GetValues<BusinessType>())
+                        {
+                            <option value="@type" selected="@(b.BusinessType == type)">@Cuisines.TypeNames[type]["en"]</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="cuisine">Cuisine <span class="optional">optional</span></label>
+                    <select id="cuisine" name="cuisine" class="form-select">
+                        <option value="">Not set</option>
+                        @foreach (var c in Cuisines.All)
+                        {
+                            <option value="@c.Key" selected="@(b.Cuisine == c.Key)">@c.Name["en"]</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="city">City</label>
+                    <input id="city" name="city" class="form-control" maxlength="100" value="@b.City" placeholder="e.g. Tiranë" autocomplete="address-level2" data-seo-city />
+                </div>
+            </div>
+            <p class="hint">Shown in your search title and given to Google as structured data, in each guest language.</p>
+
+            <h3 class="form-label mt-3 mb-1">Map location <span class="optional">optional</span></h3>
+            <div class="ws-grid">
+                <div>
+                    <label class="form-label" for="latitude">Latitude</label>
+                    <input id="latitude" name="latitude" class="form-control mono" inputmode="decimal" value="@(b.Latitude?.ToString(System.Globalization.CultureInfo.InvariantCulture))" placeholder="41.3275" aria-describedby="mapHint" />
+                </div>
+                <div>
+                    <label class="form-label" for="longitude">Longitude</label>
+                    <input id="longitude" name="longitude" class="form-control mono" inputmode="decimal" value="@(b.Longitude?.ToString(System.Globalization.CultureInfo.InvariantCulture))" placeholder="19.8187" aria-describedby="mapHint" />
+                </div>
+            </div>
+            <p class="hint" id="mapHint">In Google Maps, right-click your restaurant and click the two numbers to copy them, then paste them into the first box.</p>
+
+            <div class="mb-3">
+                <label class="form-label" for="googleBusinessUrl">Google Business Profile <span class="optional">optional</span></label>
+                <input id="googleBusinessUrl" name="googleBusinessUrl" class="form-control" maxlength="500" value="@b.GoogleBusinessUrl" placeholder="https://maps.app.goo.gl/…" spellcheck="false" />
+                <span class="hint">Your restaurant's link on Google Maps (Share → Copy link). It tells Google that your menu and your Maps listing are the same place. No listing yet? Create one free at business.google.com.</span>
+            </div>
+
+            <h2 class="h6 mt-4">In Google's results</h2>
+            <p class="hint mt-0">Leave empty to use the text we write from your menu (shown greyed out). Write your own to say what makes you special.</p>
+            <div class="mb-3">
+                <label class="form-label d-flex justify-content-between" for="seoTitle">
+                    <span>Title <span class="optional">@baseName</span></span>
+                    <span class="hint m-0" data-count-for="seoTitle" data-count-ideal="60"></span>
+                </label>
+                <input id="seoTitle" name="seoTitle" class="form-control" maxlength="@SearchRules.TitleMax" value="@b.SeoTitle" placeholder="@Model.GeneratedTitle" data-seo-title />
+            </div>
+            <div class="mb-3">
+                <label class="form-label d-flex justify-content-between" for="seoDescription">
+                    <span>Description <span class="optional">@baseName</span></span>
+                    <span class="hint m-0" data-count-for="seoDescription" data-count-ideal="155"></span>
+                </label>
+                <textarea id="seoDescription" name="seoDescription" class="form-control" rows="3" maxlength="@SearchRules.DescriptionMax" placeholder="@Model.GeneratedDescription" data-seo-description>@b.SeoDescription</textarea>
+            </div>
+
+            <figure class="gpreview" aria-label="Preview of your Google result" data-seo-preview>
+                <figcaption class="hint">Preview in Google</figcaption>
+                <div class="gpreview-site">
+                    @if (!string.IsNullOrEmpty(b.Logo)) { <img src="@b.Logo" alt="" width="26" height="26" /> }
+                    <span><strong>@b.Name</strong><small>@menuShort</small></span>
+                </div>
+                <p class="gpreview-title" data-preview-title>@(b.SeoTitle ?? Model.GeneratedTitle)</p>
+                <p class="gpreview-text" data-preview-description>@(b.SeoDescription ?? Model.GeneratedDescription)</p>
+            </figure>
+
+            @if (Model.OtherLanguages.Length > 0)
+            {
+                <details class="ws-tr mt-3">
+                    <summary>Translations (@string.Join(", ", Model.OtherLanguages.Select(LanguageHelper.GetLanguageName)))</summary>
+                    @foreach (var l in Model.OtherLanguages)
+                    {
+                        <fieldset class="ws-tr-lang">
+                            <legend>@LanguageHelper.GetLanguageName(l)</legend>
+                            <label class="form-label" for="seoTitle_@l">Title</label>
+                            <input id="seoTitle_@l" name="seoTitle_@l" class="form-control mb-2" maxlength="@SearchRules.TitleMax" value="@Tr(b.SeoTitleTranslations, l)" lang="@l" />
+                            <label class="form-label" for="seoDescription_@l">Description</label>
+                            <textarea id="seoDescription_@l" name="seoDescription_@l" class="form-control" rows="2" maxlength="@SearchRules.DescriptionMax" lang="@l">@Tr(b.SeoDescriptionTranslations, l)</textarea>
+                        </fieldset>
+                    }
+                    <span class="hint">Empty: guests searching in that language see the text we write from your menu, in their language.</span>
+                </details>
+            }
+
+            <h2 class="h6 mt-4">Link preview image</h2>
+            <p class="hint mt-0">Shown when your link is shared on WhatsApp, Facebook or Instagram messages. 1200 × 630 pixels is ideal. Without one, your banner is used.</p>
+            @if (!string.IsNullOrEmpty(b.ShareImage))
+            {
+                <img src="@b.ShareImage" alt="Current link preview image of @b.Name" class="seo-share-current" width="300" height="158" />
+                <div class="form-check mb-2">
+                    <input type="checkbox" class="form-check-input" id="removeShareImage" name="removeShareImage" value="true" />
+                    <label class="form-check-label" for="removeShareImage">Remove it and use the banner</label>
+                </div>
+            }
+            <input type="file" name="shareImage" class="form-control" accept=".jpg,.jpeg,.png" aria-label="Upload a link preview image" />
+
+            @if (Model.IsAdmin)
+            {
+                <h2 class="h6 mt-4">Administrator</h2>
+                <div class="form-check form-switch mb-1">
+                    <input type="checkbox" class="form-check-input" role="switch" id="isDemo" name="isDemo" value="true" @(b.IsDemo ? "checked" : "") />
+                    <label class="form-check-label" for="isDemo">Demo or test restaurant</label>
+                    <input type="hidden" name="isDemo" value="false" />
+                </div>
+                <p class="hint mt-0">Never in search results or the sitemaps, and left out of the home page and restaurant directory, whatever the owner chooses.</p>
+            }
+        </div>
+        <div class="panel-foot">
+            <button type="submit" class="btn btn-primary"><i class="ph ph-check" aria-hidden="true"></i>Save</button>
+        </div>
+    </form>
+
+    <aside class="ws-side">
+        <section class="panel" aria-labelledby="scoreTitle">
+            <div class="panel-body">
+                <h2 id="scoreTitle" class="h5 mb-1">Share &amp; get found</h2>
+                <p class="seo-score"><strong>@checklist.Score%</strong> complete</p>
+                <div class="seo-meter" role="progressbar" aria-valuenow="@checklist.Score" aria-valuemin="0" aria-valuemax="100" aria-labelledby="scoreTitle"><span style="width: @checklist.Score%"></span></div>
+                <p class="hint">The more you fill in, the better Google, Maps and AI assistants can describe @b.Name.</p>
+                <ul class="seo-checklist">
+                    @foreach (var item in checklist.Items.OrderBy(i => i.Done))
+                    {
+                        <li class="@(item.Done ? "is-ok" : "")">
+                            <i class="ph @(item.Done ? "ph-check-circle" : item.Scored ? "ph-circle" : "ph-lightbulb")" aria-hidden="true"></i>
+                            <div>
+                                @if (!item.Done && item.Action != null) { <a href="@item.Action">@item.Title</a> } else { <span>@item.Title</span> }
+                                @if (!item.Done) { <small>@item.Why</small> }
+                            </div>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </section>
+        <section class="panel" aria-labelledby="statusTitle">
+            <div class="panel-body">
+                <h2 id="statusTitle" class="h5 mb-2">Status</h2>
+                <p class="mb-1">
+                    @if (Model.Indexed) { <span class="chip chip--ok"><i class="ph ph-check" aria-hidden="true"></i>Open to search engines</span> }
+                    else { <span class="chip chip--later"><i class="ph ph-eye-slash" aria-hidden="true"></i>Hidden from search engines</span> }
+                </p>
+                <p class="hint mb-1">Menu: <a href="@Model.MenuUrl" target="_blank" rel="noopener">@menuShort</a> (opens in @LanguageHelper.GetLanguageName(Model.MainLanguage); change the main language in <a asp-controller="Branch" asp-action="Edit" asp-route-id="@b.Id">Edit branch</a>).</p>
+                @if (Model.SiteUrl != null)
+                {
+                    <p class="hint mb-0">Website: <a href="@Model.SiteUrl" target="_blank" rel="noopener">@Model.SiteUrl.Replace("https://", "")</a></p>
+                }
+            </div>
+        </section>
+    </aside>
+</div>

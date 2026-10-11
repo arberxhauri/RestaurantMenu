@@ -25,6 +25,13 @@
     var tableLabel = table == null ? null : TableText.Label(table.Value, currentLang);
     var tableCode = ViewBag.TableCode as string;
     var tableQuery = table == null ? "" : $"&t={table}" + (tableCode == null ? "" : $"&k={tableCode}");
+    var mainLang = ViewBag.MainLanguage as string ?? "en";
+    // The main language is the bare link (no ?lang=, so no redirect), the table always kept.
+    string LangHref(string l)
+    {
+        var q = (l == mainLang ? "" : $"&lang={l}") + tableQuery;
+        return q.Length == 0 ? Context.Request.Path.Value! : "?" + q[1..];
+    }
 
 
     // Allergens & dietary tags. The filter button only appears once the restaurant has
@@ -108,7 +115,7 @@
         <link rel="preload" as="image" href="@Model.Banner" fetchpriority="high" />
     }
     <partial name="_HeadAssets" />
-    <link rel="manifest" href="/menu/@Model.Slug/manifest.webmanifest@(currentLang == "en" ? "" : $"?lang={currentLang}")" />
+    <link rel="manifest" href="/menu/@Model.Slug/manifest.webmanifest@(currentLang == mainLang ? "" : $"?lang={currentLang}")" />
     <link rel="stylesheet" href="~/css/menu.css" asp-append-version="true" />
     <style>
         :root {
@@ -169,7 +176,7 @@
                     @foreach (var lang in supportedLanguages)
                     {
                         <li>
-                            <a href="?lang=@lang@tableQuery" lang="@lang" hreflang="@lang" aria-current="@(lang == currentLang ? "true" : null)">
+                            <a href="@LangHref(lang)" lang="@lang" hreflang="@lang" aria-current="@(lang == currentLang ? "true" : null)">
                                 @LanguageHelper.GetLanguageName(lang)
                                 @if (lang == currentLang)
                                 {

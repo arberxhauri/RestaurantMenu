@@ -42,11 +42,8 @@ public class BookController : Controller
             .FirstOrDefaultAsync(b => b.Id == match.BranchId);
     }
 
-    private static string Language(Branch b, string? lang)
-    {
-        var languages = b.SupportedLanguages.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-        return lang != null && languages.Contains(lang) ? lang : languages.FirstOrDefault() ?? "en";
-    }
+    private static string Language(Branch b, string? lang) =>
+        SeoLanguages.Resolve(SeoLanguages.Of(b), SeoLanguages.Default(b), lang).Language;
 
     [HttpGet("book/{slug}")]
     public async Task<IActionResult> Index(string slug, string? lang, string? date, int guests = 2)
@@ -58,7 +55,30 @@ public class BookController : Controller
         {
             return RedirectPermanent($"/book/{canonical}{Request.QueryString}");
         }
-        return View(await PageAsync(branch, Language(branch, lang), date, guests, new BookRequest(), null));
+        var languages = SeoLanguages.Of(branch);
+        var mainLanguage = SeoLanguages.Default(branch);
+        var (language, wrongLanguage) = SeoLanguages.Resolve(languages, mainLanguage, lang);
+        if (wrongLanguage)
+        {
+            var onOwnHost = HttpContext.Items.ContainsKey(SiteHostMiddleware.ItemKey);
+            return RedirectPermanent((onOwnHost ? "/book" : $"/book/{canonical}") + SeoLanguages.QueryWithout(Request.Query));
+        }
+
+        // A form, not content: out of search results, but its links (the menu) are followed.
+        ViewData["Seo"] = new SeoMetadata
+        {
+            Title = SeoText.BookTitle(branch.Name, language),
+            Description = SeoText.BookDescription(branch.Name, language),
+            CanonicalUrl = _seo.Url($"/book/{canonical}") + SeoLanguages.Query(language, mainLanguage),
+            NoIndex = true,
+            Locale = language,
+            SiteName = branch.Name,
+            ImageUrl = !string.IsNullOrWhiteSpace(branch.Banner) ? _seo.Absolute(branch.Banner) : null,
+            ImageAlt = branch.Name,
+            FaviconUrl = string.IsNullOrEmpty(branch.Logo) ? "/logo.png" : branch.Logo,
+            ThemeColor = BrandTheme.Parse(branch.ThemeColors).Primary
+        };
+        return View(await PageAsync(branch, language, date, guests, new BookRequest(), null));
     }
 
     private async Task<BookPage> PageAsync(Branch branch, string lang, string? date, int guests, BookRequest form, Dictionary<string, string>? errors)
@@ -173,7 +193,7 @@ public class BookController : Controller
         if (branch == null || r == null) return NotFound();
         Response.Headers.CacheControl = "no-store";
         ViewBag.JustBooked = TempData["JustBooked"] is true;
-        return View(new ReservationPage(branch, r, r.Language, r.StartsAtUtc <= DateTime.UtcNow, _seo.MenuUrl(branch.Slug, r.Language == "en" ? null : r.Language)));
+        return View(new ReservationPage(branch, r, r.Language, r.StartsAtUtc <= DateTime.UtcNow, _seo.MenuUrl(branch, r.Language)));
     }
 
     [HttpGet("book/{slug}/r/{id:guid}/calendar.ics")]

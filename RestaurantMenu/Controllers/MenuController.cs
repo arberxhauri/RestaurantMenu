@@ -30,7 +30,7 @@ public class MenuController : Controller
     }
 
     [Route("menu/{branchName}")]
-    public async Task<IActionResult> Index(string branchName, string lang = "en", int? t = null, string? k = null)
+    public async Task<IActionResult> Index(string branchName, string? lang = null, int? t = null, string? k = null)
     {
         // By the branch's link, or an old one (a rename, or the name-based link printed on
         // QR codes before links were stored): those are redirected below.
@@ -56,12 +56,12 @@ public class MenuController : Controller
             return NotFound();
         }
 
-        // Validate language
-        var supportedLanguages = branch.SupportedLanguages.Split(',');
-        if (!supportedLanguages.Contains(lang))
-        {
-            lang = "en"; // Fallback to English
-        }
+        // The main language is on the bare URL; ?lang= the main language or one the menu doesn't
+        // have is a duplicate, sent to the bare URL (a table's ?t=&k= from the QR code is kept).
+        var supportedLanguages = SeoLanguages.Of(branch);
+        var mainLanguage = SeoLanguages.Default(branch);
+        var (resolved, wrongLanguage) = SeoLanguages.Resolve(supportedLanguages, mainLanguage, lang);
+        lang = resolved;
 
         // ?t= is the table the guest's QR code was printed for. Anything out of range is
         // ignored rather than shown, so a mistyped link still opens the menu.
@@ -76,7 +76,11 @@ public class MenuController : Controller
         var canonicalSlug = branch.Slug;
         if (!string.Equals(branchName, canonicalSlug, StringComparison.Ordinal))
         {
-            return RedirectPermanent(_seo.MenuUrl(branch.Slug, lang, table, code));
+            return RedirectPermanent(_seo.MenuUrl(branch, lang, table, code));
+        }
+        if (wrongLanguage)
+        {
+            return RedirectPermanent($"/menu/{canonicalSlug}{SeoLanguages.QueryWithout(Request.Query)}");
         }
 
         // Collected before any are hidden: a guest may have saved a dish to their list
@@ -109,12 +113,13 @@ public class MenuController : Controller
         var booking = await _context.ReservationSettings.AsNoTracking().FirstOrDefaultAsync(s => s.BranchId == branch.Id);
         if (table == null && booking != null && BookingService.IsBookable(branch, booking, plan?.Has(BillingModule.Bookings) == true))
         {
-            ViewBag.BookUrl = $"/book/{canonicalSlug}" + (lang == SeoService.DefaultLanguage ? "" : $"?lang={lang}");
+            ViewBag.BookUrl = $"/book/{canonicalSlug}" + SeoLanguages.Query(lang, mainLanguage);
         }
         ViewBag.SupportedLanguages = supportedLanguages;
+        ViewBag.MainLanguage = mainLanguage;
         ViewBag.ThemeColors = branch.ThemeColors;
 
-        ViewData["Seo"] = BuildSeo(branch, lang, supportedLanguages);
+        ViewData["Seo"] = BuildSeo(branch, lang, supportedLanguages, mainLanguage, await LastModifiedAsync(branch));
 
         // Counted only once the page is really served to a guest (not for the redirect above).
         if (MenuAnalytics.ShouldCount(HttpContext))
@@ -285,8 +290,9 @@ public class MenuController : Controller
         if (match == null) return NotFound();
         var branch = await _context.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == match.BranchId);
         if (branch == null) return NotFound();
-        var languages = branch.SupportedLanguages.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        var languages = SeoLanguages.Of(branch);
         var language = lang != null && languages.Contains(lang) ? lang : null;
+        var mainLanguage = SeoLanguages.Default(branch);
         var theme = BrandTheme.Parse(branch.ThemeColors);
         var slug = branch.Slug;
         var icon = string.IsNullOrWhiteSpace(branch.Logo)
@@ -298,52 +304,66 @@ public class MenuController : Controller
             name = branch.Name,
             short_name = branch.Name.Length > 12 ? branch.Name[..12].TrimEnd() : branch.Name,
             description = $"The menu of {branch.Name}",
-            start_url = $"/menu/{slug}" + (language == null || language == SeoService.DefaultLanguage ? "" : $"?lang={language}"),
+            start_url = $"/menu/{slug}" + (language == null ? "" : SeoLanguages.Query(language, mainLanguage)),
             scope = "/menu",
             display = "standalone",
             background_color = "#F4F4F2",
             theme_color = theme.Primary,
-            lang = language ?? languages.FirstOrDefault() ?? "en",
+            lang = language ?? mainLanguage,
             icons = new[] { icon }
         };
         Response.Headers.CacheControl = "public, max-age=3600";
         return Content(System.Text.Json.JsonSerializer.Serialize(manifest), "application/manifest+json");
     }
 
-    private SeoMetadata BuildSeo(Branch branch, string language, string[] supportedLanguages)
+    /// <summary>
+    /// When anything a guest sees on this menu last changed: the branch, a category or a dish,
+    /// deleted ones included (a removed dish changes the page too).
+    /// </summary>
+    private async Task<DateTime> LastModifiedAsync(Branch branch)
     {
-        var categoryNames = (branch.Categories ?? new List<Category>())
-            .OrderBy(c => c.Priority)
-            .Select(c => TranslationHelper.GetTranslation(c.Name, c.NameTranslations, language))
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Take(4)
-            .ToList();
+        var categories = await _context.Categories.IgnoreQueryFilters().Where(c => c.BranchId == branch.Id)
+            .MaxAsync(c => (DateTime?)c.UpdatedUtc);
+        var dishes = await _context.Products.IgnoreQueryFilters().Where(p => p.BranchId == branch.Id)
+            .MaxAsync(p => (DateTime?)p.UpdatedUtc);
+        return new[] { branch.UpdatedUtc, categories ?? DateTime.MinValue, dishes ?? DateTime.MinValue }.Max();
+    }
 
-        var description = categoryNames.Count > 0
-            ? $"The full menu for {branch.Name}: {string.Join(", ", categoryNames)}. Prices and photos, kept up to date by the restaurant."
-            : $"The full menu for {branch.Name}. Prices and photos, kept up to date by the restaurant.";
+    private SeoMetadata BuildSeo(Branch branch, string language, string[] supportedLanguages, string mainLanguage, DateTime lastModified)
+    {
+        var categories = (branch.Categories ?? new List<Category>()).OrderBy(c => c.Priority)
+            .Where(c => c.Products?.Count > 0).ToList();
+        var dishes = categories.SelectMany(c => c.Products!).ToList();
 
-        var image = !string.IsNullOrWhiteSpace(branch.Banner) ? branch.Banner : branch.Logo;
+        var facts = new SeoText.MenuFacts(
+            branch.Name,
+            branch.City,
+            categories.Select(c => TranslationHelper.GetTranslation(c.Name, c.NameTranslations, language)).ToList(),
+            HasPhotos: dishes.Any(p => !string.IsNullOrWhiteSpace(p.Image)),
+            HasAllergens: dishes.Any(p => p.Allergens != null),
+            HasDiets: dishes.Any(p => (p.Diets & ~Diet.Spicy) != Diet.None),
+            LanguageCount: supportedLanguages.Length);
 
-        var alternates = supportedLanguages
-            .Select(l => l.Trim())
-            .Where(l => l.Length > 0)
-            .Distinct()
-            .Select(l => new SeoAlternate(l, _seo.MenuUrl(branch.Slug, l)))
-            .ToList();
+        var image = !string.IsNullOrWhiteSpace(branch.ShareImage) ? branch.ShareImage
+            : !string.IsNullOrWhiteSpace(branch.Banner) ? branch.Banner : branch.Logo;
 
         return new SeoMetadata
         {
-            Title = $"{branch.Name} — Menu",
-            Description = description,
-            CanonicalUrl = _seo.MenuUrl(branch.Slug, language),
+            Title = SeoText.Own(branch.SeoTitle, branch.SeoTitleTranslations, language, SeoLanguages.BaseTextLanguage(branch))
+                    ?? SeoText.MenuTitle(branch.Name, branch.City, language),
+            Description = SeoText.Own(branch.SeoDescription, branch.SeoDescriptionTranslations, language, SeoLanguages.BaseTextLanguage(branch))
+                          ?? SeoText.MenuDescription(facts, language),
+            CanonicalUrl = _seo.MenuUrl(branch, language),
             ImageUrl = string.IsNullOrWhiteSpace(image) ? null : _seo.Absolute(image),
-            ImageAlt = $"{branch.Name} menu",
+            ImageAlt = branch.Name,
+            SiteName = branch.Name,
             OgType = "restaurant.menu",
             Locale = language,
             FaviconUrl = string.IsNullOrWhiteSpace(branch.Logo) ? "/logo.png" : branch.Logo,
-            // A single-language menu gains nothing from hreflang tags pointing at itself.
-            Alternates = alternates.Count > 1 ? alternates : Array.Empty<SeoAlternate>(),
+            NoIndex = !SeoIndexing.Menu(branch, dishes.Count),
+            Alternates = supportedLanguages.Select(l => new SeoAlternate(l, _seo.MenuUrl(branch, l))).ToList(),
+            XDefaultUrl = _seo.MenuUrl(branch),
+            LastModifiedUtc = lastModified,
             JsonLd = StructuredData.ForBranchMenu(branch, language, _seo)
         };
     }

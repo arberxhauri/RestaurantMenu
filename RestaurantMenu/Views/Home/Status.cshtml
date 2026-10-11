@@ -29,6 +29,10 @@
         <p>Try again in a moment.</p>
     }
     <div class="page-actions justify-content-center mt-2">
-        <a class="btn btn-primary" asp-controller="Home" asp-action="Index">Go to My Quick Menu</a>
+        <a class="btn btn-primary" href="/">Go to My Quick Menu</a>
+        @if (code == 404)
+        {
+            <a class="btn btn-outline-secondary" href="/pricing">See pricing</a>
+        }
     </div>
 </div>

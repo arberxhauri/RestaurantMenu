@@ -1259,3 +1259,26 @@ a.chip--link:hover { background: var(--accent-soft); color: var(--accent); }
 .billing-bank { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0 0 16px; padding: 14px 16px; border-radius: var(--r-md); background: var(--surface-2); }
 .billing-bank dt { font-weight: 500; color: var(--ink-3); }
 .billing-bank dd { margin: 0; overflow-wrap: anywhere; }
+
+/* ---------- Search & sharing (Views/Search) ---------- */
+.gpreview { margin: 4px 0 0; padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); font-family: Arial, Helvetica, sans-serif; max-width: 600px; }
+.gpreview figcaption { font-family: var(--font-body); margin: 0 0 10px; }
+.gpreview-site { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.gpreview-site img { border-radius: 50%; object-fit: cover; background: var(--bg-2); }
+.gpreview-site span { display: flex; flex-direction: column; line-height: 1.25; font-size: 14px; color: var(--ink); }
+.gpreview-site small { font-size: 12px; color: var(--ink-3); }
+.gpreview-title { margin: 0 0 4px; font-size: 20px; line-height: 1.3; color: #1a0dab; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gpreview-text { margin: 0; font-size: 14px; line-height: 1.58; color: #4d5156; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+@media (prefers-color-scheme: dark) { .gpreview-title { color: #99c3ff; } .gpreview-text { color: #bdc1c6; } }
+[data-count-for].is-over { color: var(--danger, #b42318); font-weight: 600; }
+.seo-share-current { display: block; margin: 0 0 8px; border-radius: var(--r-sm); object-fit: cover; border: 1px solid var(--line); }
+.seo-score { margin: 0 0 6px; font-size: 15px; color: var(--ink-2); }
+.seo-score strong { font-size: 28px; color: var(--ink); margin-right: 4px; }
+.seo-meter { height: 8px; border-radius: 99px; background: var(--bg-2); overflow: hidden; margin-bottom: 10px; }
+.seo-meter span { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
+.seo-checklist { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; font-size: 14px; }
+.seo-checklist li { display: flex; gap: 8px; align-items: flex-start; }
+.seo-checklist li i { margin-top: 2px; color: var(--ink-3); }
+.seo-checklist li.is-ok { color: var(--ink-3); }
+.seo-checklist li.is-ok i { color: var(--ok, #12805c); }
+.seo-checklist small { display: block; color: var(--ink-3); }

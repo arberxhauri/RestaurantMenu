@@ -115,6 +115,8 @@ public async Task<IActionResult> Create(Branch branch, IFormFile? logo, IFormFil
     {
         branch.SupportedLanguages = "en"; // Default to English
     }
+    // The main language: what the bare menu link opens in (SeoLanguages). One of the ticked ones.
+    branch.DefaultLanguage = SeoLanguages.Default(SeoLanguages.Of(branch), form["defaultLanguage"].ToString());
     
     ModelState.Remove("UserId");
     ModelState.Remove("User");
@@ -291,6 +293,8 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
         {
             existingBranch.SupportedLanguages = "en";
         }
+        // The main language (bare menu link). A language no longer ticked falls back to the rule.
+        existingBranch.DefaultLanguage = SeoLanguages.Default(SeoLanguages.Of(existingBranch), form["defaultLanguage"].ToString());
 
         // Handle logo upload and extract colors
         if (logo != null && logo.Length > 0)

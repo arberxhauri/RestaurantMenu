@@ -11,7 +11,9 @@ public record PricingPage(
     IReadOnlyList<(string Key, PlanSelection Selection, Quote Quote)> Presets,
     IReadOnlyDictionary<(Models.BillingModule, Models.BillingInterval), int> Prices,
     string Currency,
-    int TrialDays);
+    int TrialDays,
+    bool SignupOpen = true,
+    string ContactHref = "/contact");
 
 /// <summary>What the signup form posts. Plan fields (m, b, i) come along from /pricing.</summary>
 public class SignupForm

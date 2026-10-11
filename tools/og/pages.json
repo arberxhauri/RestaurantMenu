@@ -1,0 +1,14 @@
+{
+  "home": {
+    "photo": "hero-table.webp",
+    "title": { "en": "The whole restaurant, one platform", "sq": "I gjithë restoranti, në një platformë" },
+    "subtitle": { "en": "QR digital menus, a website and online bookings from one dashboard.", "sq": "Menu dixhitale me QR, faqe interneti dhe rezervime online nga një panel." },
+    "pill": { "en": "14-day free trial", "sq": "14 ditë provë falas" }
+  },
+  "pricing": {
+    "photo": "plates-overhead.webp",
+    "title": { "en": "Pay for what you use", "sq": "Paguani vetëm për atë që përdorni" },
+    "subtitle": { "en": "Start with the menu, add a website, bookings or management per branch.", "sq": "Filloni me menunë, shtoni faqen, rezervimet ose menaxhimin për çdo degë." },
+    "pill": { "en": "Pricing", "sq": "Çmimet" }
+  }
+}

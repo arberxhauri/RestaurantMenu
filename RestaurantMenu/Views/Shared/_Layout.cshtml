@@ -6,10 +6,13 @@
     {
         Title = $"{ViewData["Title"]} - My Quick Menu",
         Description = "Manage your restaurant's digital menus with My Quick Menu.",
-        NoIndex = true
+        NoIndex = true,
+        NoFollow = true
     };
 
-    var signedIn = User.Identity?.IsAuthenticated == true;
+    // Public marketing pages on this layout (pricing, privacy, terms) get the marketing header and footer.
+    var marketing = ViewData["Marketing"] as RestaurantMenu.Services.MarketingChrome;
+    var signedIn = User.Identity?.IsAuthenticated == true && marketing == null;
     var userName = User.Identity?.Name ?? "";
     var initial = string.IsNullOrEmpty(userName) ? "?" : userName.Substring(0, 1).ToUpperInvariant();
     var controller = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
@@ -33,10 +36,17 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <partial name="_HeadAssets" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    @if (marketing != null)
+    {
+        <link rel="stylesheet" href="~/css/marketing-chrome.css" asp-append-version="true" />
+    }
     @await RenderSectionAsync("Styles", required: false)
 </head>
 <body class="@(signedIn ? "app-body" : "public-body")">
-    <a class="skip-link" href="#main">Skip to content</a>
+    @if (marketing == null)
+    {
+        <a class="skip-link" href="#main">Skip to content</a>
+    }
 
     @if (signedIn)
     {
@@ -150,6 +160,18 @@
             </div>
         </div>
     }
+    else if (marketing != null)
+    {
+        <div class="mchrome">
+            <partial name="_MarketingHeader" model="marketing" />
+        </div>
+        <main id="main" class="public-main">
+            @RenderBody()
+        </main>
+        <div class="mchrome">
+            <partial name="_MarketingFooter" model="marketing" />
+        </div>
+    }
     else
     {
         <header class="public-header">
@@ -171,6 +193,10 @@
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    @if (marketing != null)
+    {
+        <script src="~/js/landing.js" asp-append-version="true" defer></script>
+    }
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

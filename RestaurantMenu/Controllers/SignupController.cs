@@ -34,10 +34,12 @@ public class SignupController : Controller
     private readonly SeoService _seo;
     private readonly IMemoryCache _cache;
     private readonly IDataProtector _formTime;
+    private readonly MarketingService _marketing;
 
     public SignupController(SignupService signup, SubscriptionService subscriptions, PlanSettingsService plan, BranchSlugs slugs, SignInManager<ApplicationUser> signIn,
-        UserManager<ApplicationUser> users, SeoService seo, IMemoryCache cache, IDataProtectionProvider protection)
+        UserManager<ApplicationUser> users, SeoService seo, IMemoryCache cache, IDataProtectionProvider protection, MarketingService marketing)
     {
+        _marketing = marketing;
         _signup = signup;
         _subscriptions = subscriptions;
         _plan = plan;
@@ -53,11 +55,17 @@ public class SignupController : Controller
 
     // ---------------------------------------------------------------- pricing
 
+    /// <summary>
+    /// Always public, signup open or not: prices are what restaurants and AI assistants look for.
+    /// While signup is closed the button asks to get in touch instead. English on /pricing, Albanian
+    /// on /pricing?lang=sq (no browser-language guessing: one language per address).
+    /// </summary>
     [HttpGet("pricing")]
     public async Task<IActionResult> Pricing(List<string>? m, string? b, string? i, string? preset, string? lang)
     {
-        if (!await _signup.IsOpenAsync()) return NotFound();
-        var language = Lang(lang);
+        var (language, wrongLanguage) = MarketingPages.Resolve(MarketingPages.Get("pricing"), lang);
+        if (wrongLanguage) return RedirectPermanent("/pricing" + SeoLanguages.QueryWithout(Request.Query));
+        var signupOpen = await _signup.IsOpenAsync();
         var w = SignupText.For(language);
         var prices = await _plan.PriceTableAsync(DateTime.UtcNow);
         var currency = (await _plan.GetAsync()).Currency;
@@ -69,9 +77,13 @@ public class SignupController : Controller
                 return (p.Key, s, PricingRules.Quote(s, prices, currency));
             }).ToList();
 
-        ViewData["Seo"] = Seo(w.PricingTitle, string.Format(w.PricingIntro, await _signup.TrialDaysAsync()), language, "/pricing");
-        ViewData["SignInLabel"] = w.SignIn;
-        return View(new PricingPage(w, language, selection, PricingRules.Quote(selection, prices, currency), presets, prices, currency, await _signup.TrialDaysAsync()));
+        var lowest = (await _marketing.PricesAsync()).Lowest;
+        var title = lowest == null ? $"{w.PricingTitle} · My Quick Menu"
+            : string.Format(language == "sq" ? "Çmimet: menu dixhitale nga {0} në muaj · My Quick Menu" : "Pricing: QR menus from {0} a month · My Quick Menu", lowest);
+        ViewData["Seo"] = Seo(title, string.Format(w.PricingIntro, await _signup.TrialDaysAsync()), language, "/pricing");
+        ViewData["Marketing"] = await _marketing.ChromeAsync(language, "/pricing");
+        return View(new PricingPage(w, language, selection, PricingRules.Quote(selection, prices, currency), presets, prices, currency, await _signup.TrialDaysAsync(),
+            signupOpen, _marketing.ContactHref(language)));
     }
 
     // ---------------------------------------------------------------- signup
@@ -286,10 +298,16 @@ public class SignupController : Controller
 
     private SeoMetadata Seo(string title, string description, string language, string path) => new()
     {
-        Title = $"{title} · My Quick Menu",
-        Description = description,
-        CanonicalUrl = _seo.Url(path) + (language == "en" ? "" : "?lang=" + language),
+        Title = title,
+        Description = SeoText.Trim(description, SeoText.DescriptionMax),
+        CanonicalUrl = _seo.Url(path) + SeoLanguages.Query(language, "en"),
         Locale = language,
-        Alternates = new[] { new SeoAlternate("en", _seo.Url(path)), new SeoAlternate("sq", _seo.Url(path) + "?lang=sq") }
+        Alternates = new[] { new SeoAlternate("en", _seo.Url(path)), new SeoAlternate("sq", _seo.Url(path) + "?lang=sq") },
+        XDefaultUrl = _seo.Url(path),
+        ImageUrl = _seo.Absolute($"/img/og/pricing-{language}.png"),
+        ImageWidth = 1200,
+        ImageHeight = 630,
+        ImageAlt = title,
+        ThemeColor = "#D55C13"
     };
 }
