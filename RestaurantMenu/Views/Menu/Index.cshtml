@@ -199,6 +199,15 @@
                 <span class="m-logo m-logo--initial" aria-hidden="true">@Model.Name.Substring(0, 1)</span>
             }
             <h1 class="m-name" translate="no">@Model.Name</h1>
+            @{
+                // What and where, in the guest's language (Search & sharing). Also given to Google as servesCuisine/address.
+                var kind = Model.BusinessType == BusinessType.Restaurant && Cuisines.Find(Model.Cuisine) == null ? null : Cuisines.Phrase(Model.BusinessType, Model.Cuisine, currentLang);
+                var kindLine = string.Join(" · ", new[] { kind, Model.City }.Where(x => !string.IsNullOrWhiteSpace(x)));
+            }
+            @if (kindLine.Length > 0)
+            {
+                <p class="m-kind">@kindLine</p>
+            }
             @if (tableLabel != null)
             {
                 <p class="m-table"><i class="ph-fill ph-armchair" aria-hidden="true"></i><span>@tableLabel</span></p>

@@ -73,6 +73,17 @@ public class MarketingService
         return (await PricesAsync()).Lowest is { } lowest ? string.Format(t.Definition, lowest) : t.DefinitionNoPrice;
     }
 
+    /// <summary>What the marketing pages' structured data says about My Quick Menu (StructuredData.MarketingFacts).</summary>
+    public async Task<StructuredData.MarketingFacts> FactsAsync(string lang, string baseUrl)
+    {
+        var prices = await PricesAsync();
+        var words = SignupText.For(lang);
+        var plans = prices.Presets.Where(p => p.Quote.Complete)
+            .Select(p => (SignupText.Preset(words, p.Key).Title, p.Quote.PerMonthCents))
+            .ToList();
+        return new StructuredData.MarketingFacts(baseUrl, lang, await DefinitionAsync(lang), _brand, prices.Currency, plans);
+    }
+
     /// <param name="path">This page's path without ?lang (for the language switch).</param>
     public async Task<MarketingChrome> ChromeAsync(string lang, string path)
     {

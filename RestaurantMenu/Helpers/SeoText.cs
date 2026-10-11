@@ -121,6 +121,16 @@ public static partial class SeoText
     /// <summary>What a menu page's description draws on: the real, visible facts.</summary>
     public record MenuFacts(string Name, string? City, IReadOnlyList<string> Categories, bool HasPhotos, bool HasAllergens, bool HasDiets, int LanguageCount = 1);
 
+    private static readonly Dictionary<string, string> MenuNames = new()
+    {
+        ["en"] = "{0} menu", ["sq"] = "Menuja e {0}", ["it"] = "Menu di {0}", ["de"] = "Speisekarte von {0}",
+        ["fr"] = "Menu de {0}", ["es"] = "Carta de {0}", ["tr"] = "{0} menüsü"
+    };
+
+    /// <summary>The menu's own name: "Oliver's Italian menu", "Menuja e Oliva".</summary>
+    public static string MenuName(string name, string language) =>
+        string.Format(MenuNames.TryGetValue(language, out var f) ? f : MenuNames["en"], name);
+
     /// <summary>"{Name} Menu & Prices · {City}", shortened to fit 60 characters (city first, then the suffix).</summary>
     public static string MenuTitle(string name, string? city, string language)
     {

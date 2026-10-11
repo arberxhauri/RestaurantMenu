@@ -91,6 +91,11 @@
         <div class="w-hero-scrim" aria-hidden="true"></div>
         <div class="w-hero-content">
             <h1 translate="no">@b.Name</h1>
+            @{
+                var kind = b.BusinessType == BusinessType.Restaurant && Cuisines.Find(b.Cuisine) == null ? null : Cuisines.Phrase(b.BusinessType, b.Cuisine, lang);
+                var kindLine = string.Join(" · ", new[] { kind, b.City }.Where(x => !string.IsNullOrWhiteSpace(x)));
+            }
+            @if (kindLine.Length > 0) { <p class="w-kind">@kindLine</p> }
             @if (tagline != null) { <p class="w-tagline">@tagline</p> }
             @if (Model.Status != null)
             {

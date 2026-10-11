@@ -132,6 +132,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<SeoService>();
 builder.Services.AddScoped<SitemapService>();
 builder.Services.AddScoped<MarketingService>();
+builder.Services.AddScoped<RestaurantSeo>();
 builder.Services.Configure<BrandOptions>(builder.Configuration.GetSection("Brand"));
 builder.Services.AddScoped<QrCodeService>();
 builder.Services.AddScoped<BranchSlugs>();

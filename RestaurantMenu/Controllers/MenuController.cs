@@ -17,9 +17,11 @@ public class MenuController : Controller
     private readonly FeedbackService _feedback;
     private readonly BranchSlugs _slugs;
     private readonly IEntitlementService _entitlements;
+    private readonly RestaurantSeo _restaurantSeo;
 
-    public MenuController(ApplicationDbContext context, SeoService seo, MenuAnalytics analytics, OrderService orders, FeedbackService feedback, BranchSlugs slugs, IEntitlementService entitlements)
+    public MenuController(ApplicationDbContext context, SeoService seo, MenuAnalytics analytics, OrderService orders, FeedbackService feedback, BranchSlugs slugs, IEntitlementService entitlements, RestaurantSeo restaurantSeo)
     {
+        _restaurantSeo = restaurantSeo;
         _entitlements = entitlements;
         _slugs = slugs;
         _context = context;
@@ -111,7 +113,8 @@ public class MenuController : Controller
         ViewBag.Ordering = plan?.Has(BillingModule.Ordering) == true ? await OrderingStateAsync(branch, table, code) : null;
         // "Book a table" in the header while online booking is on (not at a table: they're already here).
         var booking = await _context.ReservationSettings.AsNoTracking().FirstOrDefaultAsync(s => s.BranchId == branch.Id);
-        if (table == null && booking != null && BookingService.IsBookable(branch, booking, plan?.Has(BillingModule.Bookings) == true))
+        var bookable = booking != null && BookingService.IsBookable(branch, booking, plan?.Has(BillingModule.Bookings) == true);
+        if (table == null && bookable)
         {
             ViewBag.BookUrl = $"/book/{canonicalSlug}" + SeoLanguages.Query(lang, mainLanguage);
         }
@@ -119,7 +122,8 @@ public class MenuController : Controller
         ViewBag.MainLanguage = mainLanguage;
         ViewBag.ThemeColors = branch.ThemeColors;
 
-        ViewData["Seo"] = BuildSeo(branch, lang, supportedLanguages, mainLanguage, await LastModifiedAsync(branch));
+        ViewData["Seo"] = await BuildSeoAsync(branch, lang, supportedLanguages, mainLanguage, await LastModifiedAsync(branch),
+            bookable ? _seo.Url($"/book/{canonicalSlug}") + SeoLanguages.Query(lang, mainLanguage) : null);
 
         // Counted only once the page is really served to a guest (not for the redirect above).
         if (MenuAnalytics.ShouldCount(HttpContext))
@@ -329,7 +333,7 @@ public class MenuController : Controller
         return new[] { branch.UpdatedUtc, categories ?? DateTime.MinValue, dishes ?? DateTime.MinValue }.Max();
     }
 
-    private SeoMetadata BuildSeo(Branch branch, string language, string[] supportedLanguages, string mainLanguage, DateTime lastModified)
+    private async Task<SeoMetadata> BuildSeoAsync(Branch branch, string language, string[] supportedLanguages, string mainLanguage, DateTime lastModified, string? bookingUrl)
     {
         var categories = (branch.Categories ?? new List<Category>()).OrderBy(c => c.Priority)
             .Where(c => c.Products?.Count > 0).ToList();
@@ -347,10 +351,15 @@ public class MenuController : Controller
         var image = !string.IsNullOrWhiteSpace(branch.ShareImage) ? branch.ShareImage
             : !string.IsNullOrWhiteSpace(branch.Banner) ? branch.Banner : branch.Logo;
 
+        var title = SeoText.Own(branch.SeoTitle, branch.SeoTitleTranslations, language, SeoLanguages.BaseTextLanguage(branch))
+                    ?? SeoText.MenuTitle(branch.Name, branch.City, language);
+        var site = await _context.BranchSites.AsNoTracking().FirstOrDefaultAsync(s => s.BranchId == branch.Id);
+        var ld = await _restaurantSeo.FactsAsync(branch, language, site, bookingUrl);
+        var crumbs = new List<(string, string)> { ("My Quick Menu", _seo.Url("/")), (branch.Name, _seo.MenuUrl(branch, language)) };
+
         return new SeoMetadata
         {
-            Title = SeoText.Own(branch.SeoTitle, branch.SeoTitleTranslations, language, SeoLanguages.BaseTextLanguage(branch))
-                    ?? SeoText.MenuTitle(branch.Name, branch.City, language),
+            Title = title,
             Description = SeoText.Own(branch.SeoDescription, branch.SeoDescriptionTranslations, language, SeoLanguages.BaseTextLanguage(branch))
                           ?? SeoText.MenuDescription(facts, language),
             CanonicalUrl = _seo.MenuUrl(branch, language),
@@ -364,7 +373,7 @@ public class MenuController : Controller
             Alternates = supportedLanguages.Select(l => new SeoAlternate(l, _seo.MenuUrl(branch, l))).ToList(),
             XDefaultUrl = _seo.MenuUrl(branch),
             LastModifiedUtc = lastModified,
-            JsonLd = StructuredData.ForBranchMenu(branch, language, _seo)
+            JsonLd = StructuredData.ForBranchMenu(ld, title, crumbs)
         };
     }
 }

@@ -81,6 +81,9 @@ public class SignupController : Controller
         var title = lowest == null ? $"{w.PricingTitle} · My Quick Menu"
             : string.Format(language == "sq" ? "Çmimet: menu dixhitale nga {0} në muaj · My Quick Menu" : "Pricing: QR menus from {0} a month · My Quick Menu", lowest);
         ViewData["Seo"] = Seo(title, string.Format(w.PricingIntro, await _signup.TrialDaysAsync()), language, "/pricing");
+        var canonical = _seo.Url("/pricing") + SeoLanguages.Query(language, "en");
+        ((SeoMetadata)ViewData["Seo"]!).JsonLd = StructuredData.ForMarketingPage(await _marketing.FactsAsync(language, _seo.BaseUrl), canonical, title,
+            new[] { ("My Quick Menu", _seo.Url("/" + SeoLanguages.Query(language, "en"))), (w.PricingTitle, canonical) }, withSoftware: true);
         ViewData["Marketing"] = await _marketing.ChromeAsync(language, "/pricing");
         return View(new PricingPage(w, language, selection, PricingRules.Quote(selection, prices, currency), presets, prices, currency, await _signup.TrialDaysAsync(),
             signupOpen, _marketing.ContactHref(language)));

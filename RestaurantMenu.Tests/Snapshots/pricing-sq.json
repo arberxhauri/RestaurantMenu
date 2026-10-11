@@ -1,0 +1,171 @@
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://myquickmenu.com/#organization",
+      "name": "My Quick Menu",
+      "logo": {
+        "@type": "ImageObject",
+        "@id": "https://myquickmenu.com/#logo",
+        "width": 774,
+        "height": 774,
+        "url": "https://myquickmenu.com/logo.png"
+      },
+      "email": "info@myquickmenu.com",
+      "telephone": "+355 69 633 7906",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Tirana",
+        "addressCountry": "AL"
+      },
+      "areaServed": [
+        {
+          "@type": "Country",
+          "name": "Albania"
+        }
+      ],
+      "contactPoint": [
+        {
+          "@type": "ContactPoint",
+          "contactType": "customer support",
+          "email": "info@myquickmenu.com",
+          "telephone": "+355 69 633 7906",
+          "availableLanguage": [
+            "sq",
+            "en"
+          ]
+        }
+      ],
+      "parentOrganization": {
+        "@type": "Organization",
+        "name": "4CS",
+        "url": "https://4cs.al",
+        "sameAs": [
+          "https://www.instagram.com/4cs.al/"
+        ]
+      },
+      "url": "https://myquickmenu.com/",
+      "description": "My Quick Menu është një platformë për restorante nga Tirana, që u jep restoranteve menu dixhitale me QR, faqe interneti dhe rezervime online nga një panel i vetëm, duke filluar nga €5 në muaj.",
+      "image": {
+        "@id": "https://myquickmenu.com/#logo"
+      }
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://myquickmenu.com/#website",
+      "name": "My Quick Menu",
+      "publisher": {
+        "@id": "https://myquickmenu.com/#organization"
+      },
+      "inLanguage": [
+        "en",
+        "sq"
+      ],
+      "url": "https://myquickmenu.com/",
+      "description": "My Quick Menu është një platformë për restorante nga Tirana, që u jep restoranteve menu dixhitale me QR, faqe interneti dhe rezervime online nga një panel i vetëm, duke filluar nga €5 në muaj."
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://myquickmenu.com/#software",
+      "name": "My Quick Menu",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "Menu",
+          "price": "5.00",
+          "priceCurrency": "EUR",
+          "priceSpecification": {
+            "@type": "UnitPriceSpecification",
+            "price": "5.00",
+            "priceCurrency": "EUR",
+            "unitText": "MONTH",
+            "referenceQuantity": {
+              "@type": "QuantitativeValue",
+              "value": 1,
+              "unitCode": "MON"
+            }
+          },
+          "url": "https://myquickmenu.com/pricing?lang=sq"
+        },
+        {
+          "@type": "Offer",
+          "name": "Menu, website and bookings",
+          "price": "23.00",
+          "priceCurrency": "EUR",
+          "priceSpecification": {
+            "@type": "UnitPriceSpecification",
+            "price": "23.00",
+            "priceCurrency": "EUR",
+            "unitText": "MONTH",
+            "referenceQuantity": {
+              "@type": "QuantitativeValue",
+              "value": 1,
+              "unitCode": "MON"
+            }
+          },
+          "url": "https://myquickmenu.com/pricing?lang=sq"
+        },
+        {
+          "@type": "Offer",
+          "name": "Everything",
+          "price": "43.00",
+          "priceCurrency": "EUR",
+          "priceSpecification": {
+            "@type": "UnitPriceSpecification",
+            "price": "43.00",
+            "priceCurrency": "EUR",
+            "unitText": "MONTH",
+            "referenceQuantity": {
+              "@type": "QuantitativeValue",
+              "value": 1,
+              "unitCode": "MON"
+            }
+          },
+          "url": "https://myquickmenu.com/pricing?lang=sq"
+        }
+      ],
+      "publisher": {
+        "@id": "https://myquickmenu.com/#organization"
+      },
+      "url": "https://myquickmenu.com/",
+      "description": "My Quick Menu është një platformë për restorante nga Tirana, që u jep restoranteve menu dixhitale me QR, faqe interneti dhe rezervime online nga një panel i vetëm, duke filluar nga €5 në muaj."
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://myquickmenu.com/pricing?lang=sq#breadcrumb",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "name": "My Quick Menu",
+          "position": 1,
+          "item": "https://myquickmenu.com/?lang=sq"
+        },
+        {
+          "@type": "ListItem",
+          "name": "Çmimet",
+          "position": 2,
+          "item": "https://myquickmenu.com/pricing?lang=sq"
+        }
+      ]
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://myquickmenu.com/pricing?lang=sq#webpage",
+      "name": "Çmimet",
+      "isPartOf": {
+        "@id": "https://myquickmenu.com/#website"
+      },
+      "about": {
+        "@id": "https://myquickmenu.com/#software"
+      },
+      "breadcrumb": {
+        "@id": "https://myquickmenu.com/pricing?lang=sq#breadcrumb"
+      },
+      "inLanguage": "sq",
+      "url": "https://myquickmenu.com/pricing?lang=sq"
+    }
+  ]
+}

@@ -133,3 +133,6 @@
 @media (max-width: 760px) and (min-width: 0) {
     .w-bar:not(:has(.w-lang)) .w-brand { margin-right: auto; }
 }
+
+/* What and where, under the name ("Italian restaurant · Durrës"). */
+.w-kind { margin: 0 0 6px; font-size: 15px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; opacity: .85; }

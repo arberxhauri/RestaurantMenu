@@ -43,8 +43,9 @@ public class HomeController : Controller
         var prices = await _marketing.PricesAsync();
         ViewBag.Prices = prices;
         ViewData["Marketing"] = chrome;
+        var facts = await _marketing.FactsAsync(language, _seo.BaseUrl);
         ViewData["Seo"] = MarketingSeo(t.HomeTitle, string.Format(t.HomeDescription, chrome.TrialDays), language, MarketingPages.Get("home"),
-            StructuredData.ForLandingPage(_seo, await _marketing.DefinitionAsync(language), language));
+            StructuredData.ForMarketingPage(facts, _seo.Url("/" + SeoLanguages.Query(language, "en")), t.HomeTitle, null, withSoftware: true));
 
         return View();
     }

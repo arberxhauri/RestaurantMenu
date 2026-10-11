@@ -1,0 +1,73 @@
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "CafeOrCoffeeShop",
+      "@id": "https://myquickmenu.com/menu/kafe-flora#restaurant",
+      "name": "Kafe Flora",
+      "currenciesAccepted": "ALL",
+      "acceptsReservations": false,
+      "hasMenu": {
+        "@id": "https://myquickmenu.com/menu/kafe-flora#menu"
+      },
+      "url": "https://myquickmenu.com/menu/kafe-flora"
+    },
+    {
+      "@type": "Menu",
+      "@id": "https://myquickmenu.com/menu/kafe-flora#menu",
+      "name": "Menuja e Kafe Flora",
+      "inLanguage": "sq",
+      "hasMenuSection": [
+        {
+          "@type": "MenuSection",
+          "name": "Kafe",
+          "hasMenuItem": [
+            {
+              "@type": "MenuItem",
+              "name": "Espresso"
+            },
+            {
+              "@type": "MenuItem",
+              "name": "Makiato e madhe"
+            }
+          ]
+        }
+      ],
+      "url": "https://myquickmenu.com/menu/kafe-flora"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://myquickmenu.com/menu/kafe-flora#breadcrumb",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "name": "My Quick Menu",
+          "position": 1,
+          "item": "https://myquickmenu.com/"
+        },
+        {
+          "@type": "ListItem",
+          "name": "Kafe Flora",
+          "position": 2,
+          "item": "https://myquickmenu.com/menu/kafe-flora"
+        }
+      ]
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://myquickmenu.com/menu/kafe-flora#webpage",
+      "name": "Kafe Flora: menuja dhe çmimet",
+      "about": {
+        "@id": "https://myquickmenu.com/menu/kafe-flora#restaurant"
+      },
+      "breadcrumb": {
+        "@id": "https://myquickmenu.com/menu/kafe-flora#breadcrumb"
+      },
+      "inLanguage": "sq",
+      "mainEntity": {
+        "@id": "https://myquickmenu.com/menu/kafe-flora#menu"
+      },
+      "url": "https://myquickmenu.com/menu/kafe-flora"
+    }
+  ]
+}

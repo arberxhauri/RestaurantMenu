@@ -1,0 +1,198 @@
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Restaurant",
+      "@id": "https://myquickmenu.com/menu/olivers-italian#restaurant",
+      "name": "Oliver's Italian & Co",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://myquickmenu.com/images/logos/logo.png"
+      },
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Rruga Ismail Qemali 12",
+        "addressLocality": "Tirana",
+        "addressCountry": "AL"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": 41.3275,
+        "longitude": 19.8187
+      },
+      "telephone": "+355 69 000 0000",
+      "servesCuisine": [
+        "Italian"
+      ],
+      "priceRange": "€7–€11",
+      "currenciesAccepted": "EUR",
+      "openingHoursSpecification": [
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": [
+            "https://schema.org/Monday",
+            "https://schema.org/Tuesday",
+            "https://schema.org/Wednesday",
+            "https://schema.org/Thursday",
+            "https://schema.org/Friday"
+          ],
+          "opens": "12:00",
+          "closes": "15:00"
+        },
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": [
+            "https://schema.org/Monday",
+            "https://schema.org/Tuesday",
+            "https://schema.org/Wednesday",
+            "https://schema.org/Thursday",
+            "https://schema.org/Friday"
+          ],
+          "opens": "19:00",
+          "closes": "23:00"
+        },
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": [
+            "https://schema.org/Saturday"
+          ],
+          "opens": "18:00",
+          "closes": "02:00"
+        },
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": [
+            "https://schema.org/Sunday"
+          ],
+          "opens": "00:00",
+          "closes": "23:59"
+        }
+      ],
+      "acceptsReservations": "https://myquickmenu.com/book/olivers-italian",
+      "hasMenu": {
+        "@id": "https://myquickmenu.com/menu/olivers-italian#menu"
+      },
+      "hasMap": "https://maps.app.goo.gl/abc",
+      "potentialAction": [
+        {
+          "@type": "ReserveAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": "https://myquickmenu.com/book/olivers-italian",
+            "actionPlatform": [
+              "https://schema.org/DesktopWebPlatform",
+              "https://schema.org/MobileWebPlatform"
+            ]
+          }
+        }
+      ],
+      "url": "https://myquickmenu.com/menu/olivers-italian",
+      "image": "https://myquickmenu.com/images/banners/room.jpg"
+    },
+    {
+      "@type": "Menu",
+      "@id": "https://myquickmenu.com/menu/olivers-italian#menu",
+      "name": "Oliver's Italian & Co menu",
+      "inLanguage": "en",
+      "hasMenuSection": [
+        {
+          "@type": "MenuSection",
+          "name": "Starters & Salads",
+          "hasMenuItem": [
+            {
+              "@type": "MenuItem",
+              "name": "Burrata & tomatoes",
+              "offers": {
+                "@type": "Offer",
+                "price": "9.50",
+                "priceCurrency": "EUR",
+                "availability": "https://schema.org/InStock"
+              },
+              "suitableForDiet": [
+                "https://schema.org/VegetarianDiet",
+                "https://schema.org/GlutenFreeDiet"
+              ],
+              "description": "Apulian burrata, heritage tomatoes",
+              "image": "https://myquickmenu.com/images/products/burrata.jpg"
+            },
+            {
+              "@type": "MenuItem",
+              "name": "Falafel",
+              "offers": {
+                "@type": "Offer",
+                "price": "7.00",
+                "priceCurrency": "EUR",
+                "availability": "https://schema.org/InStock"
+              },
+              "suitableForDiet": [
+                "https://schema.org/VeganDiet",
+                "https://schema.org/VegetarianDiet",
+                "https://schema.org/HalalDiet"
+              ]
+            },
+            {
+              "@type": "MenuItem",
+              "name": "Seasonal soup",
+              "description": "Ask your waiter"
+            }
+          ]
+        },
+        {
+          "@type": "MenuSection",
+          "name": "Pizza",
+          "hasMenuItem": [
+            {
+              "@type": "MenuItem",
+              "name": "Margherita \"D.O.P.\"",
+              "offers": {
+                "@type": "Offer",
+                "price": "11.00",
+                "priceCurrency": "EUR",
+                "availability": "https://schema.org/SoldOut"
+              },
+              "suitableForDiet": [
+                "https://schema.org/VegetarianDiet"
+              ],
+              "description": "San Marzano, fior di latte </script><script>alert(1)</script>"
+            }
+          ]
+        }
+      ],
+      "url": "https://myquickmenu.com/menu/olivers-italian"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://myquickmenu.com/menu/olivers-italian#breadcrumb",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "name": "My Quick Menu",
+          "position": 1,
+          "item": "https://myquickmenu.com/"
+        },
+        {
+          "@type": "ListItem",
+          "name": "Oliver's Italian & Co",
+          "position": 2,
+          "item": "https://myquickmenu.com/menu/olivers-italian"
+        }
+      ]
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://myquickmenu.com/menu/olivers-italian#webpage",
+      "name": "Oliver's Italian & Co Menu & Prices · Tirana",
+      "about": {
+        "@id": "https://myquickmenu.com/menu/olivers-italian#restaurant"
+      },
+      "breadcrumb": {
+        "@id": "https://myquickmenu.com/menu/olivers-italian#breadcrumb"
+      },
+      "inLanguage": "en",
+      "mainEntity": {
+        "@id": "https://myquickmenu.com/menu/olivers-italian#menu"
+      },
+      "url": "https://myquickmenu.com/menu/olivers-italian"
+    }
+  ]
+}

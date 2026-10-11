@@ -20,9 +20,11 @@ public class SiteController : Controller
     private readonly SiteHosts _hosts;
     private readonly IBranchAccess _access;
     private readonly BranchSlugs _slugs;
+    private readonly RestaurantSeo _restaurantSeo;
 
-    public SiteController(ApplicationDbContext context, SeoService seo, SiteHosts hosts, IBranchAccess access, BranchSlugs slugs)
+    public SiteController(ApplicationDbContext context, SeoService seo, SiteHosts hosts, IBranchAccess access, BranchSlugs slugs, RestaurantSeo restaurantSeo)
     {
+        _restaurantSeo = restaurantSeo;
         _slugs = slugs;
         _context = context;
         _seo = seo;
@@ -119,8 +121,11 @@ public class SiteController : Controller
             Alternates = await Task.WhenAll(languages.Select(async l => new SeoAlternate(l, await SiteUrlAsync(branch, l)))),
             XDefaultUrl = await SiteUrlAsync(branch, null),
             LastModifiedUtc = new[] { branch.UpdatedUtc, site.UpdatedUtc }.Max(),
-            JsonLd = StructuredData.ForBranchSite(branch, site, siteUrl, _seo.MenuUrl(branch, language), bookable, _seo)
         };
+        var seoMeta = (SeoMetadata)ViewData["Seo"]!;
+        var facts = await _restaurantSeo.FactsAsync(branch, language, site,
+            bookable ? _seo.Url($"/book/{canonicalSlug}") + SeoLanguages.Query(language, mainLanguage) : null);
+        seoMeta.JsonLd = StructuredData.ForBranchSite(facts, siteUrl, seoMeta.Title);
 
         return View(new SitePage(branch, site, language, languages, preview, highlights,
             MenuUrl: (onOwnHost ? "/menu" : $"/menu/{canonicalSlug}") + langQuery,

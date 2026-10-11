@@ -763,3 +763,6 @@
     .m-item-open { border: 0; padding: 8px 0; }
     .m-items { grid-template-columns: 1fr; }
 }
+
+/* What and where, under the name ("Italian restaurant · Durrës"). */
+.m-kind { margin: 2px 0 0; font-size: 14px; font-weight: 500; opacity: .85; color: var(--hero-ink, inherit); }
