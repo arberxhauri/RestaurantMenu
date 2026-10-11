@@ -161,10 +161,7 @@
     </main>
 
     <footer class="m-footer">
-        <a class="m-powered" href="/">
-            <partial name="_BrandMark" model="18" />
-            <span>Powered by <strong>My Quick Menu</strong></span>
-        </a>
+        <partial name="_PoweredBy" model="(PoweredBy.Kind.Booking, lang)" />
     </footer>
 
     <script type="application/json" id="bookConfig">@Html.Raw(config)</script>

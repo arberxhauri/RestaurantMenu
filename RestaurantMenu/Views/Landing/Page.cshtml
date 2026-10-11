@@ -1,0 +1,214 @@
+@using RestaurantMenu.Controllers
+@using RestaurantMenu.Helpers
+@using RestaurantMenu.Helpers.Landing
+@model LandingPageModel
+@{
+    Layout = "_MarketingLayout";
+    var p = Model.Page;
+    var t = Model.Chrome.T;
+    var lang = Model.Lang;
+    var c = Model.Chrome;
+    var words = SignupText.For(lang);
+    var anchors = p.Sections.Where(s => s.Id != null).ToList();
+}
+@section Preload {
+    <link rel="preload" as="image" href="@p.Photo" fetchpriority="high" />
+}
+
+<nav class="lp-crumbs shell" aria-label="@t.Breadcrumbs">
+    <ol>
+        <li><a href="@c.Link("/")">@t.Home</a></li>
+        <li aria-current="page">@(p.Breadcrumb ?? p.H1)</li>
+    </ol>
+</nav>
+
+<header class="lp-hero shell">
+    <div class="lp-hero-copy">
+        <h1>@p.H1</h1>
+        <p class="lp-lede">@Model.Html(p.Lede)</p>
+        <div class="lp-actions">
+            <a class="btn btn-primary btn-lg" href="@c.CtaHref">@c.CtaLabel <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+            @if (p.PricingTeaser)
+            {
+                <a class="btn btn-outline btn-lg" href="@c.Link("/pricing")">@t.SeePricing</a>
+            }
+        </div>
+        <p class="lp-updated">@t.LastUpdated <time datetime="@LandingContent.LastUpdated.ToString("yyyy-MM-dd")">@LandingContent.Date(LandingContent.LastUpdated, lang)</time></p>
+    </div>
+    <img class="lp-hero-img" src="@p.Photo" alt="@p.PhotoAlt" width="1200" height="800" fetchpriority="high" decoding="async" />
+</header>
+
+@if (anchors.Count > 2)
+{
+    <nav class="lp-toc shell" aria-label="@p.H1">
+        <ul>
+            @foreach (var s in anchors)
+            {
+                <li><a href="#@s.Id">@s.Heading</a></li>
+            }
+        </ul>
+    </nav>
+}
+
+<div class="lp-body-grid shell">
+    @for (var i = 0; i < p.Sections.Count; i++)
+    {
+        var s = p.Sections[i];
+        <section class="lp-section" id="@s.Id" aria-labelledby="@(s.Id ?? "s" + i)-title">
+            <h2 id="@(s.Id ?? "s" + i)-title">@s.Heading</h2>
+            @foreach (var para in s.Paragraphs.Where(x => Model.Fill(x).Length > 0))
+            {
+                <p>@Model.Html(para)</p>
+            }
+            @if (s.Bullets != null)
+            {
+                <ul class="lp-bullets">
+                    @foreach (var b in s.Bullets)
+                    {
+                        <li><i class="ph ph-check" aria-hidden="true"></i><span>@Model.Html(b)</span></li>
+                    }
+                </ul>
+            }
+        </section>
+        @* The first screenshot right after the first section, where it explains the most. *@
+        @if (i == 0 && p.Screenshots is { Count: > 0 })
+        {
+            <div class="lp-shots">
+                @foreach (var shot in p.Screenshots)
+                {
+                    <figure class="lp-shot @(shot.Width > shot.Height ? "is-wide" : "is-tall")">
+                        <img src="@shot.Image" alt="@shot.Alt" width="@shot.Width" height="@shot.Height" loading="lazy" decoding="async" />
+                        <figcaption>@shot.Caption</figcaption>
+                    </figure>
+                }
+            </div>
+        }
+    }
+</div>
+
+@if (p.Features is { Count: > 0 })
+{
+    <section class="lp-features" aria-labelledby="features-title">
+        <div class="shell">
+            <h2 id="features-title">@p.FeaturesTitle</h2>
+            <ul>
+                @foreach (var f in p.Features)
+                {
+                    <li>
+                        <i class="ph @f.Icon" aria-hidden="true"></i>
+                        <h3>@f.Title</h3>
+                        <p>@Model.Html(f.Text)</p>
+                    </li>
+                }
+            </ul>
+        </div>
+    </section>
+}
+
+@if (p.Steps is { Count: > 0 })
+{
+    <section class="lp-steps shell" aria-labelledby="steps-title">
+        <h2 id="steps-title">@(p.StepsTitle ?? t.HowItWorks)</h2>
+        <ol>
+            @foreach (var s in p.Steps)
+            {
+                <li><h3>@s.Title</h3><p>@Model.Html(s.Text)</p></li>
+            }
+        </ol>
+    </section>
+}
+
+@if (p.Comparison is { } table)
+{
+    <section class="lp-compare shell" aria-labelledby="compare-title">
+        <h2 id="compare-title">@table.Heading</h2>
+        <div class="lp-table-wrap" tabindex="0" role="region" aria-labelledby="compare-title">
+            <table>
+                <caption>@table.Caption</caption>
+                <thead>
+                    <tr>
+                        @for (var i = 0; i < table.Columns.Count; i++)
+                        {
+                            if (i == 0 && table.Columns[0].Length == 0) { <td></td> }
+                            else { <th scope="col">@table.Columns[i]</th> }
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in table.Rows)
+                    {
+                        <tr>
+                            <th scope="row">@Model.Fill(row[0])</th>
+                            @for (var i = 1; i < row.Count; i++)
+                            {
+                                <td class="@(i == 1 ? "is-us" : "")">@Model.Fill(row[i])</td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}
+
+@if (p.PricingTeaser && Model.Prices.Presets.Any(x => x.Quote.Complete))
+{
+    <section class="lp-pricing shell" aria-labelledby="pricing-title">
+        <h2 id="pricing-title">@t.PricingTitle</h2>
+        <p>@string.Format(t.PricingText, Model.Tokens["trial"])</p>
+        <div class="teaser-grid">
+            @foreach (var (key, quote) in Model.Prices.Presets)
+            {
+                var (title, text) = SignupText.Preset(words, key);
+                <a class="teaser" href="@c.Link("/pricing")@(lang == "en" ? "?" : "&")preset=@key#build">
+                    <h3>@title</h3>
+                    <p>@text</p>
+                    <span class="teaser-price">@(quote.Complete ? string.Format(words.FromPerMonth, PricingRules.Money(quote.PerMonthCents, quote.Currency)) : words.PriceOnRequest)</span>
+                    <span class="teaser-go">@(c.SignupOpen ? t.StartTrial : t.SeePricing) <i class="ph ph-arrow-right" aria-hidden="true"></i></span>
+                </a>
+            }
+        </div>
+    </section>
+}
+
+@if (Model.FaqGroups != null)
+{
+    foreach (var (group, faqs) in Model.FaqGroups)
+    {
+        <section class="lp-faq shell" aria-label="@group">
+            <h2>@group</h2>
+            @foreach (var f in faqs.Where(x => Model.Fill(x.Answer).Length > 0))
+            {
+                <div class="lp-qa">
+                    <h3>@Model.Fill(f.Question)</h3>
+                    <p>@Model.Html(f.Answer)</p>
+                </div>
+            }
+        </section>
+    }
+}
+else if (p.Faqs is { Count: > 0 })
+{
+    <section class="lp-faq shell" aria-labelledby="faq-title">
+        <h2 id="faq-title">@p.FaqTitle</h2>
+        @foreach (var f in p.Faqs.Where(x => Model.Fill(x.Answer).Length > 0))
+        {
+            <div class="lp-qa">
+                <h3>@Model.Fill(f.Question)</h3>
+                <p>@Model.Html(f.Answer)</p>
+            </div>
+        }
+        <p class="lp-more"><a href="@c.Link("/faq")">@t.NavFaq <i class="ph ph-arrow-right" aria-hidden="true"></i></a></p>
+    </section>
+}
+
+@if (p.CtaTitle != null)
+{
+    <section class="lp-cta" aria-labelledby="cta-title">
+        <div class="shell">
+            <h2 id="cta-title">@p.CtaTitle</h2>
+            @if (p.CtaText != null) { <p>@Model.Html(p.CtaText)</p> }
+            <a class="btn btn-primary btn-lg" href="@c.CtaHref">@c.CtaLabel <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+        </div>
+    </section>
+}

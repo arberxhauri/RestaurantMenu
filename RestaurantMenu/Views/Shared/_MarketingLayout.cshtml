@@ -1,0 +1,27 @@
+@using RestaurantMenu.Services
+@{
+    // Marketing content pages (Views/Landing): the same header, footer and look as the home page,
+    // without its scroll animation. Everything is in the HTML; JavaScript only opens the mobile nav.
+    var seo = (SeoMetadata)ViewData["Seo"]!;
+    var chrome = (MarketingChrome)ViewData["Marketing"]!;
+}
+<!DOCTYPE html>
+<html lang="@seo.Locale">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    @await Html.PartialAsync("_SeoMeta", seo)
+    @await RenderSectionAsync("Preload", required: false)
+    <partial name="_HeadAssets" />
+    <link rel="stylesheet" href="~/css/landing.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/marketing-pages.css" asp-append-version="true" />
+</head>
+<body class="lp-body">
+    <partial name="_MarketingHeader" model="chrome" />
+    <main id="main">
+        @RenderBody()
+    </main>
+    <partial name="_MarketingFooter" model="chrome" />
+    <script src="~/js/landing.js" asp-append-version="true" defer></script>
+</body>
+</html>

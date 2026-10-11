@@ -129,6 +129,10 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 builder.Services.Configure<RouteOptions>(options => options.LowercaseUrls = true);
 
 builder.Services.AddHttpContextAccessor();
+// Write ë, ç, € and every other letter as itself in HTML instead of &#xEB; entities: smaller pages
+// and readable source for crawlers. < > & " ' are still encoded.
+builder.Services.Configure<Microsoft.Extensions.WebEncoders.WebEncoderOptions>(o =>
+    o.TextEncoderSettings = new System.Text.Encodings.Web.TextEncoderSettings(System.Text.Unicode.UnicodeRanges.All));
 builder.Services.AddScoped<SeoService>();
 builder.Services.AddScoped<SitemapService>();
 builder.Services.AddScoped<MarketingService>();
@@ -303,6 +307,9 @@ builder.Services.AddAuthorization(options =>
 });
 
 var app = builder.Build();
+
+// Unfinished facts in the marketing copy ([TODO: …]) are shown while developing, hidden elsewhere.
+RestaurantMenu.Helpers.Landing.LandingContent.ShowTodos = app.Environment.IsDevelopment();
 
 // Must run before anything reads Request.Scheme or Request.Host — including
 // UseHttpsRedirection and every SEO URL the views build.

@@ -197,9 +197,7 @@
                 </div>
             }
             <p><span translate="no">@b.Name</span> · @b.Address · <a href="tel:@b.PhoneNumber">@b.PhoneNumber</a></p>
-            <a class="m-powered" href="@((Config["Seo:BaseUrl"] ?? "").TrimEnd('/'))/" rel="noopener">
-                <partial name="_BrandMark" model="16" /><span>Powered by <strong>My Quick Menu</strong></span>
-            </a>
+            <partial name="_PoweredBy" model="(PoweredBy.Kind.Site, lang)" />
         </div>
     </footer>
 

@@ -22,8 +22,15 @@ public record MarketingChrome(
 }
 
 /// <summary>Prices for the marketing pages, schema.org offers and llms.txt, always read from the price book.</summary>
-public record MarketingPrices(string Currency, IReadOnlyList<(string Key, Quote Quote)> Presets)
+public record MarketingPrices(string Currency, IReadOnlyList<(string Key, Quote Quote)> Presets,
+    IReadOnlyDictionary<BillingModule, int> ModuleMonthlyCents)
 {
+    public string? Preset(string key) => Presets.FirstOrDefault(p => p.Key == key) is { Key: not null } p && p.Quote.Complete
+        ? PricingRules.Money(p.Quote.PerMonthCents, Currency) : null;
+
+    public string? Module(BillingModule module) =>
+        ModuleMonthlyCents.TryGetValue(module, out var cents) ? PricingRules.Money(cents, Currency) : null;
+
     /// <summary>The cheapest complete monthly preset ("€5"), or null when no prices are set.</summary>
     public string? Lowest => Presets.Where(p => p.Quote.Complete).OrderBy(p => p.Quote.PerMonthCents)
         .Select(p => PricingRules.Money(p.Quote.PerMonthCents, Currency)).FirstOrDefault();
@@ -63,7 +70,33 @@ public class MarketingService
         var presets = PricingRules.Presets
             .Select(p => (p.Key, PricingRules.Quote(PricingRules.Parse(null, "1", "Month", p.Key), table, currency)))
             .ToList();
-        return new MarketingPrices(currency, presets);
+        var modules = table.Where(p => p.Key.Item2 == BillingInterval.Month).ToDictionary(p => p.Key.Item1, p => p.Value);
+        return new MarketingPrices(currency, presets, modules);
+    }
+
+    /// <summary>
+    /// The values of the content pages' tokens (Helpers/Landing/LandingContent): the definition, each
+    /// plan's and module's monthly price from the price book, and the trial days. A price that isn't
+    /// set reads "price on request", never a guess.
+    /// </summary>
+    public async Task<Dictionary<string, string>> TokensAsync(string lang)
+    {
+        var prices = await PricesAsync();
+        var onRequest = SignupText.For(lang).PriceOnRequest.ToLowerInvariant();
+        string P(string? v) => v ?? onRequest;
+        return new Dictionary<string, string>
+        {
+            ["definition"] = await DefinitionAsync(lang),
+            ["menu"] = P(prices.Preset("menu")),
+            ["guests"] = P(prices.Preset("guests")),
+            ["everything"] = P(prices.Preset("everything")),
+            ["website"] = P(prices.Module(BillingModule.Website)),
+            ["bookings"] = P(prices.Module(BillingModule.Bookings)),
+            ["ordering"] = P(prices.Module(BillingModule.Ordering)),
+            ["management"] = P(prices.Module(BillingModule.Management)),
+            ["domain"] = P(prices.Module(BillingModule.OwnDomain)),
+            ["trial"] = (await _signup.TrialDaysAsync()).ToString(System.Globalization.CultureInfo.InvariantCulture)
+        };
     }
 
     /// <summary>The one-sentence definition with the current lowest price.</summary>

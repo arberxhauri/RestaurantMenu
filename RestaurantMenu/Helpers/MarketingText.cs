@@ -41,6 +41,39 @@ public sealed class MarketingText
     public required string FooterNav { get; init; }
     public required string Privacy { get; init; }
     public required string Terms { get; init; }
+    public required string NavDigitalMenu { get; init; }
+    public required string NavWebsite { get; init; }
+    public required string NavBookings { get; init; }
+    public required string NavManagement { get; init; }
+    public required string NavRestaurants { get; init; }
+    public required string NavFaq { get; init; }
+    public required string NavAbout { get; init; }
+    public required string NavContact { get; init; }
+    public required string FooterProducts { get; init; }
+    public required string FooterCompany { get; init; }
+    public required string FooterLegal { get; init; }
+    public required string Home { get; init; }
+    public required string Breadcrumbs { get; init; }
+    public required string LastUpdated { get; init; }
+    public required string HowItWorks { get; init; }
+
+    // ---------------------------------------------------------------- restaurant directory
+    public required string DirectoryTitle { get; init; }
+    public required string DirectoryMetaTitle { get; init; }
+    /// <summary>{0} = number of restaurants.</summary>
+    public required string DirectoryDescription { get; init; }
+    public required string DirectoryIntro { get; init; }
+    public required string DirectoryOtherCity { get; init; }
+    public required string DirectoryEmpty { get; init; }
+    public required string DirectoryMenu { get; init; }
+    public required string DirectoryWebsite { get; init; }
+    public required string DirectoryBook { get; init; }
+    public required string DirectoryJoinTitle { get; init; }
+    public required string DirectoryJoinText { get; init; }
+    public required string PagePrevious { get; init; }
+    public required string PageNext { get; init; }
+    /// <summary>{0} = page, {1} = pages.</summary>
+    public required string PageOf { get; init; }
 
     // ---------------------------------------------------------------- home: meta
     public required string HomeTitle { get; init; }
@@ -139,6 +172,36 @@ public sealed class MarketingText
         FooterNav = "Footer",
         Privacy = "Privacy",
         Terms = "Terms",
+        NavDigitalMenu = "Digital menu",
+        NavWebsite = "Restaurant website",
+        NavBookings = "Table bookings",
+        NavManagement = "Management",
+        NavRestaurants = "Restaurants",
+        NavFaq = "FAQ",
+        NavAbout = "About",
+        NavContact = "Contact",
+        FooterProducts = "Products",
+        FooterCompany = "Company",
+        FooterLegal = "Legal",
+        Home = "Home",
+        Breadcrumbs = "Breadcrumbs",
+        LastUpdated = "Last updated",
+        HowItWorks = "How it works",
+
+        DirectoryTitle = "Restaurants with online menus",
+        DirectoryMetaTitle = "Restaurants with Online Menus · My Quick Menu",
+        DirectoryDescription = "Browse {0} restaurants, cafés and bars with an online menu on My Quick Menu, by city: current prices, photos, allergens and online booking.",
+        DirectoryIntro = "Restaurants, cafés and bars that publish their menu with My Quick Menu, grouped by city. Every menu shows the restaurant's current prices, photos and allergens, kept up to date by the restaurant itself.",
+        DirectoryOtherCity = "Other places",
+        DirectoryEmpty = "No restaurants to show yet.",
+        DirectoryMenu = "Menu",
+        DirectoryWebsite = "Website",
+        DirectoryBook = "Book",
+        DirectoryJoinTitle = "Run a restaurant?",
+        DirectoryJoinText = "Put your menu online and appear here too.",
+        PagePrevious = "Previous",
+        PageNext = "Next",
+        PageOf = "Page {0} of {1}",
 
         HomeTitle = "My Quick Menu: QR menus, websites & bookings for restaurants",
         HomeDescription = "QR digital menus, a restaurant website and online table bookings from one dashboard. Made in Tirana for restaurants, cafés and bars. {0}-day free trial.",
@@ -237,6 +300,36 @@ public sealed class MarketingText
         FooterNav = "Lidhje në fund të faqes",
         Privacy = "Privatësia",
         Terms = "Kushtet",
+        NavDigitalMenu = "Menu dixhitale",
+        NavWebsite = "Faqe interneti",
+        NavBookings = "Rezervime",
+        NavManagement = "Menaxhimi",
+        NavRestaurants = "Restorantet",
+        NavFaq = "Pyetje",
+        NavAbout = "Rreth nesh",
+        NavContact = "Kontakt",
+        FooterProducts = "Produktet",
+        FooterCompany = "Kompania",
+        FooterLegal = "Ligjore",
+        Home = "Kryefaqja",
+        Breadcrumbs = "Navigimi",
+        LastUpdated = "Përditësuar më",
+        HowItWorks = "Si funksionon",
+
+        DirectoryTitle = "Restorante me menu online",
+        DirectoryMetaTitle = "Restorante me menu online · My Quick Menu",
+        DirectoryDescription = "Shfletoni {0} restorante, kafene dhe bare me menu online në My Quick Menu, sipas qytetit: çmime të sakta, foto, alergjenë dhe rezervim online.",
+        DirectoryIntro = "Restorante, kafene dhe bare që e publikojnë menunë me My Quick Menu, të renditura sipas qytetit. Çdo menu tregon çmimet, fotot dhe alergjenët e sakta, të mbajtura të përditësuara nga vetë restoranti.",
+        DirectoryOtherCity = "Vende të tjera",
+        DirectoryEmpty = "Ende nuk ka restorante për të shfaqur.",
+        DirectoryMenu = "Menuja",
+        DirectoryWebsite = "Faqja",
+        DirectoryBook = "Rezervo",
+        DirectoryJoinTitle = "Keni restorant?",
+        DirectoryJoinText = "Vendoseni menunë online dhe shfaquni edhe ju këtu.",
+        PagePrevious = "E mëparshmja",
+        PageNext = "Tjetra",
+        PageOf = "Faqja {0} nga {1}",
 
         HomeTitle = "My Quick Menu: menu dixhitale me QR për restorante",
         HomeDescription = "Menu dixhitale me QR, faqe interneti dhe rezervime online për restorantin tuaj, nga një panel i vetëm. Bërë në Tiranë. Provë falas për {0} ditë.",

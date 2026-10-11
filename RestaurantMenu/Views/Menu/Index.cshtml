@@ -515,10 +515,7 @@
     }
 
     <footer class="m-footer">
-        <a class="m-powered" asp-controller="Home" asp-action="Index">
-            <partial name="_BrandMark" model="18" />
-            <span>Powered by <strong>My Quick Menu</strong></span>
-        </a>
+        <partial name="_PoweredBy" model="(PoweredBy.Kind.Menu, currentLang)" />
         <partial name="_FourCsCredit" />
         <small>&copy; @DateTime.Now.Year <span translate="no">@Model.Name</span></small>
     </footer>

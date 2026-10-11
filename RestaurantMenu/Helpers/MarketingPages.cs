@@ -15,7 +15,15 @@ public static class MarketingPages
     public static readonly IReadOnlyList<MarketingPage> All = new[]
     {
         new MarketingPage("home", "/", "weekly", "1.0", Bilingual),
+        new MarketingPage("digital-menu", "/digital-menu", "monthly", "0.9", Bilingual),
+        new MarketingPage("restaurant-website", "/restaurant-website", "monthly", "0.9", Bilingual),
+        new MarketingPage("table-bookings", "/table-bookings", "monthly", "0.9", Bilingual),
+        new MarketingPage("restaurant-management", "/restaurant-management", "monthly", "0.9", Bilingual),
         new MarketingPage("pricing", "/pricing", "weekly", "0.9", Bilingual),
+        new MarketingPage("restaurants", "/restaurants", "daily", "0.8", Bilingual),
+        new MarketingPage("faq", "/faq", "monthly", "0.7", Bilingual),
+        new MarketingPage("about", "/about", "yearly", "0.5", Bilingual),
+        new MarketingPage("contact", "/contact", "yearly", "0.5", Bilingual),
         new MarketingPage("privacy", "/home/privacy", "yearly", "0.2", EnglishOnly),
         new MarketingPage("terms", "/home/terms", "yearly", "0.2", EnglishOnly)
     };

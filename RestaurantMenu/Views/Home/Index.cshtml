@@ -30,6 +30,7 @@
     <partial name="_HeadAssets" />
     <link rel="stylesheet" href="~/css/device.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/landing.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/marketing-pages.css" asp-append-version="true" />
 </head>
 <body>
     <partial name="_MarketingHeader" model="chrome" />
@@ -212,6 +213,7 @@
                             <ul class="tags">
                                 @foreach (var tag in t.MenusTags) { <li>@tag</li> }
                             </ul>
+                            <a class="tile-more" href="@chrome.Link("/digital-menu")">@t.LearnMore: @t.NavDigitalMenu <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
                         </div>
                     </article>
 
@@ -222,6 +224,7 @@
                             <ul class="tags">
                                 @foreach (var tag in t.OpsTags) { <li>@tag</li> }
                             </ul>
+                            <a class="tile-more" href="@chrome.Link("/restaurant-management")">@t.LearnMore: @t.NavManagement <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
                         </div>
                         <img class="tile-photo tile-photo--inset" src="~/img/chef-plating.webp" width="900" height="1385"
                              alt="@t.OpsImageAlt" loading="lazy" />
@@ -236,6 +239,7 @@
                             <ul class="tags">
                                 @foreach (var tag in t.WebTags) { <li>@tag</li> }
                             </ul>
+                            <a class="tile-more" href="@chrome.Link("/restaurant-website")">@t.LearnMore: @t.NavWebsite <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
                         </div>
                     </article>
 
@@ -252,6 +256,7 @@
                                 <button type="button" class="slot" aria-pressed="false">20:30</button>
                             </div>
                             <p class="slot-note" aria-live="polite" data-slot-note data-template="@t.SlotNote">@string.Format(t.SlotNote, "19:00")</p>
+                            <a class="tile-more" href="@chrome.Link("/table-bookings")">@t.LearnMore: @t.NavBookings <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
                         </div>
                         <img class="tile-photo tile-photo--side" src="~/img/terrace.webp" width="1200" height="900"
                              alt="@t.BookImageAlt" loading="lazy" />

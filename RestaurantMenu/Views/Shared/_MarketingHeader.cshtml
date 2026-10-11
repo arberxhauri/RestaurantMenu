@@ -1,10 +1,19 @@
 @model RestaurantMenu.Services.MarketingChrome
 @{
-    // The marketing site's header: home, landing pages, FAQ, about, contact, directory.
+    // The marketing site's header: home, product pages, pricing, FAQ, about, contact, directory.
+    // Every item is a plain link (the Products menu is a <details>), so it works without JavaScript
+    // and crawlers see every page.
     var t = Model.T;
     var isHome = ViewData["MarketingIsHome"] is true;
-    var showPartners = ViewData["MarketingShowPartners"] is true;
-    string Anchor(string id) => isHome ? "#" + id : Model.Link("/") + "#" + id;
+    var current = ViewData["MarketingPage"] as string;
+    string? Current(string key) => current == key ? "page" : null;
+    var products = new[]
+    {
+        ("digital-menu", t.NavDigitalMenu, "ph-qr-code"),
+        ("restaurant-website", t.NavWebsite, "ph-globe-simple"),
+        ("table-bookings", t.NavBookings, "ph-calendar-check"),
+        ("restaurant-management", t.NavManagement, "ph-squares-four")
+    };
 }
 <a class="skip-link" href="#main">@t.SkipToContent</a>
 
@@ -16,14 +25,18 @@
         </a>
 
         <nav class="nav" id="primaryNav" aria-label="@t.NavPrimary">
-            <a href="@Anchor("products")">@t.NavProducts</a>
-            <a href="@Anchor("features")">@t.NavFeatures</a>
-            <a href="@Anchor("how-it-works")">@t.NavHow</a>
-            <a href="@Model.Link("/pricing")">@t.NavPricing</a>
-            @if (showPartners)
-            {
-                <a href="@Anchor("partners")">@t.NavPartners</a>
-            }
+            <details class="nav-menu" data-nav-menu>
+                <summary>@t.NavProducts <i class="ph ph-caret-down" aria-hidden="true"></i></summary>
+                <ul>
+                    @foreach (var (key, label, icon) in products)
+                    {
+                        <li><a href="@Model.Link("/" + key)" aria-current="@Current(key)"><i class="ph @icon" aria-hidden="true"></i>@label</a></li>
+                    }
+                </ul>
+            </details>
+            <a href="@Model.Link("/pricing")" aria-current="@Current("pricing")">@t.NavPricing</a>
+            <a href="@Model.Link("/restaurants")" aria-current="@Current("restaurants")">@t.NavRestaurants</a>
+            <a href="@Model.Link("/faq")" aria-current="@Current("faq")">@t.NavFaq</a>
             <a class="nav-lang" href="@Model.OtherLanguageHref" hreflang="@t.OtherLanguageCode" lang="@t.OtherLanguageCode">
                 <i class="ph ph-translate" aria-hidden="true"></i>@t.OtherLanguageName
             </a>
