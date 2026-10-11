@@ -370,6 +370,21 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
                     .Select(m => new TeamMemberRow(m.Id, m.User!.FullName, m.User.Email!, m.Role, m.User.PasswordHash == null))
                     .ToListAsync();
             }
+            if (BranchAccess.Allows(role, BranchPermission.EditBranch))
+            {
+                // "Share & get found": how complete the restaurant's public profile is (Search & sharing).
+                var dishes = branch.Categories?.SelectMany(c => c.Products ?? new List<Product>()).ToList() ?? new List<Product>();
+                var site = await _context.BranchSites.AsNoTracking().FirstOrDefaultAsync(s => s.BranchId == id);
+                var hours = await _context.BranchHours.AsNoTracking().Where(h => h.BranchId == id).ToListAsync();
+                ViewBag.Checklist = ProfileChecklist.For(
+                    new Branch { Id = branch.Id, Name = branch.Name, Address = branch.Address, PhoneNumber = branch.PhoneNumber, UserId = branch.UserId,
+                        City = branch.City, Cuisine = branch.Cuisine, BusinessType = branch.BusinessType, Logo = branch.Logo, Banner = branch.Banner,
+                        ShareImage = branch.ShareImage, Latitude = branch.Latitude, Longitude = branch.Longitude, GoogleBusinessUrl = branch.GoogleBusinessUrl,
+                        ShowInSearch = branch.ShowInSearch, IsDemo = branch.IsDemo, HoursEnabled = branch.HoursEnabled, OpeningHours = hours },
+                    dishes.Count, dishes.Count(p => !string.IsNullOrEmpty(p.Image)), site,
+                    await _context.Domains.AnyAsync(d => d.BranchId == id && d.Verified),
+                    site?.Enabled == true && await _access.HasModuleAsync(id, BillingModule.Website));
+            }
             if (BranchAccess.Allows(role, BranchPermission.ViewInsights))
             {
                 // Guest feedback: the last 30 days in numbers, and the latest few.

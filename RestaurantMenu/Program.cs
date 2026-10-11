@@ -137,6 +137,11 @@ builder.Services.AddScoped<SeoService>();
 builder.Services.AddScoped<SitemapService>();
 builder.Services.AddScoped<MarketingService>();
 builder.Services.AddScoped<RestaurantSeo>();
+// IndexNow: changed URLs to Bing & co. within minutes (IndexNow__Key; off without one).
+builder.Services.Configure<IndexNowOptions>(builder.Configuration.GetSection("IndexNow"));
+builder.Services.AddSingleton<IndexNowQueue>();
+builder.Services.AddHttpClient(nameof(IndexNowWorker), c => c.Timeout = TimeSpan.FromSeconds(20));
+builder.Services.AddHostedService<IndexNowWorker>();
 builder.Services.Configure<BrandOptions>(builder.Configuration.GetSection("Brand"));
 builder.Services.AddScoped<QrCodeService>();
 builder.Services.AddScoped<BranchSlugs>();
@@ -320,7 +325,10 @@ app.UseMiddleware<SecurityHeaders>();
 
 // One spelling per page: no trailing slash, lower case (301). On the address as typed, so before
 // SiteHostMiddleware rewrites it.
+app.UseMiddleware<HeadAsGetMiddleware>();
 app.UseMiddleware<UrlHygieneMiddleware>();
+// The IndexNow key file, on every host (own domains too), before they are routed to their sites.
+app.UseMiddleware<IndexNowKeyMiddleware>();
 
 // Restaurants' own domains: before static files and routing, so "/" on such a domain becomes
 // that restaurant's website and back-office paths go to the app's own address.
@@ -364,6 +372,8 @@ app.UseStaticFiles(new StaticFileOptions
 });
 
 app.UseRouting();
+// Visits sent by AI assistants (ChatGPT, Perplexity, …), anonymous, for Admin → AI referrals.
+app.UseMiddleware<AiReferralMiddleware>();
 // ETag / Last-Modified / 304 for menus, websites and marketing pages.
 app.UseMiddleware<HtmlValidatorsMiddleware>();
 app.UseRateLimiter();

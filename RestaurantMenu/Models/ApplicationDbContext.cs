@@ -45,6 +45,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Shift> Shifts { get; set; }
     public DbSet<DailySales> DailySales { get; set; }
     public DbSet<Feedback> Feedback { get; set; }
+    public DbSet<ReferralVisit> ReferralVisits { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -86,6 +87,14 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 
         builder.Entity<Branch>()
             .HasQueryFilter(b => !b.IsDeleted);
+        builder.Entity<ReferralVisit>(e =>
+        {
+            e.Property(x => x.Source).HasMaxLength(20);
+            e.Property(x => x.Via).HasMaxLength(100);
+            e.Property(x => x.Host).HasMaxLength(100);
+            e.Property(x => x.Path).HasMaxLength(300);
+            e.HasIndex(x => x.CreatedUtc);
+        });
         builder.Entity<Branch>(e =>
         {
             e.Property(b => b.DefaultLanguage).HasMaxLength(5);

@@ -552,4 +552,27 @@ namespace RestaurantMenu.Controllers;
             return new PlanPage(owner, sub, now, live, domains, settings.SeatsPerBranch,
                 form ?? PlanForm.From(sub, now, live), prices, settings.Currency, history, actors, errors);
         }
+
+        /// <summary>
+        /// Visits AI assistants sent to public pages (ReferralVisit, AiReferralMiddleware): per
+        /// assistant and day, and the pages they landed on. Shows whether the GEO work pays off.
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> Referrals(int days = 30)
+        {
+            days = Math.Clamp(days, 7, 400);
+            var since = DateTime.UtcNow.Date.AddDays(1 - days);
+            var visits = await _context.ReferralVisits.AsNoTracking().Where(v => v.CreatedUtc >= since)
+                .Select(v => new { v.CreatedUtc, v.Source, v.Host, v.Path }).ToListAsync();
+            ViewBag.Days = days;
+            ViewBag.BySource = visits.GroupBy(v => v.Source).Select(g => (Source: g.Key, Count: g.Count()))
+                .OrderByDescending(x => x.Count).ToList();
+            ViewBag.ByDay = visits.GroupBy(v => DateOnly.FromDateTime(v.CreatedUtc)).ToDictionary(g => g.Key, g => g.Count());
+            ViewBag.Pages = visits.GroupBy(v => (v.Host, v.Path)).Select(g => (g.Key.Host, g.Key.Path, Count: g.Count(),
+                    Sources: string.Join(", ", g.Select(v => v.Source).Distinct())))
+                .OrderByDescending(x => x.Count).Take(30).ToList();
+            ViewBag.Total = visits.Count;
+            ViewBag.Since = DateOnly.FromDateTime(since);
+            return View();
+        }
     }

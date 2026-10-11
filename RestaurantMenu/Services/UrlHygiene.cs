@@ -137,3 +137,35 @@ public partial class HtmlValidatorsMiddleware
         if (!HttpMethods.IsHead(context.Request.Method)) await buffer.CopyToAsync(original);
     }
 }
+
+/// <summary>
+/// HEAD requests (crawlers, link checkers, uptime monitors) are answered like GET, with the same
+/// status and headers and no body. Without this every [HttpGet] page answered HEAD with 405.
+/// </summary>
+public class HeadAsGetMiddleware
+{
+    private readonly RequestDelegate _next;
+
+    public HeadAsGetMiddleware(RequestDelegate next) => _next = next;
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        if (!HttpMethods.IsHead(context.Request.Method))
+        {
+            await _next(context);
+            return;
+        }
+        context.Request.Method = HttpMethods.Get;
+        var body = context.Response.Body;
+        context.Response.Body = Stream.Null;
+        try
+        {
+            await _next(context);
+        }
+        finally
+        {
+            context.Response.Body = body;
+            context.Request.Method = HttpMethods.Head;
+        }
+    }
+}

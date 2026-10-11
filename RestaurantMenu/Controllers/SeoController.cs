@@ -15,11 +15,13 @@ public class SeoController : Controller
 {
     private readonly SeoService _seo;
     private readonly SitemapService _sitemaps;
+    private readonly MarketingService _marketing;
 
-    public SeoController(SeoService seo, SitemapService sitemaps)
+    public SeoController(SeoService seo, SitemapService sitemaps, MarketingService marketing)
     {
         _seo = seo;
         _sitemaps = sitemaps;
+        _marketing = marketing;
     }
 
     [HttpGet("robots.txt")]
@@ -40,6 +42,24 @@ public class SeoController : Controller
     [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any)]
     public async Task<IActionResult> MenuPart(int part) =>
         part >= 2 && await _sitemaps.FileAsync("menus", part) is { } doc ? Xml(doc) : NotFound();
+
+    /// <summary>A short guide for AI assistants (llmstxt.org): what My Quick Menu is, its pages and prices.</summary>
+    [HttpGet("llms.txt")]
+    [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any)]
+    public async Task<IActionResult> Llms() =>
+        Content(LlmsText.Summary(await LlmsInputAsync()), "text/plain", Encoding.UTF8);
+
+    /// <summary>The full text of the content pages in English and Albanian, for AI assistants.</summary>
+    [HttpGet("llms-full.txt")]
+    [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any)]
+    public async Task<IActionResult> LlmsFull() =>
+        Content(LlmsText.Full(await LlmsInputAsync()), "text/plain", Encoding.UTF8);
+
+    private async Task<LlmsText.Input> LlmsInputAsync()
+    {
+        var restaurants = (await _sitemaps.MenuEntriesAsync()).Select(e => e.XDefault).Distinct().Count();
+        return new LlmsText.Input(_seo.BaseUrl, _marketing.Brand, await _marketing.TokensAsync("en"), await _marketing.TokensAsync("sq"), restaurants);
+    }
 
     private ContentResult Xml(XDocument doc) =>
         Content(doc.Declaration + "\n" + doc.Root, "application/xml", Encoding.UTF8);

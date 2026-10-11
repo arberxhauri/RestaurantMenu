@@ -1282,3 +1282,11 @@ a.chip--link:hover { background: var(--accent-soft); color: var(--accent); }
 .seo-checklist li.is-ok { color: var(--ink-3); }
 .seo-checklist li.is-ok i { color: var(--ok, #12805c); }
 .seo-checklist small { display: block; color: var(--ink-3); }
+
+/* ---------- Admin → AI referrals ---------- */
+.ref-days { list-style: none; margin: 0; padding: 0; display: flex; align-items: flex-end; gap: 2px; height: 120px; }
+.ref-days li { flex: 1; height: 100%; display: flex; align-items: flex-end; }
+.ref-days li span:first-child { display: block; width: 100%; min-height: 2px; background: var(--accent); border-radius: 3px 3px 0 0; }
+.seo-card .panel-body { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.seo-card .panel-body > div { flex: 1 1 320px; }
+.seo-card .seo-meter { max-width: 360px; margin: 6px 0 8px; }
