@@ -14,6 +14,8 @@ public class BrandOptions
     public string? Phone { get; set; }
     /// <summary>WhatsApp number in international format without spaces or +, e.g. 355696337906.</summary>
     public string? WhatsApp { get; set; }
+    /// <summary>Support answers 24 hours a day, 7 days a week (contact page, schema contactPoint).</summary>
+    public bool SupportAllDay { get; set; }
     public string? StreetAddress { get; set; }
     public string Locality { get; set; } = "Tirana";
     public string? PostalCode { get; set; }

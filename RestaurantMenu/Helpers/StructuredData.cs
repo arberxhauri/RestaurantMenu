@@ -61,7 +61,16 @@ public static class StructuredData
                     ContactType = "customer support",
                     Email = b.Email,
                     Telephone = string.IsNullOrWhiteSpace(b.Phone) ? null : b.Phone,
-                    AvailableLanguage = new[] { "sq", "en" }
+                    AvailableLanguage = new[] { "sq", "en" },
+                    HoursAvailable = b.SupportAllDay ? new[]
+                    {
+                        new OpeningHoursSpecification
+                        {
+                            DayOfWeek = new[] { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" }.Select(d => $"https://schema.org/{d}").ToList(),
+                            Opens = "00:00",
+                            Closes = "23:59"
+                        }
+                    } : null
                 }
             },
             SameAs = NonEmpty(b.SameAs),

@@ -12,7 +12,7 @@ public class LandingContentTests
     {
         ["definition"] = string.Format(MarketingText.En.Definition, "€19.50"),
         ["menu"] = "€19.50", ["guests"] = "€31.50", ["everything"] = "€52.50", ["website"] = "€5", ["bookings"] = "€7",
-        ["ordering"] = "€9", ["management"] = "€12", ["domain"] = "€3", ["trial"] = "14"
+        ["ordering"] = "€9", ["management"] = "€12", ["domain"] = "€3", ["trial"] = "14", ["payment"] = "By bank transfer against an invoice, monthly or yearly."
     };
 
     private static readonly string[] KnownPaths =

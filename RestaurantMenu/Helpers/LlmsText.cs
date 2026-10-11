@@ -32,6 +32,8 @@ public static class LlmsText
         sb.Append($"My Quick Menu is made by {i.Brand.ParentName} ({i.Brand.ParentUrl}) in {i.Brand.Locality}, Albania. ");
         sb.Append($"Contact: {i.Brand.Email}");
         if (!string.IsNullOrWhiteSpace(i.Brand.Phone)) sb.Append($", {i.Brand.Phone}");
+        if (i.Brand.WhatsAppHref != null) sb.Append($" (also WhatsApp: {i.Brand.WhatsAppHref})");
+        if (i.Brand.SupportAllDay) sb.Append(", support 24 hours a day, 7 days a week");
         sb.Append(". The site and guest pages are in English and Albanian; guest menus can be in English, Albanian, Italian, German, French, Spanish and Turkish.\n\n");
 
         sb.Append("## Product pages\n\n");

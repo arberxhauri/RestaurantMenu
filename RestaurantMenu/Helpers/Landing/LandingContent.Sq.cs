@@ -27,7 +27,7 @@ public static partial class LandingContent
                 new Section("Pse restorantet po lënë menutë e printuara?", new[]
                 {
                     "Menuja e printuar vjetrohet sapo ndryshon një çmim ose mbaron një pjatë. Menuja me QR përditësohet brenda sekondash: ndryshoni çmimin në panel dhe klienti tjetër që hap menunë e sheh të riun. Shënojeni një pjatë si të mbaruar në 19:40 dhe ajo shfaqet menjëherë gri (ose fshihet, nëse e preferoni).",
-                    "Turistët e lexojnë menunë në gjuhën e tyre. Ju e shkruani çdo pjatë një herë dhe shtoni përkthimet; klienti e ndryshon gjuhën me një prekje. My Quick Menu mbështet anglisht, shqip, italisht, gjermanisht, frëngjisht, spanjisht dhe turqisht, dhe formulari i pjatës mund t'ju sugjerojë përkthime për t'i kontrolluar [TODO: konfirmoni që Translation__GeminiApiKey është vendosur në prodhim, ose hiqeni këtë]."
+                    "Turistët e lexojnë menunë në gjuhën e tyre. Ju e shkruani çdo pjatë një herë dhe shtoni përkthimet; klienti e ndryshon gjuhën me një prekje. My Quick Menu mbështet anglisht, shqip, italisht, gjermanisht, frëngjisht, spanjisht dhe turqisht, dhe formulari i pjatës mund t'ju sugjerojë përkthime për t'i kontrolluar."
                 }, new[]
                 {
                     "Foto për çdo pjatë, me pjata të veçuara dhe etiketa si Zgjedhja e kuzhinierit, E re ose Speciale e ditës",
@@ -194,7 +194,7 @@ public static partial class LandingContent
                 }, Id: "how"),
                 new Section("A marrin klientët konfirmim dhe kujtesë?", new[]
                 {
-                    "Po. Klienti e sheh konfirmimin menjëherë në ekran dhe e merr me email, si dhe me SMS kur SMS-ja është aktive [TODO: konfirmoni nëse SMS-ja është aktive në prodhim]. Një kujtesë dërgohet disa orë para rezervimit (3 orë si fillim). Çdo rezervim ka linkun e vet, ku klienti mund ta shohë, ta shtojë në kalendar ose ta anulojë, dhe tavolina lirohet për dikë tjetër."
+                    "Po. Klienti e sheh konfirmimin menjëherë në ekran dhe, kur lë adresën e emailit, e merr edhe me email. Një email kujtese dërgohet disa orë para rezervimit (3 orë si fillim). Çdo rezervim ka linkun e vet, ku klienti mund ta shohë, ta shtojë në kalendar ose ta anulojë, dhe tavolina lirohet për dikë tjetër."
                 }, Id: "reminders"),
                 new Section("Si i menaxhoj rezervimet e ditës?", new[]
                 {
@@ -210,7 +210,7 @@ public static partial class LandingContent
             {
                 new Feature("ph-clock", "Vetëm orare vërtet të lira", "Oraret ndjekin orarin e punës dhe sa klientë mund të uleni."),
                 new Feature("ph-link", "Rezervim nga kudo", "Nga menuja, faqja e internetit, Instagram-i ose një mesazh WhatsApp."),
-                new Feature("ph-bell-ringing", "Kujtesa", "Një kujtesë para çdo rezervimi, me email dhe SMS kur është aktive."),
+                new Feature("ph-bell-ringing", "Kujtesa", "Një email kujtese para çdo rezervimi, kur klienti lë adresën."),
                 new Feature("ph-user-minus", "Klientët që nuk vijnë", "Shënoni kush u ul dhe kush nuk erdhi, dhe shikoni kush vjen rregullisht."),
                 new Feature("ph-check-circle", "Konfirmim automatik ose manual", "Konfirmoni çdo rezervim vetë ose lërini të konfirmohen automatikisht."),
                 new Feature("ph-translate", "Në gjuhën e klientit", "Faqja e rezervimit dhe mesazhet ndjekin gjuhët e menusë suaj.")
@@ -230,7 +230,7 @@ public static partial class LandingContent
                 {
                     new[] { "Klientët rezervojnë edhe natën", "Po, në çdo orë", "Vetëm kur dikush përgjigjet" },
                     new[] { "Rezervime të dyfishta", "Të parandaluara nga oraret e lira", "Ndodhin lehtë" },
-                    new[] { "Konfirmim dhe kujtesë", "Automatike", "Telefonata ose mesazhe me dorë" },
+                    new[] { "Konfirmim dhe kujtesë", "Automatike, me email", "Telefonata ose mesazhe me dorë" },
                     new[] { "Klienti mund ta anulojë", "Nga linku i rezervimit", "Vetëm duke telefonuar" },
                     new[] { "Historiku i mosparaqitjeve", "I ruajtur për çdo rezervim", "Në letër" }
                 }),
@@ -347,14 +347,14 @@ public static partial class LandingContent
                 new Faq("A ka provë falas?", "Po: {trial} ditë për çdo plan, pa kartë."),
                 new Faq("Për kë është My Quick Menu?", "Për restorante, kafene, bare, furra dhe lokale të tjera që shërbejnë ushqim dhe pije, nga një kafene e vetme te restorantet me disa degë."),
                 new Faq("A është My Quick Menu në shqip?", "Po. Kjo faqe, regjistrimi dhe faqet e klientëve (menuja, faqja e internetit dhe rezervimi) janë në shqip, dhe menutë e klientëve mund të jenë në 7 gjuhë. Paneli i restorantit tani për tani është në anglisht."),
-                new Faq("Si paguaj?", "Me transfertë bankare kundrejt faturës, çdo muaj ose çdo vit [TODO: shtoni pagesën me kartë kur të jetë aktive]."),
-                new Faq("A mund ta anuloj?", "[TODO: shkruani afatin e njoftimit dhe si anulohet, si në kushtet e përdorimit.]"),
+                new Faq("Si paguaj?", "{payment}"),
+                new Faq("A mund ta anuloj?", "Po, në çdo kohë, nga faqja Billing e panelit ose duke na shkruar. Nuk ka afat njoftimi, afat minimal apo tarifë anulimi. Plani vazhdon deri në fund të periudhës që keni paguar, nuk lëshohet faturë e re, dhe mund ta rifilloni para asaj date. Mund të kërkoni edhe fshirjen e të dhënave tuaja."),
                 new Faq("Kush qëndron pas My Quick Menu?", "My Quick Menu ndërtohet dhe drejtohet nga 4CS, një kompani softueri në Tiranë. Shikoni [rreth nesh](/about)."),
-                new Faq("Si marr ndihmë?", "Shkruani në info@myquickmenu.com ose telefononi +355 69 633 7906. Shikoni [kontakt](/contact) [TODO: orari i ndihmës].")
+                new Faq("Si marr ndihmë?", "Na shkruani në WhatsApp në +355 69 633 7906 ose në info@myquickmenu.com, ose na telefononi. Ndihma është e hapur 24 orë në ditë, 7 ditë në javë, dhe zakonisht përgjigjemi brenda 30 deri në 60 minutash. Shikoni [kontakt](/contact).")
             },
             PricingTeaser: false,
             CtaTitle: "Keni ende një pyetje?",
-            CtaText: "Na shkruani dhe ju përgjigjemi brenda ditës [TODO: konfirmoni kohën e përgjigjes që mund të premtoni]."),
+            CtaText: "Na shkruani në WhatsApp ose me email, në çdo orë: zakonisht përgjigjemi brenda 30 deri në 60 minutash."),
 
         ["about"] = new Page(
             Key: "about",
@@ -371,7 +371,7 @@ public static partial class LandingContent
                 new Section("Kush e bën My Quick Menu?", new[]
                 {
                     "My Quick Menu ndërtohet dhe drejtohet nga [4CS](https://4cs.al), një kompani softueri në Tiranë. Produktin e projektojmë, e ndërtojmë dhe e mbështesim vetë, ndaj kur diçka duhet rregulluar ose përmirësuar, e bën ekipi ynë.",
-                    "[TODO: disa fjali me fjalët tuaja: kur dhe pse 4CS nisi My Quick Menu, dhe kush është në ekip.]"
+                    "Mes jush dhe njerëzve që e bëjnë produktin nuk ka rishitës apo qendër thirrjesh. Kur na shkruani, në WhatsApp ose me email, në çdo orë, ju përgjigjet ekipi që ndërton My Quick Menu, zakonisht brenda 30 deri në 60 minutash, në shqip ose anglisht. Ajo që restorantet na thonë se u duhet është ajo që ndërtojmë më pas."
                 }, Id: "who"),
                 new Section("Pse e ndërtuam", new[]
                 {
@@ -395,7 +395,7 @@ public static partial class LandingContent
             MetaTitle: "Kontakt · My Quick Menu, Tiranë",
             MetaDescription: "Kontaktoni My Quick Menu në Tiranë: shkruani në info@myquickmenu.com ose telefononi +355 69 633 7906 për menu me QR, faqe interneti dhe rezervime online.",
             H1: "Kontakt",
-            Lede: "Keni pyetje për menunë, faqen e internetit, rezervimet ose llogarinë tuaj? Na shkruani ose na telefononi; përgjigjemi në shqip dhe anglisht.",
+            Lede: "Keni pyetje për menunë, faqen e internetit, rezervimet ose llogarinë tuaj? Na shkruani ose na telefononi në çdo kohë, 24 orë në ditë; përgjigjemi në shqip dhe anglisht, zakonisht brenda 30 deri në 60 minutash.",
             Photo: "/img/fine-dining.webp",
             PhotoAlt: "Një pjatë e servirur në një tavolinë të shtruar",
             Breadcrumb: "Kontakt",
@@ -404,9 +404,10 @@ public static partial class LandingContent
                 new Section("Si mund ta kontaktoj My Quick Menu?", new[]
                 {
                     "Email: [info@myquickmenu.com](mailto:info@myquickmenu.com)",
+                    "WhatsApp: [+355 69 633 7906](https://wa.me/355696337906)",
                     "Telefon: [+355 69 633 7906](tel:+355696337906)",
-                    "Adresa: Tiranë, Shqipëri [TODO: adresa e rrugës, nëse doni ta bëni publike]",
-                    "[TODO: orari i ndihmës, p.sh. e hënë deri të shtunë 9:00-18:00, dhe numri WhatsApp nëse e përdorni.]"
+                    "Orari i ndihmës: 24 orë në ditë, 7 ditë në javë. Zakonisht përgjigjemi brenda 30 deri në 60 minutash.",
+                    "Vendndodhja: Tiranë, Shqipëri"
                 }, Id: "reach"),
                 new Section("Kush qëndron pas My Quick Menu?", new[]
                 {

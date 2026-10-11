@@ -238,9 +238,9 @@ public sealed class MarketingText
         WebTags = new[] { "Free subdomain", "Own domain", "SEO ready" },
         WebImageAlt = "A bright café dining room with wooden tables",
         BookTitle = "Bookings",
-        BookText = "Take reservations from the site, the menu QR or your Instagram link. Confirmations and reminders by SMS or email, no-shows tracked.",
+        BookText = "Take reservations from the site, the menu QR or your Instagram link. Confirmations and reminders by email, no-shows tracked.",
         SlotsLabel = "Try it: pick a time for Friday",
-        SlotNote = "Table for 4 held at {0}. Confirmation goes out by SMS or email.",
+        SlotNote = "Table for 4 held at {0}. The confirmation goes out by email.",
         BookImageAlt = "A seaside restaurant terrace set for dinner",
         LearnMore = "Learn more",
 
@@ -366,9 +366,9 @@ public sealed class MarketingText
         WebTags = new[] { "Nëndomain falas", "Domaini juaj", "Gati për Google" },
         WebImageAlt = "Një kafene e ndriçuar me tavolina druri",
         BookTitle = "Rezervimet",
-        BookText = "Merrni rezervime nga faqja, nga QR-ja e menusë ose nga linku në Instagram. Konfirmime dhe kujtesa me SMS ose email, dhe evidencë për klientët që nuk vijnë.",
+        BookText = "Merrni rezervime nga faqja, nga QR-ja e menusë ose nga linku në Instagram. Konfirmime dhe kujtesa me email, dhe evidencë për klientët që nuk vijnë.",
         SlotsLabel = "Provojeni: zgjidhni një orë për të premten",
-        SlotNote = "Tavolina për 4 u mbajt për në {0}. Konfirmimi dërgohet me SMS ose email.",
+        SlotNote = "Tavolina për 4 u mbajt për në {0}. Konfirmimi dërgohet me email.",
         BookImageAlt = "Një tarracë restoranti buzë detit, gati për darkë",
         LearnMore = "Mësoni më shumë",
 

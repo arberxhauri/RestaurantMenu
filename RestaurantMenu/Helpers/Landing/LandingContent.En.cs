@@ -26,7 +26,7 @@ public static partial class LandingContent
                 new Section("Why restaurants switch from printed menus", new[]
                 {
                     "A printed menu is out of date the moment a price changes or a dish runs out. A QR menu is updated in seconds: change the price in the dashboard and the next guest who opens the menu sees it. Mark a dish as sold out at 19:40 and it is greyed out (or hidden, if you prefer) straight away.",
-                    "Tourists read the menu in their own language. You write each dish once and add translations; guests switch language with one tap. My Quick Menu supports English, Albanian, Italian, German, French, Spanish and Turkish, and the dish form can suggest translations for you to check [TODO: confirm Translation__GeminiApiKey is set in production, or remove this]."
+                    "Tourists read the menu in their own language. You write each dish once and add translations; guests switch language with one tap. My Quick Menu supports English, Albanian, Italian, German, French, Spanish and Turkish, and the dish form can suggest translations for you to check."
                 }, new[]
                 {
                     "Photos of every dish, with featured dishes and badges such as Chef's pick, New or Today's special",
@@ -193,7 +193,7 @@ public static partial class LandingContent
                 }, Id: "how"),
                 new Section("Do guests get a confirmation and a reminder?", new[]
                 {
-                    "Yes. The guest sees the confirmation on screen straight away and receives it by email, and by SMS where SMS is enabled [TODO: confirm SMS is switched on in production]. A reminder goes out a few hours before the booking (3 hours by default). Every booking has its own link where the guest can see it, add it to their calendar or cancel it, which frees the table for someone else."
+                    "Yes. The guest sees the confirmation on screen straight away and, when they leave an email address, receives it by email. A reminder email goes out a few hours before the booking (3 hours by default). Every booking has its own link where the guest can see it, add it to their calendar or cancel it, which frees the table for someone else."
                 }, Id: "reminders"),
                 new Section("How do I manage the day's bookings?", new[]
                 {
@@ -209,7 +209,7 @@ public static partial class LandingContent
             {
                 new Feature("ph-clock", "Only real free times", "Slots follow your opening hours and how many guests you can seat."),
                 new Feature("ph-link", "Book from anywhere", "From your menu, your website, Instagram or a WhatsApp message."),
-                new Feature("ph-bell-ringing", "Reminders", "A reminder before every booking, by email and SMS where enabled."),
+                new Feature("ph-bell-ringing", "Reminders", "A reminder email before every booking, when the guest leaves an address."),
                 new Feature("ph-user-minus", "No-show tracking", "Mark guests as seated or no-show and see who usually comes."),
                 new Feature("ph-check-circle", "Auto or manual confirm", "Confirm every booking yourself or let them confirm automatically."),
                 new Feature("ph-translate", "In the guest's language", "The booking page and messages follow your menu's languages.")
@@ -229,7 +229,7 @@ public static partial class LandingContent
                 {
                     new[] { "Guests can book at night", "Yes, any time", "Only when someone answers" },
                     new[] { "Double bookings", "Prevented by the free times", "Easy to make" },
-                    new[] { "Confirmation and reminder", "Automatic", "Manual calls or messages" },
+                    new[] { "Confirmation and reminder", "Automatic, by email", "Manual calls or messages" },
                     new[] { "Guest can cancel", "From their booking link", "Only by calling" },
                     new[] { "No-show history", "Kept per booking", "On paper" }
                 }),
@@ -346,14 +346,14 @@ public static partial class LandingContent
                 new Faq("Is there a free trial?", "Yes: {trial} days on any plan, with no card needed."),
                 new Faq("Who is My Quick Menu for?", "Restaurants, cafés, bars, bakeries and other places that serve food and drink, from a single café to restaurants with several branches."),
                 new Faq("Is My Quick Menu available in Albanian?", "Yes. This website, signup and the guest pages (menu, website and booking) are in Albanian, and guest menus can be in 7 languages. The restaurant dashboard is in English for now."),
-                new Faq("How do I pay?", "By bank transfer against an invoice, monthly or yearly [TODO: add card payment once it is live]."),
-                new Faq("Can I cancel?", "[TODO: state the notice period and how to cancel, as in the terms of use.]"),
+                new Faq("How do I pay?", "{payment}"),
+                new Faq("Can I cancel?", "Yes, any time, from the Billing page of your dashboard or by writing to us. There is no notice period, no minimum term and no cancellation fee. Your plan keeps running until the end of the period you have already paid for, no new invoice is issued, and you can resume before then. You can also ask us to erase your data."),
                 new Faq("Who is behind My Quick Menu?", "My Quick Menu is built and run by 4CS, a software company in Tirana, Albania. See [about us](/about)."),
-                new Faq("How do I get help?", "Email info@myquickmenu.com or call +355 69 633 7906. See [contact](/contact) [TODO: support hours].")
+                new Faq("How do I get help?", "Write to us on WhatsApp at +355 69 633 7906 or at info@myquickmenu.com, or call. Support is open 24 hours a day, 7 days a week, and we usually answer within 30 to 60 minutes. See [contact](/contact).")
             },
             PricingTeaser: false,
             CtaTitle: "Still have a question?",
-            CtaText: "Write to us and we'll answer the same day [TODO: confirm the response time you can promise]."),
+            CtaText: "Write to us on WhatsApp or by email, any time of day: we usually answer within 30 to 60 minutes."),
 
         ["about"] = new Page(
             Key: "about",
@@ -370,7 +370,7 @@ public static partial class LandingContent
                 new Section("Who makes My Quick Menu?", new[]
                 {
                     "My Quick Menu is built and run by [4CS](https://4cs.al), a software company in Tirana, Albania. We design, build and support the product ourselves, so when something needs fixing or improving, it is our own team that does it.",
-                    "[TODO: a few sentences in your own words: when and why 4CS started My Quick Menu, and who is on the team.]"
+                    "There is no reseller or call centre between you and the people who make the product. When you write to us, on WhatsApp or by email, at any hour, the team that builds My Quick Menu answers, usually within 30 to 60 minutes, in Albanian or English. What restaurants tell us they need is what we build next."
                 }, Id: "who"),
                 new Section("Why we built it", new[]
                 {
@@ -394,7 +394,7 @@ public static partial class LandingContent
             MetaTitle: "Contact My Quick Menu · Tirana, Albania",
             MetaDescription: "Contact My Quick Menu in Tirana: email info@myquickmenu.com or call +355 69 633 7906 about QR menus, restaurant websites and online bookings.",
             H1: "Contact",
-            Lede: "Questions about the menu, a website, bookings or your account? Write or call us; we answer in Albanian and English.",
+            Lede: "Questions about the menu, a website, bookings or your account? Write or call us any time, 24 hours a day; we answer in Albanian and English, usually within 30 to 60 minutes.",
             Photo: "/img/fine-dining.webp",
             PhotoAlt: "A plated dish on a set table",
             Breadcrumb: "Contact",
@@ -403,9 +403,10 @@ public static partial class LandingContent
                 new Section("How can I reach My Quick Menu?", new[]
                 {
                     "Email: [info@myquickmenu.com](mailto:info@myquickmenu.com)",
+                    "WhatsApp: [+355 69 633 7906](https://wa.me/355696337906)",
                     "Phone: [+355 69 633 7906](tel:+355696337906)",
-                    "Address: Tirana, Albania [TODO: street address, if you want it public]",
-                    "[TODO: support hours, e.g. Monday to Saturday 9:00-18:00, and a WhatsApp number if you use one.]"
+                    "Support hours: 24 hours a day, 7 days a week. We usually answer within 30 to 60 minutes.",
+                    "Location: Tirana, Albania"
                 }, Id: "reach"),
                 new Section("Who is behind My Quick Menu?", new[]
                 {

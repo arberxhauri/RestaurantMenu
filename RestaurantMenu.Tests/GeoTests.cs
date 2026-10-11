@@ -9,7 +9,7 @@ public class GeoTests
     {
         ["definition"] = string.Format(MarketingText.For(lang).Definition, "€5"),
         ["menu"] = "€5", ["guests"] = "€23", ["everything"] = "€43", ["website"] = "€5", ["bookings"] = "€7",
-        ["ordering"] = "€9", ["management"] = "€12", ["domain"] = "€3", ["trial"] = "14"
+        ["ordering"] = "€9", ["management"] = "€12", ["domain"] = "€3", ["trial"] = "14", ["payment"] = "By bank transfer against an invoice, monthly or yearly."
     };
 
     private static LlmsText.Input Input() => new("https://myquickmenu.com",

@@ -55,6 +55,7 @@ public sealed class ContactPoint : Thing
     public string? Email { get; init; }
     public string? Telephone { get; init; }
     public IReadOnlyList<string>? AvailableLanguage { get; init; }
+    public IReadOnlyList<OpeningHoursSpecification>? HoursAvailable { get; init; }
 }
 
 public sealed class Organization : Thing

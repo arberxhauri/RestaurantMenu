@@ -339,9 +339,11 @@ landing page for 30, 90 or 365 days.
 
 - [ ] `Seo__BaseUrl=https://myquickmenu.com` is set on Render; deploy (the migrations
       `SearchAndSharing` and `AiReferrals` only add columns and a table).
-- [ ] Set `IndexNow__Key` (any random 32-character string); check `https://myquickmenu.com/<key>.txt`.
-- [ ] Fill `Brand__SameAs__*` (Instagram, Facebook, LinkedIn… of **My Quick Menu**),
-      `Brand__StreetAddress` and `Brand__WhatsApp` if wanted, and the content TODOs (§17).
+- [ ] IndexNow: the key is in `appsettings.json` (`IndexNow:Key`), so it deploys with the app; an
+      `IndexNow__Key` environment variable on Render would override it. Check
+      `https://myquickmenu.com/<key>.txt` answers the key, and that the deploy log says nothing
+      about IndexNow being off (it needs `Seo__BaseUrl` set to the https address).
+- [ ] Add any new social profiles of My Quick Menu to `Brand:SameAs` (Instagram is there).
 - [ ] Verify `myquickmenu.com` in **Google Search Console** and **Bing Webmaster Tools**; submit
       `https://myquickmenu.com/sitemap.xml` in both. Verify restaurants' own domains too if you
       manage them.
@@ -359,16 +361,12 @@ landing page for 30, 90 or 365 days.
 
 ## 17. Open TODOs
 
-Facts only you can supply. They are in the copy as `[TODO: …]`, visible in Development and hidden
-in production until filled:
+None left in the copy (filled 2026-10-11): Instagram as `Brand__SameAs`, WhatsApp +355 69 633 7906,
+support 24/7 with answers in 30-60 minutes, cancellation (any time from Billing, no notice period,
+minimum term or fee; runs to the end of the paid period), payment wording that switches to card
+automatically when card payments are on (`{payment}` token), the About text, bookings by email only
+(no SMS), translation suggestions on. The street address stays private on purpose.
 
-- `Brand__SameAs`: My Quick Menu's own social profiles (`appsettings.json`).
-- Street address (contact page, footer, Organization schema): optional.
-- Support hours and a WhatsApp number, if any (contact page, FAQ).
-- The response time you can promise (FAQ call to action).
-- Cancellation: notice period and how to cancel (FAQ), as in the terms.
-- Card payment, once Paddle is live (FAQ "How do I pay?").
-- About page: when and why 4CS started My Quick Menu, and who is on the team.
-- Whether SMS confirmations and reminders are on in production (bookings page).
-- Whether translation suggestions (`Translation__GeminiApiKey`) are on in production (digital menu
-  page).
+Still to decide (they would be commitments, so they need the owner's yes): a refund rule for yearly
+plans, and how long data is kept after an account ends. When decided, add them to the terms of use
+and to the "Can I cancel?" answers in `LandingContent.En.cs` / `.Sq.cs`.

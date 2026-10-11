@@ -47,9 +47,11 @@ public class MarketingService
     private readonly IConfiguration _config;
     private readonly BrandOptions _brand;
     private readonly IHttpContextAccessor _http;
+    private readonly PaddleBilling _paddle;
 
-    public MarketingService(SignupService signup, PlanSettingsService plans, IConfiguration config, IOptions<BrandOptions> brand, IHttpContextAccessor http)
+    public MarketingService(SignupService signup, PlanSettingsService plans, IConfiguration config, IOptions<BrandOptions> brand, IHttpContextAccessor http, PaddleBilling paddle)
     {
+        _paddle = paddle;
         _signup = signup;
         _plans = plans;
         _config = config;
@@ -95,7 +97,13 @@ public class MarketingService
             ["ordering"] = P(prices.Module(BillingModule.Ordering)),
             ["management"] = P(prices.Module(BillingModule.Management)),
             ["domain"] = P(prices.Module(BillingModule.OwnDomain)),
-            ["trial"] = (await _signup.TrialDaysAsync()).ToString(System.Globalization.CultureInfo.InvariantCulture)
+            ["trial"] = (await _signup.TrialDaysAsync()).ToString(System.Globalization.CultureInfo.InvariantCulture),
+            // How restaurants pay: card shows up by itself once card payments are switched on (Admin → Plans & prices).
+            ["payment"] = await _paddle.IsOfferedAsync()
+                ? lang == "sq" ? "Me kartë, çdo muaj ose çdo vit me rinovim automatik, ose me transfertë bankare kundrejt faturës."
+                               : "By card, monthly or yearly with automatic renewal, or by bank transfer against an invoice."
+                : lang == "sq" ? "Me transfertë bankare kundrejt faturës, çdo muaj ose çdo vit. Pagesa me kartë po shtohet së shpejti."
+                               : "By bank transfer against an invoice, monthly or yearly. Card payment is being added soon."
         };
     }
 

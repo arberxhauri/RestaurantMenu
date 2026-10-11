@@ -19,6 +19,10 @@
                     <strong>@b.Name</strong>
                     <span>@(string.IsNullOrWhiteSpace(b.StreetAddress) ? "" : b.StreetAddress + ", ")@locality, @country</span>
                     <a href="mailto:@b.Email">@b.Email</a>
+                    @if (b.WhatsAppHref is { } whatsApp)
+                    {
+                        <a href="@whatsApp">WhatsApp @b.Phone</a>
+                    }
                     @if (!string.IsNullOrWhiteSpace(b.Phone))
                     {
                         <a href="@b.PhoneHref">@b.Phone</a>
