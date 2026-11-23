@@ -80,10 +80,17 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 builder.Services.Configure<DataProtectionTokenProviderOptions>(o => o.TokenLifespan = AccountTokens.InviteLifespan);
 
 // Keys that sign the login cookie and invite links. Without persisting them, every
-// deploy or restart on Render signs everyone out and breaks unused invite links.
+// deploy or restart signs everyone out and breaks unused invite links.
+// DataProtection__KeysPath (the Docker server: /keys, its own volume) keeps them there under the
+// application name "myquickmenu". Without it (local development, Render until the move) they stay
+// under DISK_MOUNT_PATH with the original application name.
+var serverKeysPath = builder.Configuration["DataProtection:KeysPath"];
+var onServerKeys = !string.IsNullOrWhiteSpace(serverKeysPath);
 builder.Services.AddDataProtection()
-    .PersistKeysToFileSystem(Directory.CreateDirectory(Path.Combine(diskMount, "keys")))
-    .SetApplicationName("RestaurantMenu");
+    .PersistKeysToFileSystem(Directory.CreateDirectory(onServerKeys
+        ? serverKeysPath!
+        : Path.Combine(diskMount, "keys")))
+    .SetApplicationName(onServerKeys ? "myquickmenu" : "RestaurantMenu");
 
 // Email (invites, password resets). Set Email__From plus one provider:
 //   Email__ResendApiKey (Resend, HTTPS)   or   Email__BrevoApiKey (Brevo, HTTPS)
@@ -322,6 +329,10 @@ RestaurantMenu.Helpers.Landing.LandingContent.ShowTodos = app.Environment.IsDeve
 // Must run before anything reads Request.Scheme or Request.Host — including
 // UseHttpsRedirection and every SEO URL the views build.
 app.UseForwardedHeaders();
+
+// Caddy's on-demand TLS check (restaurants' own domains and subdomains). Right after the
+// forwarded headers, so the caller's address is known, and before any host-based routing.
+app.UseMiddleware<TlsAskMiddleware>();
 
 // nosniff, referrer policy, no framing (except guest pages), and a strict policy on /billing.
 app.UseMiddleware<SecurityHeaders>();

@@ -1,0 +1,39 @@
+# Caddy in front of My Quick Menu (host network; the app is on 127.0.0.1:8080).
+# HTTPS certificates are automatic. http:// redirects to https:// everywhere.
+{
+	email {$ACME_EMAIL}
+
+	# Restaurants' own domains and {restaurant}.myquickmenu.com get a certificate on their
+	# first visit, after the app confirms the name is one of its sites (TlsAskMiddleware).
+	on_demand_tls {
+		ask http://127.0.0.1:8080/internal/tls-ask
+	}
+}
+
+(app) {
+	encode zstd gzip
+
+	# Only Caddy may ask about certificates.
+	@internal path /internal/*
+	respond @internal 404
+
+	# Sets X-Forwarded-For/-Proto/-Host and passes the Host header through; WebSockets (SignalR) work as-is.
+	reverse_proxy 127.0.0.1:8080
+}
+
+# The canonical address.
+myquickmenu.com {
+	import app
+}
+
+www.myquickmenu.com {
+	redir https://myquickmenu.com{uri} permanent
+}
+
+# Every other name: restaurants' own domains and subdomains of myquickmenu.com.
+https:// {
+	tls {
+		on_demand
+	}
+	import app
+}

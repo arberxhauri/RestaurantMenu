@@ -8,3 +8,9 @@ obj/
 ._*
 .DS_Store
 
+
+# Server secrets (deploy/.env.example is the template)
+deploy/.env
+deploy/mqm.env
+mqm.env
+.env

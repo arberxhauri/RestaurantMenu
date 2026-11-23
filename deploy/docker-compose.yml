@@ -1,0 +1,82 @@
+# The server's services. Lives in /srv next to Caddyfile, .env (compose variables), mqm.env (the
+# app's settings) and backups/. Other sites join here later (one Caddy owns ports 80/443).
+#   docker compose up -d          start / apply changes
+#   docker compose logs -f mqm    app logs
+# The mqm image is built on a Mac and loaded with ../deploy.sh (no registry).
+name: mqm
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    # Host network: Caddy sees visitors' real IPv4 and IPv6 addresses (the app rate-limits per
+    # address) and binds 80/443 (+ 443/udp for HTTP/3) itself. It reaches the app on 127.0.0.1:8080.
+    network_mode: host
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in /srv/.env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data        # certificates and ACME account: keep it
+      - caddy_config:/config
+    depends_on:
+      - mqm
+    logging: *logging
+
+  mqm:
+    image: mqm:latest
+    restart: unless-stopped
+    user: app                   # non-root user of the aspnet image
+    # The app's settings (from Render: email, Paddle, Gemini, Sites, …). Not .env: that one is the
+    # server's (compose variables, other sites' passwords) and stays out of the container.
+    env_file: mqm.env
+    environment:                # these win over .env
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      DOTNET_gcServer: "0"
+      DISK_MOUNT_PATH: /var/data
+      DataProtection__KeysPath: /keys
+      ConnectionStrings__DefaultConnection: Host=mqm-db;Database=mqm;Username=mqm;Password=${MQM_DB_PASSWORD:?set MQM_DB_PASSWORD in /srv/.env}
+    ports:
+      - "127.0.0.1:8080:8080"   # Caddy and SSH-tunnel testing only
+    volumes:
+      - mqm_data:/var/data      # uploads: /var/data/images
+      - mqm_keys:/keys          # data-protection keys (sign-in cookies, invite links)
+    mem_limit: 512m
+    depends_on:
+      mqm-db:
+        condition: service_healthy
+    logging: *logging
+
+  mqm-db:
+    image: postgres:18-alpine   # same major version as Render's database (dumps restore forward only)
+    restart: unless-stopped
+    command: ["postgres", "-c", "shared_buffers=256MB"]
+    environment:
+      POSTGRES_DB: mqm
+      POSTGRES_USER: mqm
+      POSTGRES_PASSWORD: ${MQM_DB_PASSWORD:?set MQM_DB_PASSWORD in /srv/.env}
+    ports:
+      - "127.0.0.1:5432:5432"   # SSH tunnel only
+    volumes:
+      # Postgres 18+ images keep data in /var/lib/postgresql/18/docker (pg_upgrade-friendly layout).
+      - mqm_db:/var/lib/postgresql
+    shm_size: 256mb             # parallel queries use /dev/shm (Docker's default is 64 MB)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mqm -d mqm"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    logging: *logging
+
+volumes:
+  caddy_data:
+  caddy_config:
+  mqm_data:
+  mqm_keys:
+  mqm_db:

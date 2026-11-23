@@ -1,0 +1,31 @@
+# Build output and IDE files
+**/bin/
+**/obj/
+**/.vs/
+**/.idea/
+**/.vscode/
+**/*.user
+
+# Repo and macOS metadata (AppleDouble "._*" sidecars on the exFAT drive break the build)
+.git/
+.gitignore
+**/._*
+**/.DS_Store
+
+# Not part of the app image
+RestaurantMenu.Tests/
+tools/
+deploy/
+deploy.sh
+**/docs/
+**/node_modules/
+
+# Secrets and local-only settings
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/*.pfx
+**/secrets/
+**/appsettings.Development.json
+**/appsettings.*.local.json
