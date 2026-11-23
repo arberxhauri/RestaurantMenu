@@ -25,7 +25,8 @@ public static class MarketingPages
         new MarketingPage("about", "/about", "yearly", "0.5", Bilingual),
         new MarketingPage("contact", "/contact", "yearly", "0.5", Bilingual),
         new MarketingPage("privacy", "/home/privacy", "yearly", "0.2", EnglishOnly),
-        new MarketingPage("terms", "/home/terms", "yearly", "0.2", EnglishOnly)
+        new MarketingPage("terms", "/home/terms", "yearly", "0.2", EnglishOnly),
+        new MarketingPage("refunds", "/home/refunds", "yearly", "0.2", EnglishOnly)
     };
 
     public static MarketingPage Get(string key) => All.First(p => p.Key == key);

@@ -1,0 +1,32 @@
+@inject Microsoft.Extensions.Options.IOptions<RestaurantMenu.Services.BrandOptions> BrandSettings
+@{
+    ViewData["Title"] = "Refund policy";
+    var brand = BrandSettings.Value;
+}
+
+<article class="prose">
+    <h1>Refund policy</h1>
+    <p class="lead">Not happy with My Quick Menu? You get your first payment back in full if you ask within 14 days.</p>
+    <p><small>Last updated 23 November 2026.</small></p>
+
+    <h2 id="seller">Who sells the service</h2>
+    <p>My Quick Menu subscriptions are sold by <strong>@brand.LegalEntity</strong>@(string.IsNullOrWhiteSpace(brand.LegalNipt) ? "" : $" (NIPT {brand.LegalNipt.Trim()})"), Albania. Card payments are handled by our online reseller <strong>Paddle.com</strong>, which is the Merchant of Record for those orders. Bank transfer payments are invoiced by us directly. This policy applies to both.</p>
+
+    <h2 id="first-payment">14-day refund of your first payment</h2>
+    <p>You can ask for a <strong>full refund of the first payment</strong> of your subscription within <strong>14 days</strong> of that payment, for any reason. It applies to monthly and yearly plans, whether you paid by card or by bank transfer, once per restaurant account.</p>
+    <p>When the refund is made, the subscription ends and the paid features stop. Your account and data stay, and you can subscribe again later. Your public menus stay online.</p>
+
+    <h2 id="trial">Free trial</h2>
+    <p>New accounts can try My Quick Menu free for 14 days without a card. Nothing is charged during the trial, so there is nothing to refund.</p>
+
+    <h2 id="renewals">Renewals and later payments</h2>
+    <p>Payments after the first one (monthly or yearly renewals) are not refunded, except where the law requires it or where the service was unavailable for a significant time through our fault.</p>
+    <p>You can cancel at any time on the Billing page of your account, or by emailing us. Cancelling stops the next renewal: you are not charged again, and you keep access until the end of the period you have already paid for.</p>
+
+    <h2 id="how">How to ask for a refund</h2>
+    <p>Email <a href="mailto:@brand.Email">@brand.Email</a> from the address of your account, with the invoice or receipt number. If you paid by card, you can also ask through the link in your Paddle receipt or at <a href="https://paddle.net" target="_blank" rel="noopener noreferrer">paddle.net</a>.</p>
+    <p>We answer within 5 business days. Refunds go back the way you paid: to the same card (your bank may take 5 to 10 business days to show it) or to the bank account the transfer came from.</p>
+
+    <h2 id="law">Your legal rights</h2>
+    <p>This policy doesn't limit any right you have under the law where you are. It is part of our <a asp-controller="Home" asp-action="Terms">Terms of use</a>; for card payments, Paddle's <a href="https://www.paddle.com/legal/checkout-buyer-terms" target="_blank" rel="noopener noreferrer">buyer terms</a> also apply.</p>
+</article>

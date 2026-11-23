@@ -1,18 +1,20 @@
+@inject Microsoft.Extensions.Options.IOptions<RestaurantMenu.Services.BrandOptions> BrandSettings
 @{
     ViewData["Title"] = "Terms of use";
+    var brand = BrandSettings.Value;
 }
 
 <article class="prose">
     <h1>Terms of use</h1>
     <p class="lead">The rules for restaurants using My Quick Menu, and for guests using a restaurant's menu, ordering and bookings.</p>
-    <p><small>Last updated 5 October 2026.</small></p>
+    <p><small>Last updated 23 November 2026.</small></p>
 
     <h2 id="service">1. The service</h2>
-    <p>My Quick Menu ("we") is built and operated by <a href="https://4cs.al/" target="_blank" rel="noopener noreferrer">4CS</a>. It gives restaurants digital menus, table ordering, a kitchen display, table bookings, a restaurant website, guest feedback and back-office tools for stock, shifts and sales. How we handle personal data is described in the <a asp-controller="Home" asp-action="Privacy">Privacy</a> page, which is part of these terms.</p>
+    <p>My Quick Menu ("we") is built and operated by <strong>@brand.LegalEntity</strong>@(string.IsNullOrWhiteSpace(brand.LegalNipt) ? "" : $" (NIPT {brand.LegalNipt.Trim()})"), Albania (<a href="@brand.ParentUrl" target="_blank" rel="noopener noreferrer">@(new Uri(brand.ParentUrl).Host)</a>). It gives restaurants digital menus, table ordering, a kitchen display, table bookings, a restaurant website, guest feedback and back-office tools for stock, shifts and sales. How we handle personal data is described in the <a asp-controller="Home" asp-action="Privacy">Privacy</a> page, which is part of these terms.</p>
 
     <h2 id="restaurants">2. For restaurants</h2>
     <h3>Accounts</h3>
-    <p>Accounts are set up by us and activated through an invite link. Owners can invite their own team. You are responsible for everything done under your account and your team's accounts, for keeping passwords private, and for removing people who no longer work with you.</p>
+    <p>You can sign up on our website (we may check a new account before it opens), or we set the account up for you and send an invite link. Owners can invite their own team. You are responsible for everything done under your account and your team's accounts, for keeping passwords private, and for removing people who no longer work with you.</p>
 
     <h3>Your content</h3>
     <p>You are responsible for everything you publish: dish names, descriptions, photos, prices, opening hours, and in particular <strong>allergen and dietary information</strong>. We show what you enter; we don't check it. Keep it accurate and up to date, as the law requires of food businesses.</p>
@@ -21,11 +23,14 @@
     <h3>Your guests</h3>
     <p>Orders, bookings and ratings are between you and your guests. You decide whether to accept them, you serve and charge for orders, and you honour bookings. You must use guests' details only to serve them, and handle them as data protection law requires.</p>
 
-    <h3>Fees</h3>
-    <p>Prices, plans and any trial period are agreed with us in writing before your account is set up. If we change them, we tell you at least 30 days in advance.</p>
+    <h3 id="plans">Plans, prices and payment</h3>
+    <p>A subscription is made of the modules and the number of branches you choose. Prices are shown on the <a href="/pricing">Pricing</a> page in euros, without VAT, which is added where it applies. Subscriptions are billed <strong>monthly or yearly in advance</strong> and <strong>renew automatically</strong> at the end of each period until you cancel. New accounts can try the service free for 14 days, without a card.</p>
+    <p>You can pay by card or by bank transfer. <strong>Card payments:</strong> our order process is conducted by our online reseller <strong>Paddle.com</strong>. Paddle.com is the Merchant of Record for all our card orders; Paddle provides customer service for those payments and handles returns, and its <a href="https://www.paddle.com/legal/checkout-buyer-terms" target="_blank" rel="noopener noreferrer">buyer terms</a> apply to them. <strong>Bank transfer:</strong> we send you an invoice, payable by the due date shown on it.</p>
+    <p>If a payment fails or an invoice isn't paid, your account gets 14 days' grace. After that the back office becomes read-only and paid features pause until the payment is made; your data is kept and your public menus stay online. We announce price changes at least 30 days in advance by email; they apply from your next renewal.</p>
 
-    <h3>Ending</h3>
-    <p>You can stop using the service at any time and ask us to erase your data. We may suspend or close an account that breaks these terms, puts others at risk or remains unpaid, after warning you where reasonably possible.</p>
+    <h3 id="cancel">Cancelling and refunds</h3>
+    <p>You can cancel at any time on the Billing page of your account, or by emailing us. Cancelling stops the next renewal; you keep access until the end of the period you have paid for. You can get a <strong>full refund of your first payment within 14 days</strong>; renewals are not refunded except where the law requires it. Details are in our <a asp-controller="Home" asp-action="Refunds">Refund policy</a>, which is part of these terms.</p>
+    <p>You can also ask us to erase your account and data. We may suspend or close an account that breaks these terms, puts others at risk or remains unpaid, after warning you where reasonably possible.</p>
 
     <h2 id="guests">3. For guests</h2>
     <p>Menus, prices and availability are published by each restaurant, which is responsible for them. If you have an allergy or intolerance, always confirm with the staff before ordering.</p>
@@ -45,5 +50,5 @@
     <p>These terms are governed by the laws of the Republic of Albania. If we change them, we update the date above and tell restaurants of important changes in advance.</p>
 
     <h2 id="contact">8. Contact</h2>
-    <p>Questions about these terms: <a href="https://4cs.al/" target="_blank" rel="noopener noreferrer">4CS</a>.</p>
+    <p>Questions about these terms, billing or refunds: <a href="mailto:@brand.Email">@brand.Email</a>, or <a href="/contact">other ways to reach us</a>.</p>
 </article>

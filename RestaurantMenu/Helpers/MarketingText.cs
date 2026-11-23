@@ -41,6 +41,7 @@ public sealed class MarketingText
     public required string FooterNav { get; init; }
     public required string Privacy { get; init; }
     public required string Terms { get; init; }
+    public required string Refunds { get; init; }
     public required string NavDigitalMenu { get; init; }
     public required string NavWebsite { get; init; }
     public required string NavBookings { get; init; }
@@ -172,6 +173,7 @@ public sealed class MarketingText
         FooterNav = "Footer",
         Privacy = "Privacy",
         Terms = "Terms",
+        Refunds = "Refunds",
         NavDigitalMenu = "Digital menu",
         NavWebsite = "Restaurant website",
         NavBookings = "Table bookings",
@@ -300,6 +302,7 @@ public sealed class MarketingText
         FooterNav = "Lidhje në fund të faqes",
         Privacy = "Privatësia",
         Terms = "Kushtet",
+        Refunds = "Rimbursimet",
         NavDigitalMenu = "Menu dixhitale",
         NavWebsite = "Faqe interneti",
         NavBookings = "Rezervime",

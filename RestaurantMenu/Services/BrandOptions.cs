@@ -29,6 +29,17 @@ public class BrandOptions
     public string ParentUrl { get; set; } = "https://4cs.al";
     public List<string> ParentSameAs { get; set; } = new();
 
+    /// <summary>
+    /// The company's registered name (e.g. "4CS SH.P.K."), exactly as the payment provider knows the
+    /// seller: Brand__LegalName. Named on the terms and refund policy.
+    /// </summary>
+    public string? LegalName { get; set; }
+    /// <summary>The company's tax number (NIPT), shown next to the legal name when set: Brand__LegalNipt.</summary>
+    public string? LegalNipt { get; set; }
+
+    /// <summary>Who sells the service: the registered legal name, or the parent company's name until it is set.</summary>
+    public string LegalEntity => string.IsNullOrWhiteSpace(LegalName) ? ParentName : LegalName.Trim();
+
     public string PhoneHref => "tel:" + new string((Phone ?? "").Where(c => char.IsDigit(c) || c == '+').ToArray());
     public string? WhatsAppHref => string.IsNullOrWhiteSpace(WhatsApp) ? null : "https://wa.me/" + WhatsApp;
 }

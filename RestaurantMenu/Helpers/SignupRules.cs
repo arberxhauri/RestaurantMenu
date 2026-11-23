@@ -5,7 +5,7 @@ namespace RestaurantMenu.Helpers;
 /// <summary>The Terms of use version a signup accepts (the "Last updated" date on /home/terms).</summary>
 public static class TermsInfo
 {
-    public const string Version = "2026-10-05";
+    public const string Version = "2026-11-23";
 }
 
 /// <summary>Signup checks that need no database (tested in SignupRulesTests).</summary>

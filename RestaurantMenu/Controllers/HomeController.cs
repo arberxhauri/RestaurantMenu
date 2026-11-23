@@ -104,6 +104,24 @@ public class HomeController : Controller
         return View();
     }
 
+    public async Task<IActionResult> Refunds()
+    {
+        ViewData["Marketing"] = await _marketing.ChromeAsync("en", "/home/refunds");
+        ViewData["Title"] = "Refund policy";
+        ViewData["Seo"] = new SeoMetadata
+        {
+            Title = "Refund policy — My Quick Menu",
+            Description = "A full refund of your first subscription payment within 14 days, how cancelling works, and how to ask for a refund.",
+            CanonicalUrl = _seo.Url("/home/refunds"),
+            OgType = "article",
+            ThemeColor = "#D55C13",
+            JsonLd = StructuredData.ForMarketingPage(await _marketing.FactsAsync("en", _seo.BaseUrl), _seo.Url("/home/refunds"), "Refund policy — My Quick Menu",
+                new[] { ("Home", _seo.Url("/")), ("Refund policy", _seo.Url("/home/refunds")) }, withSoftware: false)
+        };
+
+        return View();
+    }
+
     // Re-executed by UseStatusCodePagesWithReExecute for 404s and other error statuses.
     [NoIndex]
     [Route("home/status/{code:int}")]
