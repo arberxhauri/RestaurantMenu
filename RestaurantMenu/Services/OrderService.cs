@@ -100,6 +100,15 @@ public class OrderService
         }
         if (problem != null) return Fail(problem.Value, lang);
 
+        var orderItems = lines.Select(l => new OrderItem
+        {
+            ProductId = l.ProductId, Name = l.Name, Options = l.Options, OptionIds = l.OptionIds,
+            UnitPrice = l.UnitPrice, Quantity = l.Quantity,
+            Station = StationRules.Effective(products[l.ProductId].Station,
+                products[l.ProductId].Category?.Station ?? ServiceStation.Kitchen)
+        }).ToList();
+        var stations = StationRules.Split(orderItems.Select(i => i.Station));
+
         var order = new Order
         {
             PublicId = Guid.NewGuid(),
@@ -113,12 +122,14 @@ public class OrderService
             Note = OrderRules.CleanNote(req.Note),
             Language = lang,
             Total = lines.Sum(l => l.UnitPrice * l.Quantity),
+            Source = OrderSource.GuestQr,
+            Type = OrderType.DineIn,
             CreatedUtc = utcNow,
             UpdatedUtc = utcNow,
-            Items = lines.Select(l => new OrderItem
+            Items = orderItems,
+            Tickets = stations.Select(station => new OrderTicket
             {
-                ProductId = l.ProductId, Name = l.Name, Options = l.Options, OptionIds = l.OptionIds,
-                UnitPrice = l.UnitPrice, Quantity = l.Quantity
+                Station = station, Status = TicketStatus.New, CreatedUtc = utcNow
             }).ToList()
         };
         _db.Orders.Add(order);

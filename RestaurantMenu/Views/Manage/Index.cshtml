@@ -5,6 +5,7 @@
     ViewData["Title"] = "Overview";
     var en = CultureInfo.GetCultureInfo("en-GB");
     string Money(string cur, decimal v) => cur + v.ToString("N0", en);
+    string Delta(decimal now, decimal before) => before == 0 ? (now == 0 ? "No change" : "New sales") : $"{(now - before) / before:P0} vs last week";
     // Never add different currencies together: one total per currency.
     var byCurrency = Model.GroupBy(r => r.CurrencyCode).ToList();
 }
@@ -12,7 +13,7 @@
 <header class="page-head">
     <div>
         <h1>Overview</h1>
-        <p>Sales, stock and who's working, across @(Model.Count == 1 ? "your branch" : $"your {Model.Count} branches"). Sales are table orders; cancelled ones don't count.</p>
+        <p>Sales, live service, bookings and alerts across @(Model.Count == 1 ? "your branch" : $"your {Model.Count} branches").</p>
     </div>
 </header>
 
@@ -29,12 +30,53 @@ else
     @foreach (var g in byCurrency)
     {
         var cur = g.First().Currency;
+        var todayRevenue = g.Sum(r => r.Today.Revenue);
+        var lastWeekRevenue = g.Sum(r => r.SameWeekdayLastWeek.Revenue);
+        var todayOrders = g.Sum(r => r.Today.Orders);
         <div class="kpi-row">
-            <div class="kpi"><span class="kpi-label">Today so far@(byCurrency.Count > 1 ? $" ({g.Key})" : "")</span><span class="kpi-value">@Money(cur, g.Sum(r => r.Today.Revenue))</span><span class="kpi-delta kpi-delta--flat"><span>@g.Sum(r => r.Today.Orders) orders</span></span></div>
-            <div class="kpi"><span class="kpi-label">Yesterday</span><span class="kpi-value">@Money(cur, g.Sum(r => r.Yesterday.Revenue))</span><span class="kpi-delta kpi-delta--flat"><span>@g.Sum(r => r.Yesterday.Orders) orders</span></span></div>
-            <div class="kpi"><span class="kpi-label">Last 7 days</span><span class="kpi-value">@Money(cur, g.Sum(r => r.Last7))</span></div>
-            <div class="kpi"><span class="kpi-label">Last 30 days</span><span class="kpi-value">@Money(cur, g.Sum(r => r.Last30))</span><span class="kpi-delta kpi-delta--flat"><span>@g.Sum(r => r.Orders30).ToString("N0", en) orders</span></span></div>
+            <div class="kpi"><span class="kpi-label">Sales today@(byCurrency.Count > 1 ? $" ({g.Key})" : "")</span><span class="kpi-value">@Money(cur, todayRevenue)</span><span class="kpi-delta kpi-delta--flat"><span>@Delta(todayRevenue, lastWeekRevenue)</span></span></div>
+            <div class="kpi"><span class="kpi-label">Orders</span><span class="kpi-value">@todayOrders</span><span class="kpi-delta kpi-delta--flat"><span>Avg. @(todayOrders == 0 ? Money(cur, 0) : Money(cur, todayRevenue / todayOrders))</span></span></div>
+            @if (g.Any(r => r.HasOrdering)) { <div class="kpi"><span class="kpi-label">Tables in use</span><span class="kpi-value">@g.Where(r => r.HasOrdering).Sum(r => r.TablesInUse)</span><span class="kpi-delta kpi-delta--flat"><span>@g.Where(r => r.HasOrdering).Sum(r => r.LiveOrders) open tickets</span></span></div> }
+            @if (g.Any(r => r.HasBookings)) { <div class="kpi"><span class="kpi-label">Bookings today</span><span class="kpi-value">@g.Where(r => r.HasBookings).Sum(r => r.BookingsToday)</span><span class="kpi-delta kpi-delta--flat"><span>@g.Where(r => r.HasBookings).Sum(r => r.CoversToday) covers</span></span></div> }
         </div>
+    }
+
+    <section class="panel mb-4" aria-labelledby="liveTitle">
+        <header class="panel-head"><div><h2 id="liveTitle">Live service</h2><p>What needs attention right now.</p></div></header>
+        <div class="panel-body"><div class="row g-3">
+            @foreach (var r in Model)
+            {
+                <div class="col-12 col-xl-6"><article class="card h-100"><div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start gap-3"><div><h3 class="h5 mb-1">@r.Branch.Name</h3>@if (r.HasOrdering) { <p class="text-muted mb-3">@r.LiveOrders open tickets@(r.OldestTicket is { } age ? $" · oldest {Math.Max(1, (int)age.TotalMinutes)} min" : "")</p> }</div>@if (r.HasOrdering) { <span class="chip @(r.LiveOrders > 0 ? "chip--warn" : "chip--ok")">@(r.LiveOrders > 0 ? "In service" : "Clear")</span> }</div>
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        @if (r.HasManagement && r.LowStock.Count > 0) { <span class="chip chip--warn"><i class="ph ph-package" aria-hidden="true"></i>@r.LowStock.Count low stock</span> }
+                        @if (r.UnavailableItems > 0) { <span class="chip chip--warn"><i class="ph ph-eye-slash" aria-hidden="true"></i>@r.UnavailableItems unavailable</span> }
+                        @if (r.LowRatings > 0) { <span class="chip chip--danger"><i class="ph ph-star" aria-hidden="true"></i>@r.LowRatings low ratings</span> }
+                        @if ((!r.HasManagement || r.LowStock.Count == 0) && r.UnavailableItems == 0 && r.LowRatings == 0) { <span class="text-muted">No active alerts.</span> }
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        @if (r.HasOrdering) { <a class="btn btn-primary btn-sm" asp-controller="Kitchen" asp-action="Index" asp-route-id="@r.Branch.Id"><i class="ph ph-cooking-pot" aria-hidden="true"></i>Open kitchen</a> }
+                        @if (r.HasBookings) { <a class="btn btn-outline-secondary btn-sm" asp-controller="Bookings" asp-action="Index" asp-route-id="@r.Branch.Id"><i class="ph ph-calendar-plus" aria-hidden="true"></i>Add booking</a> }
+                        @if (r.HasManagement) { <a class="btn btn-outline-secondary btn-sm" asp-controller="Stock" asp-action="Index" asp-route-id="@r.Branch.Id"><i class="ph ph-package" aria-hidden="true"></i>Stock delivery</a> }
+                    </div>
+                </div></article></div>
+            }
+        </div></div>
+    </section>
+
+    @foreach (var r in Model)
+    {
+        var max14 = Math.Max(1m, r.Last14.Max(d => d.Revenue));
+        <section class="panel mb-4" aria-labelledby="trend-@r.Branch.Id">
+            <header class="panel-head"><div><h2 id="trend-@r.Branch.Id">@r.Branch.Name · last 14 days</h2><p>Daily sales, including today so far.</p></div></header>
+            <div class="panel-body"><div class="dashboard-bars" role="img" aria-label="Sales for the last fourteen days">
+                @foreach (var d in r.Last14)
+                {
+                    var height = (double)(d.Revenue / max14);
+                    <div class="dashboard-bar" title="@d.Date.ToString("dd MMM"): @Money(r.Currency, d.Revenue)"><span style="--h:@height.ToString("0.####", CultureInfo.InvariantCulture)"></span><small>@d.Date.ToString("dd")</small></div>
+                }
+            </div></div>
+        </section>
     }
 
     <section class="panel mb-4" aria-labelledby="branchesTitle">
@@ -71,9 +113,12 @@ else
                             </td>
                             <td>@(r.OnShift.Count == 0 ? "—" : string.Join(", ", r.OnShift))</td>
                             <td class="text-end text-nowrap">
-                                <a class="icon-btn" asp-controller="Sales" asp-action="Index" asp-route-id="@r.Branch.Id" aria-label="Sales of @r.Branch.Name" title="Sales"><i class="ph ph-receipt" aria-hidden="true"></i></a>
-                                <a class="icon-btn" asp-controller="Stock" asp-action="Index" asp-route-id="@r.Branch.Id" aria-label="Stock of @r.Branch.Name" title="Stock"><i class="ph ph-package" aria-hidden="true"></i></a>
-                                <a class="icon-btn" asp-controller="Shifts" asp-action="Index" asp-route-id="@r.Branch.Id" aria-label="Shifts of @r.Branch.Name" title="Shifts"><i class="ph ph-calendar-blank" aria-hidden="true"></i></a>
+                                @if (r.HasManagement)
+                                {
+                                    <a class="icon-btn" asp-controller="Sales" asp-action="Index" asp-route-id="@r.Branch.Id" aria-label="Sales of @r.Branch.Name" title="Sales"><i class="ph ph-receipt" aria-hidden="true"></i></a>
+                                    <a class="icon-btn" asp-controller="Stock" asp-action="Index" asp-route-id="@r.Branch.Id" aria-label="Stock of @r.Branch.Name" title="Stock"><i class="ph ph-package" aria-hidden="true"></i></a>
+                                    <a class="icon-btn" asp-controller="Shifts" asp-action="Index" asp-route-id="@r.Branch.Id" aria-label="Shifts of @r.Branch.Name" title="Shifts"><i class="ph ph-calendar-blank" aria-hidden="true"></i></a>
+                                }
                             </td>
                         </tr>
                     }

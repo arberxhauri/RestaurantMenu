@@ -9,7 +9,7 @@ public static class BranchContextRules
     /// <summary>Controllers whose {id} is always a branch id (branch/{id}/…, kitchen/{id}).</summary>
     private static readonly HashSet<string> BranchControllers = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Tables", "Kitchen", "Stock", "Shifts", "Sales", "Bookings", "Feedback", "Website"
+        "Tables", "Kitchen", "Stock", "Shifts", "Sales", "Bookings", "Feedback", "Website", "Discounts"
     };
 
     /// <summary>BranchController actions whose {id} is the branch (Create has none; the rest are POSTs).</summary>

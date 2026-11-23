@@ -50,8 +50,8 @@ live screens (POS, bar, floor plan), new data for areas/discounts/payments/waste
 - **Top bar**: branch switcher (owners with several branches), global search / command palette (Ctrl/⌘ K:
   jump to any page, dish, table, order), live indicators (new orders, waiting tables), notifications
   (low stock, new booking, low rating, billing), user menu (account, language, sign out).
-- A section the account's plan doesn't include stays visible with a small lock and opens an upsell page
-  (today's `_PlanNotice` behaviour), so owners discover features.
+- A section the account's plan doesn't include is hidden from the side panel and command palette.
+  Direct URLs remain protected by the server-side module gate.
 - Admin pages (platform admin) stay in their own group, shown only to admins.
 
 ---

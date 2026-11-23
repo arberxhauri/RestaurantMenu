@@ -11,6 +11,8 @@ public class Product : ISoftDeletable
     public decimal Price { get; set; }
     public string? Image { get; set; }
     public int DisplayOrder { get; set; }
+    /// <summary>Null inherits the category's station assignment.</summary>
+    public ServiceStation? Station { get; set; }
 
     // False while a dish is sold out. Flipped from the dish row on Branch Details during
     // service; the guest menu shows a "Sold out" chip, or hides it (Branch.HideSoldOut).

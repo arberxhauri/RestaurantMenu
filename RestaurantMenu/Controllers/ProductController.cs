@@ -75,6 +75,8 @@ public async Task<IActionResult> Create(Product product, IFormFile? image, IForm
     }
 
     ModelState.Remove("Category");
+    if (product.Station is { } station && (station & ~(ServiceStation.Kitchen | ServiceStation.Bar)) != 0)
+        ModelState.AddModelError(nameof(Product.Station), "Choose kitchen, bar, both or inherit the category.");
     // The category must be one of this branch's: otherwise a posted id could put the dish
     // into another restaurant's menu.
     if (!branch.Categories!.Any(c => c.Id == product.CategoryId))
@@ -216,6 +218,8 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
     }
 
     ModelState.Remove("Category");
+    if (product.Station is { } station && (station & ~(ServiceStation.Kitchen | ServiceStation.Bar)) != 0)
+        ModelState.AddModelError(nameof(Product.Station), "Choose kitchen, bar, both or inherit the category.");
     // Moving the dish is only possible within its own branch (see Create).
     if (!existingProduct.Category.Branch.Categories!.Any(c => c.Id == product.CategoryId))
     {
@@ -248,6 +252,7 @@ public async Task<IActionResult> Edit(Product product, IFormFile? image, IFormCo
         existingProduct.Diets = product.Diets;
         existingProduct.IsFeatured = product.IsFeatured;
         existingProduct.Badge = product.Badge;
+        existingProduct.Station = product.Station;
 
         // Options are replaced as a whole: the form always posts the full list.
         _context.ProductOptionGroups.RemoveRange(existingProduct.OptionGroups ?? new List<ProductOptionGroup>());

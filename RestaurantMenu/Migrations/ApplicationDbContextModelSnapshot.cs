@@ -751,6 +751,9 @@ namespace RestaurantMenu.Migrations
                     b.Property<int>("Priority")
                         .HasColumnType("integer");
 
+                    b.Property<int>("Station")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime>("UpdatedUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -830,6 +833,9 @@ namespace RestaurantMenu.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("AreaId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("BranchId")
                         .HasColumnType("integer");
 
@@ -848,12 +854,87 @@ namespace RestaurantMenu.Migrations
                     b.Property<int>("Number")
                         .HasColumnType("integer");
 
+                    b.Property<int>("Rotation")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Seats")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Shape")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("X")
+                        .HasPrecision(8, 2)
+                        .HasColumnType("numeric(8,2)");
+
+                    b.Property<decimal>("Y")
+                        .HasPrecision(8, 2)
+                        .HasColumnType("numeric(8,2)");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("AreaId");
 
                     b.HasIndex("BranchId", "Number")
                         .IsUnique();
 
                     b.ToTable("Tables");
+                });
+
+            modelBuilder.Entity("RestaurantMenu.Models.Discount", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("DayOfWeek")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<TimeOnly?>("EndsAt")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<bool>("PosOnly")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("ProductId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Scope")
+                        .HasColumnType("integer");
+
+                    b.Property<TimeOnly?>("StartsAt")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<decimal>("Value")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("BranchId", "Enabled");
+
+                    b.ToTable("Discounts");
                 });
 
             modelBuilder.Entity("RestaurantMenu.Models.DishIngredient", b =>
@@ -1012,10 +1093,15 @@ namespace RestaurantMenu.Migrations
                         .HasPrecision(18, 3)
                         .HasColumnType("numeric(18,3)");
 
+                    b.Property<int?>("StockCategoryId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("Unit")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("StockCategoryId");
 
                     b.HasIndex("BranchId", "Name");
 
@@ -1271,14 +1357,23 @@ namespace RestaurantMenu.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("BillRequestedUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int>("BranchId")
                         .HasColumnType("integer");
 
                     b.Property<Guid>("ClientRequestId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("ClosedUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Guests")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Language")
                         .IsRequired()
@@ -1298,6 +1393,12 @@ namespace RestaurantMenu.Migrations
                     b.Property<Guid>("PublicId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("ServerUserId")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("integer");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
@@ -1314,6 +1415,9 @@ namespace RestaurantMenu.Migrations
                     b.Property<decimal>("Total")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("UpdatedUtc")
                         .HasColumnType("timestamp with time zone");
@@ -1336,6 +1440,44 @@ namespace RestaurantMenu.Migrations
                     b.HasIndex("BranchId", "Status", "CreatedUtc");
 
                     b.ToTable("Orders");
+                });
+
+            modelBuilder.Entity("RestaurantMenu.Models.OrderDiscount", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("AppliedById")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("DiscountId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DiscountId");
+
+                    b.HasIndex("OrderId");
+
+                    b.ToTable("OrderDiscounts");
                 });
 
             modelBuilder.Entity("RestaurantMenu.Models.OrderItem", b =>
@@ -1368,6 +1510,9 @@ namespace RestaurantMenu.Migrations
                     b.Property<int>("Quantity")
                         .HasColumnType("integer");
 
+                    b.Property<int>("Station")
+                        .HasColumnType("integer");
+
                     b.Property<decimal>("UnitPrice")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
@@ -1377,6 +1522,45 @@ namespace RestaurantMenu.Migrations
                     b.HasIndex("OrderId");
 
                     b.ToTable("OrderItems");
+                });
+
+            modelBuilder.Entity("RestaurantMenu.Models.OrderTicket", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ReadyUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ServedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("StartedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Station")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId", "Station")
+                        .IsUnique();
+
+                    b.HasIndex("Station", "Status", "CreatedUtc");
+
+                    b.ToTable("OrderTickets");
                 });
 
             modelBuilder.Entity("RestaurantMenu.Models.PaddleProduct", b =>
@@ -1397,6 +1581,45 @@ namespace RestaurantMenu.Migrations
                     b.HasKey("Module", "Environment");
 
                     b.ToTable("PaddleProducts");
+                });
+
+            modelBuilder.Entity("RestaurantMenu.Models.Payment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Method")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Tip")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("UserId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UserName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId", "CreatedUtc");
+
+                    b.ToTable("Payments");
                 });
 
             modelBuilder.Entity("RestaurantMenu.Models.PlanSettings", b =>
@@ -1606,6 +1829,9 @@ namespace RestaurantMenu.Migrations
                     b.Property<decimal>("Price")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
+
+                    b.Property<int?>("Station")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("UpdatedUtc")
                         .HasColumnType("timestamp with time zone");
@@ -1910,6 +2136,76 @@ namespace RestaurantMenu.Migrations
                     b.ToTable("Shifts");
                 });
 
+            modelBuilder.Entity("RestaurantMenu.Models.StationDevice", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("LastSeenUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<bool>("Revoked")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Station")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.ToTable("StationDevices");
+                });
+
+            modelBuilder.Entity("RestaurantMenu.Models.StockCategory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("StockCategories");
+                });
+
             modelBuilder.Entity("RestaurantMenu.Models.StockMovement", b =>
                 {
                     b.Property<int>("Id")
@@ -1951,6 +2247,9 @@ namespace RestaurantMenu.Migrations
                     b.Property<string>("UserName")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<int?>("WasteReason")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -2131,6 +2430,33 @@ namespace RestaurantMenu.Migrations
                     b.ToTable("SubscriptionItems");
                 });
 
+            modelBuilder.Entity("RestaurantMenu.Models.TableArea", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("TableAreas");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -2280,13 +2606,38 @@ namespace RestaurantMenu.Migrations
 
             modelBuilder.Entity("RestaurantMenu.Models.DiningTable", b =>
                 {
+                    b.HasOne("RestaurantMenu.Models.TableArea", "Area")
+                        .WithMany()
+                        .HasForeignKey("AreaId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("RestaurantMenu.Models.Branch", "Branch")
                         .WithMany("Tables")
                         .HasForeignKey("BranchId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("Area");
+
                     b.Navigation("Branch");
+                });
+
+            modelBuilder.Entity("RestaurantMenu.Models.Discount", b =>
+                {
+                    b.HasOne("RestaurantMenu.Models.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RestaurantMenu.Models.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("Product");
                 });
 
             modelBuilder.Entity("RestaurantMenu.Models.DishIngredient", b =>
@@ -2338,7 +2689,14 @@ namespace RestaurantMenu.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("RestaurantMenu.Models.StockCategory", "StockCategory")
+                        .WithMany()
+                        .HasForeignKey("StockCategoryId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Branch");
+
+                    b.Navigation("StockCategory");
                 });
 
             modelBuilder.Entity("RestaurantMenu.Models.Invoice", b =>
@@ -2379,10 +2737,50 @@ namespace RestaurantMenu.Migrations
                     b.Navigation("Branch");
                 });
 
+            modelBuilder.Entity("RestaurantMenu.Models.OrderDiscount", b =>
+                {
+                    b.HasOne("RestaurantMenu.Models.Discount", "Discount")
+                        .WithMany()
+                        .HasForeignKey("DiscountId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("RestaurantMenu.Models.Order", "Order")
+                        .WithMany("Discounts")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Discount");
+
+                    b.Navigation("Order");
+                });
+
             modelBuilder.Entity("RestaurantMenu.Models.OrderItem", b =>
                 {
                     b.HasOne("RestaurantMenu.Models.Order", "Order")
                         .WithMany("Items")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+                });
+
+            modelBuilder.Entity("RestaurantMenu.Models.OrderTicket", b =>
+                {
+                    b.HasOne("RestaurantMenu.Models.Order", "Order")
+                        .WithMany("Tickets")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+                });
+
+            modelBuilder.Entity("RestaurantMenu.Models.Payment", b =>
+                {
+                    b.HasOne("RestaurantMenu.Models.Order", "Order")
+                        .WithMany("Payments")
                         .HasForeignKey("OrderId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -2456,6 +2854,28 @@ namespace RestaurantMenu.Migrations
                     b.Navigation("Branch");
                 });
 
+            modelBuilder.Entity("RestaurantMenu.Models.StationDevice", b =>
+                {
+                    b.HasOne("RestaurantMenu.Models.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+                });
+
+            modelBuilder.Entity("RestaurantMenu.Models.StockCategory", b =>
+                {
+                    b.HasOne("RestaurantMenu.Models.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+                });
+
             modelBuilder.Entity("RestaurantMenu.Models.StockMovement", b =>
                 {
                     b.HasOne("RestaurantMenu.Models.Ingredient", "Ingredient")
@@ -2489,6 +2909,17 @@ namespace RestaurantMenu.Migrations
                     b.Navigation("Subscription");
                 });
 
+            modelBuilder.Entity("RestaurantMenu.Models.TableArea", b =>
+                {
+                    b.HasOne("RestaurantMenu.Models.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+                });
+
             modelBuilder.Entity("RestaurantMenu.Models.ApplicationUser", b =>
                 {
                     b.Navigation("Branches");
@@ -2519,7 +2950,13 @@ namespace RestaurantMenu.Migrations
 
             modelBuilder.Entity("RestaurantMenu.Models.Order", b =>
                 {
+                    b.Navigation("Discounts");
+
                     b.Navigation("Items");
+
+                    b.Navigation("Payments");
+
+                    b.Navigation("Tickets");
                 });
 
             modelBuilder.Entity("RestaurantMenu.Models.Product", b =>

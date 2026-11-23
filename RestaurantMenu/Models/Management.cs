@@ -32,6 +32,8 @@ public class Ingredient
     public decimal? CostPerUnit { get; set; }
     public bool IsArchived { get; set; }
     public DateTime CreatedUtc { get; set; }
+    public int? StockCategoryId { get; set; }
+    public StockCategory? StockCategory { get; set; }
 }
 
 /// <summary>Persisted as int; never renumber.</summary>
@@ -67,6 +69,7 @@ public class StockMovement
     public string? UserId { get; set; }
     public string? UserName { get; set; }
     public DateTime CreatedUtc { get; set; }
+    public WasteReason? WasteReason { get; set; }
 }
 
 /// <summary>How much of an ingredient one portion of a dish uses (its recipe line).</summary>

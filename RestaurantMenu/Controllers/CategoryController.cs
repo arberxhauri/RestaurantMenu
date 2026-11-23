@@ -60,6 +60,8 @@ namespace RestaurantMenu.Controllers
             }
 
             ModelState.Remove("Branch");
+            if ((category.Station & ~(ServiceStation.Kitchen | ServiceStation.Bar)) != 0)
+                ModelState.AddModelError(nameof(Category.Station), "Choose a valid station.");
 
             var schedule = ServingTimes.FromForm(form);
             foreach (var error in ServingTimes.Apply(schedule, category))
@@ -153,6 +155,8 @@ namespace RestaurantMenu.Controllers
             }
 
             ModelState.Remove("Branch");
+            if ((category.Station & ~(ServiceStation.Kitchen | ServiceStation.Bar)) != 0)
+                ModelState.AddModelError(nameof(Category.Station), "Choose a valid station.");
 
             // Written onto the tracked category, but only saved if everything is valid.
             var schedule = ServingTimes.FromForm(form);
@@ -166,6 +170,7 @@ namespace RestaurantMenu.Controllers
                 existingCategory.Name = category.Name;
                 // The edit form has a Position field; it used to be ignored on save.
                 existingCategory.Priority = Math.Clamp(category.Priority, 0, 999);
+                existingCategory.Station = category.Station;
 
                 // Handle translations
                 var supportedLanguages = existingCategory.Branch.SupportedLanguages.Split(',');

@@ -94,7 +94,6 @@
 .snav-link[aria-current="page"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .snav-items .snav-link[aria-current="page"]::before { background: var(--accent); }
 .snav-link:focus-visible, .snav-head:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.snav-lock { font-size: 14px; color: var(--ink-3); flex: none; }
 
 /* ---------- Rail (collapsed side panel, desktop only) ---------- */
 @media (min-width: 992px) {
@@ -102,7 +101,6 @@
     .app--rail .sidebar-head { flex-direction: column; justify-content: center; padding-inline: 0; }
     .app--rail .brand-word,
     .app--rail .snav-caret,
-    .app--rail .snav-lock { display: none; }
     .app--rail .snav-label {
         position: absolute; width: 1px; height: 1px; overflow: hidden;
         clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
@@ -243,6 +241,12 @@ button.branch-switch:hover { border-color: var(--ink-3); background: var(--surfa
 
 /* ---------- Panels: a touch of depth on every back-office card ---------- */
 .app-body .panel { box-shadow: var(--shadow-sm); }
+
+/* Dashboard's dependency-free 14-day chart. */
+.dashboard-bars { display: grid; grid-template-columns: repeat(14, minmax(12px, 1fr)); gap: 8px; height: 180px; align-items: end; }
+.dashboard-bar { min-width: 0; height: 100%; display: grid; grid-template-rows: 1fr auto; gap: 6px; align-items: end; text-align: center; color: var(--ink-3); }
+.dashboard-bar > span { display: block; min-height: 3px; height: calc(max(.02, var(--h)) * 145px); border-radius: 5px 5px 2px 2px; background: var(--accent); opacity: .82; }
+.dashboard-bar small { font-size: 11px; }
 
 @media (prefers-reduced-motion: reduce) {
     .sidebar, .snav-caret, .cmdk[open] { transition: none; animation: none; }

@@ -48,10 +48,6 @@
                                aria-current="@(item.Key == Model.ActiveKey ? "page" : null)">
                                 <i class="ph @item.Icon" aria-hidden="true"></i>
                                 <span class="snav-label">@item.Label</span>
-                                @if (item.Locked)
-                                {
-                                    <i class="ph ph-lock-simple snav-lock" role="img" aria-label="Not in your plan" title="Not in your plan"></i>
-                                }
                             </a>
                         </li>
                     }

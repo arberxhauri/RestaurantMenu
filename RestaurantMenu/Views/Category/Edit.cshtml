@@ -28,6 +28,11 @@
                     <label asp-for="Name" class="form-label">Category name</label>
                     <input asp-for="Name" class="form-control form-control-lg" autocomplete="off" />
                     <span asp-validation-for="Name"></span>
+                    <label asp-for="Station" class="form-label mt-3">Default preparation station</label>
+                    <select asp-for="Station" class="form-select">
+                        <option value="@ServiceStation.Kitchen">Kitchen</option><option value="@ServiceStation.Bar">Bar</option>
+                        <option value="3">Kitchen and bar</option><option value="@ServiceStation.None">No station</option>
+                    </select>
                 </div>
                 <div>
                     <label asp-for="Priority" class="form-label">Position</label>

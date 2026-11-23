@@ -27,7 +27,7 @@ public static class SlugRules
         "event", "order", "orders", "feedback",
         // App sections and routes.
         "menu", "book", "site", "kitchen", "manage", "admin", "account", "dashboard", "branch", "category",
-        "product", "seo", "search", "team", "tables", "bookings", "website", "stock", "shifts", "sales", "insights", "translate",
+        "product", "seo", "search", "team", "tables", "bookings", "website", "stock", "shifts", "sales", "insights", "translate", "discounts",
         "home", "privacy", "terms", "refunds", "pricing", "shell", "switch-branch",
         // Marketing pages and files (they would also be odd subdomains).
         "digital-menu", "restaurant-website", "table-bookings", "restaurant-management", "faq", "about", "contact",

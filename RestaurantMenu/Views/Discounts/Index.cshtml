@@ -1,0 +1,26 @@
+@using RestaurantMenu.Controllers
+@model DiscountsPage
+@{ ViewData["Title"] = "Discounts - " + Model.Branch.Name; }
+
+<header class="page-head"><div><h1>Discounts & happy hours</h1><p>Reusable offers for POS, or optionally the guest menu. Discounts are copied onto each order for an audit trail.</p></div></header>
+
+<div class="row g-4">
+    <div class="col-12 col-xl-7"><section class="panel">
+        <header class="panel-head"><h2>Offers</h2></header>
+        @if (Model.Discounts.Count == 0) { <div class="empty"><i class="ph ph-tag" aria-hidden="true"></i><h3>No discounts yet</h3><p>Create the first offer alongside this list.</p></div> }
+        else { <div class="table-responsive"><table class="data-table"><thead><tr><th>Name</th><th>Value</th><th>Schedule</th><th>Available</th><th></th></tr></thead><tbody>
+        @foreach (var d in Model.Discounts) { <tr><th>@d.Name @if (!d.Enabled) { <span class="chip">Off</span> }</th><td>@(d.Kind == DiscountKind.Percentage ? $"{d.Value:0.##}%" : $"{Model.Branch.Currency} {d.Value:0.00}")</td><td>@(d.DayOfWeek?.ToString() ?? "Every day") @(d.StartsAt is { } start ? $"{start:HH\\:mm}–{d.EndsAt:HH\\:mm}" : "")</td><td>@(d.PosOnly ? "POS only" : "POS + guest menu")</td><td><form method="post" asp-action="Toggle" asp-route-id="@Model.Branch.Id" asp-route-discountId="@d.Id"><button class="btn btn-quiet btn-sm">@(d.Enabled ? "Turn off" : "Turn on")</button></form></td></tr> }
+        </tbody></table></div> }
+    </section></div>
+    <div class="col-12 col-xl-5"><section class="panel"><header class="panel-head"><h2>New discount</h2></header><div class="panel-body">
+        <form method="post" asp-action="Create" asp-route-id="@Model.Branch.Id">
+            <label class="form-label" for="discountName">Name</label><input class="form-control mb-3" id="discountName" name="name" maxlength="80" required />
+            <div class="fields"><div><label class="form-label" for="kind">Type</label><select class="form-select" id="kind" name="kind"><option value="Percentage">Percentage</option><option value="FixedAmount">Fixed amount</option></select></div><div><label class="form-label" for="value">Value</label><input class="form-control" id="value" name="value" type="number" min="0.01" step="0.01" required /></div></div>
+            <label class="form-label mt-3" for="scope">Apply to</label><select class="form-select" id="scope" name="scope"><option value="Bill">Whole bill</option><option value="Item">Selected item</option></select>
+            <label class="form-label mt-3" for="productId">Item (optional)</label><select class="form-select" id="productId" name="productId"><option value="">Any item</option>@foreach (var p in Model.Products) { <option value="@p.Id">@p.Name</option> }</select>
+            <div class="fields mt-3"><div><label class="form-label" for="startsAt">From</label><input class="form-control" id="startsAt" name="startsAt" type="time" /></div><div><label class="form-label" for="endsAt">Until</label><input class="form-control" id="endsAt" name="endsAt" type="time" /></div></div>
+            <div class="form-check mt-3"><input class="form-check-input" id="guestMenu" name="guestMenu" value="true" type="checkbox" /><label class="form-check-label" for="guestMenu">Also available on guest QR orders</label></div>
+            <button class="btn btn-primary w-100 mt-4"><i class="ph ph-plus" aria-hidden="true"></i>Add discount</button>
+        </form>
+    </div></section></div>
+</div>

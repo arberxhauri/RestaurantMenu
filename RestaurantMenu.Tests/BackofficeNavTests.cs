@@ -4,7 +4,7 @@ namespace RestaurantMenu.Tests;
 
 /// <summary>
 /// The back office's side panel: which sections and pages someone sees for the branch they're on,
-/// where each link goes, which ones are locked by the plan, and which page is "current".
+/// where each link goes, which ones the plan includes, and which page is "current".
 /// </summary>
 public class BackofficeNavTests
 {
@@ -50,7 +50,7 @@ public class BackofficeNavTests
     {
         var keys = Keys(BackofficeNav.Build(new NavContext(5, BranchRole.Editor, IsOwner: false, IsAdmin: false, AllModules))).ToList();
 
-        Assert.Equal(new[] { "dashboard", "stations.kitchen", "tables.bookings", "menu.items", "stock.items", "config.shifts", "config.branches", "config.password" }, keys);
+        Assert.Equal(new[] { "dashboard", "stations.kitchen", "tables.bookings", "menu.items", "stock.items", "stock.waste", "config.shifts", "config.branches", "config.password" }, keys);
     }
 
     [Fact]
@@ -72,14 +72,14 @@ public class BackofficeNavTests
     [InlineData("stock.items", BillingModule.Management)]
     [InlineData("reports.sales", BillingModule.Management)]
     [InlineData("config.website", BillingModule.Website)]
-    public void A_page_outside_the_plan_is_shown_locked(string key, BillingModule missing)
+    public void A_page_outside_the_plan_is_hidden(string key, BillingModule missing)
     {
         var modules = AllModules.Where(m => m != missing).ToHashSet();
 
         var groups = BackofficeNav.Build(Owner(modules: modules));
 
-        Assert.True(Item(groups, key).Locked);
-        Assert.False(Item(groups, "menu.items").Locked);
+        Assert.DoesNotContain(key, Keys(groups));
+        Assert.Contains("menu.items", Keys(groups));
     }
 
     [Fact]

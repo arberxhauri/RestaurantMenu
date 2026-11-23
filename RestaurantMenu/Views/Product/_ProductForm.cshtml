@@ -119,6 +119,18 @@
                     </select>
                     <span asp-validation-for="CategoryId"></span>
                 </div>
+                <div class="mb-3">
+                    <label asp-for="Station" class="form-label">Preparation station</label>
+                    <select asp-for="Station" class="form-select">
+                        <option value="">Use category setting</option>
+                        <option value="@ServiceStation.Kitchen">Kitchen</option>
+                        <option value="@ServiceStation.Bar">Bar</option>
+                        <option value="3">Kitchen and bar</option>
+                        <option value="@ServiceStation.None">No preparation station</option>
+                    </select>
+                    <span class="hint">Controls which station receives this item when an order is sent.</span>
+                    <span asp-validation-for="Station"></span>
+                </div>
                 <div>
                     <label asp-for="Price" class="form-label">Price</label>
                     <div class="input-group">

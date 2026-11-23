@@ -76,7 +76,7 @@ public class StockController : Controller
     /// <summary>Delivery / used / waste (how much) or count (the level counted).</summary>
     [HttpPost("{ingredientId:int}/move")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Move(int id, int ingredientId, string? kind, string? amount, string? note, string? back)
+    public async Task<IActionResult> Move(int id, int ingredientId, string? kind, string? amount, string? note, string? back, WasteReason? wasteReason)
     {
         if (await BranchAsync(id, BranchPermission.Stock) == null) return NotFound();
         // By name only: an unknown or numeric value must not fall back to a default kind.
@@ -90,6 +90,11 @@ public class StockController : Controller
         var user = await _users.GetUserAsync(User);
         var m = await _stock.RecordAsync(id, ingredientId, k, value.Value, Clean(note, 200), user?.Id, user?.FullName ?? user?.Email, DateTime.UtcNow);
         if (m == null) return NotFound();
+        if (k == StockMovementKind.Waste)
+        {
+            m.WasteReason = wasteReason is { } reason && Enum.IsDefined(reason) ? reason : WasteReason.Other;
+            await _context.SaveChangesAsync();
+        }
         var ing = await _context.Ingredients.AsNoTracking().FirstAsync(i => i.Id == ingredientId);
         TempData["Success"] = $"{ing.Name}: {StockRules.KindText(k).ToLowerInvariant()} saved. Now {StockRules.Format(m.QuantityAfter, ing.Unit)}.";
         return BackTo(id, ingredientId, back);
@@ -105,7 +110,25 @@ public class StockController : Controller
         s != null && !s.Any(char.IsDigit) && Enum.TryParse<StockUnit>(s, false, out var u) && Enum.IsDefined(u) ? u : null;
 
     private IActionResult BackTo(int id, int ingredientId, string? back) =>
-        back == "history" ? RedirectToAction(nameof(History), new { id, ingredientId }) : Back(id, $"i{ingredientId}");
+        back == "history" ? RedirectToAction(nameof(History), new { id, ingredientId })
+        : back == "waste" ? RedirectToAction(nameof(Waste), new { id }) : Back(id, $"i{ingredientId}");
+
+    [HttpGet("waste")]
+    public async Task<IActionResult> Waste(int id)
+    {
+        var branch = await BranchAsync(id, BranchPermission.Stock);
+        if (branch == null) return NotFound();
+        var ingredients = await _context.Ingredients.AsNoTracking().Where(i => i.BranchId == id && !i.IsArchived).OrderBy(i => i.Name).ToListAsync();
+        var recent = await _context.StockMovements.AsNoTracking().Include(m => m.Ingredient)
+            .Where(m => m.BranchId == id && m.Kind == StockMovementKind.Waste)
+            .OrderByDescending(m => m.CreatedUtc).Take(100).ToListAsync();
+        return View(new WastePage(branch, ingredients, recent));
+    }
+
+    [HttpPost("waste")]
+    [ValidateAntiForgeryToken]
+    public Task<IActionResult> RecordWaste(int id, int ingredientId, string? amount, string? note, WasteReason? wasteReason) =>
+        Move(id, ingredientId, "Waste", amount, note, "waste", wasteReason);
 
     // ---------------------------------------------------------------- ingredients (Manager and up)
 
@@ -265,3 +288,4 @@ public record StockPage(Branch Branch, IReadOnlyList<Ingredient> Ingredients, IR
 public record RecipeUse(string Dish, decimal Quantity);
 public record RecipeDish(int Id, string Name, string Category, IReadOnlyList<DishIngredient> Lines);
 public record RecipesPage(Branch Branch, IReadOnlyList<RecipeDish> Dishes, IReadOnlyList<Ingredient> Ingredients);
+public record WastePage(Branch Branch, IReadOnlyList<Ingredient> Ingredients, IReadOnlyList<StockMovement> Recent);

@@ -1,0 +1,20 @@
+@using RestaurantMenu.Controllers
+@using RestaurantMenu.Helpers
+@model WastePage
+@{ ViewData["Title"] = "Waste - " + Model.Branch.Name; var symbol = CurrencyHelper.GetCurrencySymbol(Model.Branch.Currency); }
+
+<header class="page-head"><div><h1>Waste</h1><p>Record why stock was lost and track its cost. Waste always reduces the current stock level.</p></div><div class="page-actions"><a class="btn btn-outline-secondary btn-sm" asp-action="Index" asp-route-id="@Model.Branch.Id">Stock items</a></div></header>
+
+<div class="row g-4"><div class="col-12 col-xl-5"><section class="panel"><header class="panel-head"><h2>Record waste</h2></header><div class="panel-body">
+    <form method="post" asp-action="RecordWaste" asp-route-id="@Model.Branch.Id" id="wasteForm">
+        <label class="form-label" for="ingredientId">Stock item</label><select class="form-select mb-3" id="ingredientId" name="ingredientId" required><option value="">Choose…</option>@foreach (var i in Model.Ingredients) { <option value="@i.Id">@i.Name · @StockRules.Format(i.Quantity, i.Unit)</option> }</select>
+        <input type="hidden" name="kind" value="Waste" /><input type="hidden" name="back" value="waste" />
+        <label class="form-label" for="amount">Amount wasted</label><input class="form-control mb-3" id="amount" name="amount" type="number" min="0.001" step="0.001" required />
+        <label class="form-label" for="wasteReason">Reason</label><select class="form-select mb-3" id="wasteReason" name="wasteReason">@foreach (var reason in Enum.GetValues<WasteReason>()) { <option value="@reason">@reason.ToString().Replace("PrepLoss", "Prep loss")</option> }</select>
+        <label class="form-label" for="note">Note</label><textarea class="form-control" id="note" name="note" maxlength="200" rows="2"></textarea>
+        <button class="btn btn-primary w-100 mt-3">Record waste</button>
+    </form>
+</div></section></div><div class="col-12 col-xl-7"><section class="panel"><header class="panel-head"><h2>Recent waste</h2></header>
+    @if (Model.Recent.Count == 0) { <div class="empty"><i class="ph ph-trash" aria-hidden="true"></i><h3>No waste recorded</h3></div> }
+    else { <div class="table-responsive"><table class="data-table"><thead><tr><th>Item</th><th>Reason</th><th class="text-end">Amount</th><th class="text-end">Cost</th><th>When</th></tr></thead><tbody>@foreach (var m in Model.Recent) { var amount = Math.Abs(m.Change); <tr><th>@m.Ingredient?.Name</th><td>@(m.WasteReason?.ToString().Replace("PrepLoss", "Prep loss") ?? "Other")</td><td class="text-end">@StockRules.Format(amount, m.Ingredient!.Unit)</td><td class="text-end">@(m.Ingredient.CostPerUnit is { } cost ? symbol + (amount * cost).ToString("0.00") : "—")</td><td>@m.CreatedUtc.ToString("dd MMM HH:mm")</td></tr> }</tbody></table></div> }
+</section></div></div>

@@ -18,6 +18,13 @@ public class DiningTable
     public string? Name { get; set; }
     public string Code { get; set; } = "";
     public DateTime CreatedUtc { get; set; }
+    public int? AreaId { get; set; }
+    public TableArea? Area { get; set; }
+    public TableShape Shape { get; set; } = TableShape.Square;
+    public int Seats { get; set; } = 4;
+    public decimal X { get; set; }
+    public decimal Y { get; set; }
+    public int Rotation { get; set; }
 }
 
 /// <summary>Persisted as int; never renumber.</summary>
@@ -57,11 +64,20 @@ public class Order
     /// <summary>The menu language the guest ordered in.</summary>
     public string Language { get; set; } = "en";
     public decimal Total { get; set; }
+    public OrderSource Source { get; set; } = OrderSource.GuestQr;
+    public OrderType Type { get; set; } = OrderType.DineIn;
+    public int Guests { get; set; }
+    public string? ServerUserId { get; set; }
+    public DateTime? BillRequestedUtc { get; set; }
+    public DateTime? ClosedUtc { get; set; }
 
     public DateTime CreatedUtc { get; set; }
     public DateTime UpdatedUtc { get; set; }
 
     public List<OrderItem> Items { get; set; } = new();
+    public List<OrderTicket> Tickets { get; set; } = new();
+    public List<Payment> Payments { get; set; } = new();
+    public List<OrderDiscount> Discounts { get; set; } = new();
 }
 
 public class OrderItem
@@ -80,4 +96,5 @@ public class OrderItem
     public string? OptionIds { get; set; }
     public decimal UnitPrice { get; set; }
     public int Quantity { get; set; }
+    public ServiceStation Station { get; set; } = ServiceStation.Kitchen;
 }

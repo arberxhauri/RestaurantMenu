@@ -12,6 +12,7 @@ public class Category : ISoftDeletable
     public Branch? Branch { get; set; }
         
     public ICollection<Product>? Products { get; set; }
+    public ServiceStation Station { get; set; } = ServiceStation.Kitchen;
     
     public string? NameTranslations { get; set; }
 

@@ -35,6 +35,12 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<DiningTable> Tables { get; set; }
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
+    public DbSet<TableArea> TableAreas { get; set; }
+    public DbSet<OrderTicket> OrderTickets { get; set; }
+    public DbSet<Payment> Payments { get; set; }
+    public DbSet<Discount> Discounts { get; set; }
+    public DbSet<OrderDiscount> OrderDiscounts { get; set; }
+    public DbSet<StationDevice> StationDevices { get; set; }
     public DbSet<ReservationSettings> ReservationSettings { get; set; }
     public DbSet<Reservation> Reservations { get; set; }
     public DbSet<BranchSite> BranchSites { get; set; }
@@ -42,6 +48,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Ingredient> Ingredients { get; set; }
     public DbSet<StockMovement> StockMovements { get; set; }
     public DbSet<DishIngredient> DishIngredients { get; set; }
+    public DbSet<StockCategory> StockCategories { get; set; }
     public DbSet<Shift> Shifts { get; set; }
     public DbSet<DailySales> DailySales { get; set; }
     public DbSet<Feedback> Feedback { get; set; }
@@ -329,7 +336,17 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.HasOne(t => t.Branch).WithMany(b => b.Tables).HasForeignKey(t => t.BranchId).OnDelete(DeleteBehavior.Cascade);
             e.Property(t => t.Name).HasMaxLength(40);
             e.Property(t => t.Code).HasMaxLength(12);
+            e.Property(t => t.X).HasPrecision(8, 2);
+            e.Property(t => t.Y).HasPrecision(8, 2);
+            e.HasOne(t => t.Area).WithMany().HasForeignKey(t => t.AreaId).OnDelete(DeleteBehavior.SetNull);
             e.HasQueryFilter(t => !t.Branch!.IsDeleted);
+        });
+        builder.Entity<TableArea>(e =>
+        {
+            e.HasIndex(a => new { a.BranchId, a.Name }).IsUnique();
+            e.HasOne(a => a.Branch).WithMany().HasForeignKey(a => a.BranchId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(a => a.Name).HasMaxLength(60);
+            e.HasQueryFilter(a => !a.Branch!.IsDeleted);
         });
         builder.Entity<Order>(e =>
         {
@@ -354,6 +371,47 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.Property(i => i.OptionIds).HasMaxLength(200);
             e.Property(i => i.UnitPrice).HasPrecision(18, 2);
             e.HasQueryFilter(i => !i.Order!.Branch!.IsDeleted);
+        });
+        builder.Entity<OrderTicket>(e =>
+        {
+            e.HasIndex(t => new { t.OrderId, t.Station }).IsUnique();
+            e.HasIndex(t => new { t.Station, t.Status, t.CreatedUtc });
+            e.HasOne(t => t.Order).WithMany(o => o.Tickets).HasForeignKey(t => t.OrderId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(t => !t.Order!.Branch!.IsDeleted);
+        });
+        builder.Entity<Payment>(e =>
+        {
+            e.HasIndex(p => new { p.OrderId, p.CreatedUtc });
+            e.HasOne(p => p.Order).WithMany(o => o.Payments).HasForeignKey(p => p.OrderId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(p => p.Amount).HasPrecision(18, 2);
+            e.Property(p => p.Tip).HasPrecision(18, 2);
+            e.Property(p => p.UserName).HasMaxLength(100);
+            e.HasQueryFilter(p => !p.Order!.Branch!.IsDeleted);
+        });
+        builder.Entity<Discount>(e =>
+        {
+            e.HasIndex(d => new { d.BranchId, d.Enabled });
+            e.HasOne(d => d.Branch).WithMany().HasForeignKey(d => d.BranchId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(d => d.Product).WithMany().HasForeignKey(d => d.ProductId).OnDelete(DeleteBehavior.SetNull);
+            e.Property(d => d.Name).HasMaxLength(80);
+            e.Property(d => d.Value).HasPrecision(18, 2);
+            e.HasQueryFilter(d => !d.Branch!.IsDeleted);
+        });
+        builder.Entity<OrderDiscount>(e =>
+        {
+            e.HasOne(d => d.Order).WithMany(o => o.Discounts).HasForeignKey(d => d.OrderId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(d => d.Discount).WithMany().HasForeignKey(d => d.DiscountId).OnDelete(DeleteBehavior.SetNull);
+            e.Property(d => d.Name).HasMaxLength(80);
+            e.Property(d => d.Amount).HasPrecision(18, 2);
+            e.HasQueryFilter(d => !d.Order!.Branch!.IsDeleted);
+        });
+        builder.Entity<StationDevice>(e =>
+        {
+            e.HasIndex(d => d.TokenHash).IsUnique();
+            e.HasOne(d => d.Branch).WithMany().HasForeignKey(d => d.BranchId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(d => d.Name).HasMaxLength(80);
+            e.Property(d => d.TokenHash).HasMaxLength(64);
+            e.HasQueryFilter(d => !d.Branch!.IsDeleted);
         });
 
         // Bookings. Settings are one row per branch (key = BranchId). Reservations follow
@@ -419,7 +477,15 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.Property(i => i.Quantity).HasPrecision(18, 3);
             e.Property(i => i.LowLevel).HasPrecision(18, 3);
             e.Property(i => i.CostPerUnit).HasPrecision(18, 2);
+            e.HasOne(i => i.StockCategory).WithMany().HasForeignKey(i => i.StockCategoryId).OnDelete(DeleteBehavior.SetNull);
             e.HasQueryFilter(i => !i.Branch!.IsDeleted);
+        });
+        builder.Entity<StockCategory>(e =>
+        {
+            e.HasIndex(c => new { c.BranchId, c.Name }).IsUnique();
+            e.HasOne(c => c.Branch).WithMany().HasForeignKey(c => c.BranchId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(c => c.Name).HasMaxLength(60);
+            e.HasQueryFilter(c => !c.Branch!.IsDeleted);
         });
         builder.Entity<StockMovement>(e =>
         {

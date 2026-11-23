@@ -4,8 +4,7 @@ using RestaurantMenu.Services;
 namespace RestaurantMenu.Helpers;
 
 /// <summary>One page in the back office's side panel.</summary>
-/// <param name="Locked">The branch's plan doesn't include it: still shown (the page explains the plan), with a lock.</param>
-public sealed record NavItem(string Key, string Label, string Icon, string Href, bool Locked);
+public sealed record NavItem(string Key, string Label, string Icon, string Href);
 
 /// <summary>A section of the side panel (Reports, Stations, Menu…).</summary>
 public sealed record NavGroup(string Key, string Label, string Icon, IReadOnlyList<NavItem> Items);
@@ -16,7 +15,7 @@ public sealed record NavContext(int? BranchId, BranchRole Role, bool IsOwner, bo
 /// <summary>
 /// The back office's side panel in one place (docs/PLAN-backoffice.md §2): its sections and pages, the
 /// address of each page for the current branch, who sees what (the same rules as BranchAccess), which
-/// pages the plan locks, and which page is current. Pages that don't exist yet aren't listed.
+/// pages the active plan includes, and which page is current. Pages that don't exist yet aren't listed.
 /// </summary>
 public static class BackofficeNav
 {
@@ -66,8 +65,10 @@ public static class BackofficeNav
 
         new("menu.items", "menu", "Items & categories", "ph-fork-knife", b => $"/Branch/Details/{b}", Audience.Branch),
         new("menu.recipes", "menu", "Recipes", "ph-list-checks", b => $"/branch/{b}/stock/recipes", Audience.Branch, BranchPermission.EditBranch, BillingModule.Management),
+        new("menu.discounts", "menu", "Discounts & happy hours", "ph-tag", b => $"/branch/{b}/discounts", Audience.Branch, BranchPermission.EditBranch, BillingModule.Ordering),
 
         new("stock.items", "stock", "Stock items", "ph-package", b => $"/branch/{b}/stock", Audience.Branch, BranchPermission.Stock, BillingModule.Management),
+        new("stock.waste", "stock", "Waste", "ph-trash", b => $"/branch/{b}/stock/waste", Audience.Branch, BranchPermission.Stock, BillingModule.Management),
 
         new("config.branch", "config", "Branch settings", "ph-storefront", b => $"/Branch/Edit/{b}", Audience.Branch, BranchPermission.EditBranch),
         new("config.team", "config", "Users & roles", "ph-users-three", b => $"/Branch/Details/{b}#team", Audience.Branch, BranchPermission.ManageTeam),
@@ -88,21 +89,27 @@ public static class BackofficeNav
         Sections
             .Select(s => new NavGroup(s.Key, s.Label, s.Icon,
                 Pages.Where(p => p.Section == s.Key && Visible(p, context))
-                    .Select(p => new NavItem(p.Key, p.Label, p.Icon, p.Href(context.BranchId ?? 0),
-                        p.Module is { } m && !context.Modules.Contains(m)))
+                    .Select(p => new NavItem(p.Key, p.Label, p.Icon, p.Href(context.BranchId ?? 0)))
                     .ToList()))
             .Where(g => g.Items.Count > 0)
             .ToList();
 
-    private static bool Visible(Page page, NavContext c) => page.Audience switch
+    private static bool Visible(Page page, NavContext c)
     {
-        Audience.Branch => c.BranchId != null && BranchAccess.Allows(c.Role, page.Permission),
-        Audience.Workspace => c.IsOwner || c.Role > BranchRole.None,
-        Audience.Owner => c.IsOwner,
-        Audience.Everyone => true,
-        Audience.Admin => c.IsAdmin,
-        _ => false
-    };
+        // Features outside the current plan are intentionally absent from navigation and the
+        // command palette. RequireModuleAttribute still protects direct URLs server-side.
+        if (page.Module is { } module && !c.Modules.Contains(module)) return false;
+
+        return page.Audience switch
+        {
+            Audience.Branch => c.BranchId != null && BranchAccess.Allows(c.Role, page.Permission),
+            Audience.Workspace => c.IsOwner || c.Role > BranchRole.None,
+            Audience.Owner => c.IsOwner,
+            Audience.Everyone => true,
+            Audience.Admin => c.IsAdmin,
+            _ => false
+        };
+    }
 
     /// <summary>The address of a page for a branch, or null for anything that isn't a known page (no open redirects).</summary>
     public static string? HrefFor(string? key, int branchId) =>
@@ -121,7 +128,8 @@ public static class BackofficeNav
             "tables" => "tables.tables",
             "bookings" => "tables.bookings",
             "category" or "product" => "menu.items",
-            "stock" => Is(action, "Recipes") ? "menu.recipes" : "stock.items",
+            "stock" => Is(action, "Recipes") ? "menu.recipes" : Is(action, "Waste") ? "stock.waste" : "stock.items",
+            "discounts" => "menu.discounts",
             "shifts" => "config.shifts",
             "website" => "config.website",
             "dashboard" => "config.branches",
