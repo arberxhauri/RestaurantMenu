@@ -1,0 +1,62 @@
+@model RestaurantMenu.Services.ShellModel
+@* The back office's side panel (docs/PLAN-backoffice.md §2), built by BackofficeNav. Sections are
+   native <details>: they open and close without script; shell.js only remembers which are open and
+   handles the collapsed "rail" mode. *@
+@{
+    var home = Model.Groups.FirstOrDefault()?.Items.FirstOrDefault()?.Href ?? "/";
+}
+<aside class="sidebar offcanvas-lg offcanvas-start" tabindex="-1" id="sidebar" aria-label="Main navigation">
+    <div class="sidebar-head">
+        <a class="sidebar-brand" href="@home">
+            <partial name="_BrandMark" model="26" />
+            <span class="brand-word">myquick<em>menu</em></span>
+        </a>
+        <button type="button" class="icon-btn icon-btn--sm sidebar-rail-toggle d-none d-lg-inline-grid" data-rail-toggle
+                aria-pressed="false" aria-label="Collapse the side panel" title="Collapse the side panel">
+            <i class="ph ph-sidebar-simple" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="icon-btn d-lg-none" data-bs-dismiss="offcanvas" data-bs-target="#sidebar" aria-label="Close navigation">
+            <i class="ph ph-x" aria-hidden="true"></i>
+        </button>
+    </div>
+
+    <nav class="snav" aria-label="Sections">
+        @foreach (var group in Model.Groups)
+        {
+            if (group.Key == "dashboard" && group.Items.Count == 1)
+            {
+                var item = group.Items[0];
+                <a class="snav-link snav-link--top" href="@item.Href" title="@item.Label"
+                   aria-current="@(item.Key == Model.ActiveKey ? "page" : null)">
+                    <i class="ph @group.Icon" aria-hidden="true"></i><span class="snav-label">@group.Label</span>
+                </a>
+                continue;
+            }
+
+            var open = group.Items.Any(i => i.Key == Model.ActiveKey);
+            <details class="snav-group" data-nav-group="@group.Key" open="@open">
+                <summary class="snav-head" title="@group.Label">
+                    <i class="ph @group.Icon" aria-hidden="true"></i>
+                    <span class="snav-label">@group.Label</span>
+                    <i class="ph ph-caret-down snav-caret" aria-hidden="true"></i>
+                </summary>
+                <ul class="snav-items">
+                    @foreach (var item in group.Items)
+                    {
+                        <li>
+                            <a class="snav-link" href="@item.Href" title="@item.Label"
+                               aria-current="@(item.Key == Model.ActiveKey ? "page" : null)">
+                                <i class="ph @item.Icon" aria-hidden="true"></i>
+                                <span class="snav-label">@item.Label</span>
+                                @if (item.Locked)
+                                {
+                                    <i class="ph ph-lock-simple snav-lock" role="img" aria-label="Not in your plan" title="Not in your plan"></i>
+                                }
+                            </a>
+                        </li>
+                    }
+                </ul>
+            </details>
+        }
+    </nav>
+</aside>

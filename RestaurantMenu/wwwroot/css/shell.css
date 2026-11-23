@@ -1,0 +1,249 @@
+/* =========================================================================
+   Back office frame (docs/PLAN-backoffice.md, phase 1): side panel with
+   sections, collapsed "rail" mode, top bar with branch switcher, search
+   (command palette) and account menu. Colours, type and radii come from
+   tokens.css, so light and dark both work.
+   ========================================================================= */
+
+:root {
+    --sidebar-w: 268px;
+    --rail-w: 76px;
+    --topbar-h: 64px;
+}
+
+/* ---------- Layout ---------- */
+.app { display: flex; min-height: 100vh; }
+.app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.content { flex: 1; width: 100%; max-width: 1320px; margin: 0 auto; padding: 32px 40px 56px; }
+.app-footer {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+    width: 100%; max-width: 1320px; margin: 0 auto;
+    padding: 20px 40px 28px;
+    color: var(--ink-3);
+    font-size: 13.5px;
+}
+@media (max-width: 991.98px) {
+    .content { padding: 20px 16px 48px; }
+    .app-footer { padding: 16px; }
+}
+
+/* Brand and avatar: site.css (shared with the login and public pages). */
+.sidebar .sidebar-brand { min-width: 0; }
+.sidebar .brand-word { white-space: nowrap; }
+
+/* ---------- Side panel ---------- */
+.sidebar {
+    --bs-offcanvas-width: var(--sidebar-w);
+    --bs-offcanvas-bg: var(--surface);
+    --bs-offcanvas-color: var(--ink);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px 12px 18px;
+    border-right: 1px solid var(--line);
+    background: var(--surface);
+}
+@media (min-width: 992px) {
+    .sidebar {
+        position: sticky; top: 0;
+        width: var(--sidebar-w); height: 100vh; flex: none;
+        overflow-y: auto; overscroll-behavior: contain;
+        transition: width .22s var(--ease-out);
+    }
+}
+.sidebar-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    min-height: calc(var(--topbar-h) - 14px);
+    padding: 0 6px 10px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--line-2);
+}
+
+.snav { display: flex; flex-direction: column; gap: 4px; }
+
+.snav-head, .snav-link {
+    display: flex; align-items: center; gap: 11px;
+    min-height: 40px;
+    padding: 8px 10px;
+    border-radius: var(--r-sm);
+    color: var(--ink-2);
+    text-decoration: none;
+    font-size: 14.5px;
+    transition: background-color .16s ease, color .16s ease;
+}
+.snav-head > .ph, .snav-link > .ph:first-child { font-size: 19px; flex: none; }
+.snav-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.snav-head { cursor: pointer; font-weight: 600; color: var(--ink); list-style: none; user-select: none; }
+.snav-head::-webkit-details-marker { display: none; }
+.snav-head:hover { background: var(--bg-2); }
+.snav-caret { font-size: 14px !important; color: var(--ink-3); transition: transform .2s var(--ease-out); }
+.snav-group[open] > .snav-head .snav-caret { transform: rotate(180deg); }
+
+.snav-items { list-style: none; margin: 2px 0 6px; padding: 0 0 0 14px; display: flex; flex-direction: column; gap: 1px; }
+.snav-items .snav-link { position: relative; min-height: 36px; padding: 7px 10px 7px 16px; font-size: 14px; }
+.snav-items .snav-link > .ph:first-child { font-size: 17px; }
+/* A thin guide line ties a section's pages to its heading. */
+.snav-items .snav-link::before {
+    content: ""; position: absolute; left: 4px; top: 8px; bottom: 8px;
+    width: 2px; border-radius: 2px; background: var(--line);
+}
+
+.snav-link--top { font-weight: 600; color: var(--ink); }
+.snav-link:hover { background: var(--bg-2); color: var(--ink); }
+.snav-link[aria-current="page"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.snav-items .snav-link[aria-current="page"]::before { background: var(--accent); }
+.snav-link:focus-visible, .snav-head:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.snav-lock { font-size: 14px; color: var(--ink-3); flex: none; }
+
+/* ---------- Rail (collapsed side panel, desktop only) ---------- */
+@media (min-width: 992px) {
+    .app--rail .sidebar { width: var(--rail-w); padding-inline: 10px; }
+    .app--rail .sidebar-head { flex-direction: column; justify-content: center; padding-inline: 0; }
+    .app--rail .brand-word,
+    .app--rail .snav-caret,
+    .app--rail .snav-lock { display: none; }
+    .app--rail .snav-label {
+        position: absolute; width: 1px; height: 1px; overflow: hidden;
+        clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+    }
+    .app--rail .snav-head { display: none; }
+    .app--rail .snav-group + .snav-group,
+    .app--rail .snav-link--top + .snav-group { border-top: 1px solid var(--line-2); padding-top: 4px; }
+    .app--rail .snav-items { padding: 0; margin: 0 0 4px; }
+    .app--rail .snav-link,
+    .app--rail .snav-items .snav-link { justify-content: center; padding: 8px; }
+    .app--rail .snav-items .snav-link::before { display: none; }
+    .app--rail .sidebar-rail-toggle .ph { transform: scaleX(-1); }
+}
+
+/* ---------- Top bar ---------- */
+.topbar {
+    position: sticky; top: 0; z-index: var(--z-header);
+    display: flex; align-items: center; gap: 12px;
+    min-height: var(--topbar-h);
+    padding: 10px 40px;
+    background: color-mix(in oklab, var(--bg) 86%, transparent);
+    backdrop-filter: blur(14px) saturate(1.2);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    border-bottom: 1px solid var(--line);
+}
+@media (max-width: 991.98px) { .topbar { padding: 8px 12px; gap: 8px; } }
+.topbar-spacer { flex: 1; }
+
+.branch-switch {
+    display: inline-flex; align-items: center; gap: 10px;
+    max-width: min(320px, 52vw);
+    padding: 5px 12px 5px 6px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    background: var(--surface);
+    color: var(--ink);
+    text-align: left;
+    transition: border-color .16s ease, background-color .16s ease;
+}
+button.branch-switch:hover { border-color: var(--ink-3); background: var(--surface-2); }
+.branch-switch-icon {
+    width: 32px; height: 32px; flex: none;
+    display: inline-grid; place-items: center;
+    border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent);
+    font-size: 17px;
+}
+.branch-switch-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.branch-switch-text small { font-size: 11.5px; color: var(--ink-3); }
+.branch-switch-text strong { font-size: 14.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.branch-switch-caret { color: var(--ink-3); font-size: 15px; }
+.branch-menu { min-width: 240px; max-height: 60vh; overflow-y: auto; }
+.branch-menu .dropdown-item, .account-menu .dropdown-item { display: flex; align-items: center; gap: 10px; }
+.branch-menu .dropdown-item > span { flex: 1; }
+.branch-menu-check { color: var(--accent); }
+
+.topbar-search {
+    display: inline-flex; align-items: center; gap: 10px;
+    width: min(340px, 34vw);
+    padding: 8px 10px 8px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    background: var(--surface);
+    color: var(--ink-3);
+    font-size: 14px;
+    transition: border-color .16s ease, color .16s ease;
+}
+.topbar-search:hover { border-color: var(--ink-3); color: var(--ink-2); }
+.topbar-search > .ph { font-size: 17px; }
+.topbar-search-text { flex: 1; text-align: left; }
+.topbar-search kbd, .cmdk-input kbd {
+    padding: 2px 7px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--ink-3);
+    font: 500 11.5px/1.4 var(--font-mono);
+    box-shadow: none;
+}
+@media (max-width: 767.98px) {
+    .topbar-search { width: auto; padding: 8px; border-radius: 50%; }
+    .topbar-search-text, .topbar-search kbd { display: none; }
+    .branch-switch-text small { display: none; }
+}
+
+.topbar-user { padding: 0; border: 0; background: none; border-radius: 50%; }
+.topbar-user:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.account-menu { min-width: 250px; }
+.account-menu-head { display: flex; align-items: center; gap: 10px; padding: 8px 16px 4px; }
+.account-menu-head > span:last-child { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.account-menu-head small { color: var(--ink-3); font-size: 12px; }
+.account-menu-head strong { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-menu form { margin: 0; }
+
+/* ---------- Command palette ---------- */
+.cmdk {
+    width: min(640px, calc(100% - 32px));
+    max-height: min(70vh, 560px);
+    margin: 12vh auto auto;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+}
+.cmdk::backdrop { background: color-mix(in oklab, var(--ink) 35%, transparent); backdrop-filter: blur(3px); }
+.cmdk[open] { animation: cmdk-in .16s var(--ease-out); }
+@keyframes cmdk-in { from { opacity: 0; transform: translateY(-6px) scale(.985); } }
+.cmdk-box { display: flex; flex-direction: column; max-height: inherit; }
+.cmdk-input {
+    display: flex; align-items: center; gap: 12px;
+    margin: 0; padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+}
+.cmdk-input > .ph { font-size: 20px; color: var(--ink-3); }
+.cmdk-input input {
+    flex: 1; min-width: 0;
+    border: 0; outline: 0; background: transparent;
+    color: var(--ink); font-size: 16px;
+}
+.cmdk-input input::-webkit-search-cancel-button { display: none; }
+.cmdk-list { list-style: none; margin: 0; padding: 8px; overflow-y: auto; }
+.cmdk-list a {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px;
+    border-radius: var(--r-sm);
+    color: var(--ink); text-decoration: none;
+}
+.cmdk-list a > .ph { font-size: 18px; color: var(--ink-3); }
+.cmdk-list a > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmdk-list a > small { color: var(--ink-3); font-size: 12.5px; }
+.cmdk-list [aria-selected="true"] a { background: var(--accent-soft); color: var(--accent); }
+.cmdk-list [aria-selected="true"] a > .ph,
+.cmdk-list [aria-selected="true"] a > small { color: var(--accent); }
+.cmdk-empty { margin: 0; padding: 28px 20px; color: var(--ink-3); text-align: center; }
+
+/* ---------- Panels: a touch of depth on every back-office card ---------- */
+.app-body .panel { box-shadow: var(--shadow-sm); }
+
+@media (prefers-reduced-motion: reduce) {
+    .sidebar, .snav-caret, .cmdk[open] { transition: none; animation: none; }
+}

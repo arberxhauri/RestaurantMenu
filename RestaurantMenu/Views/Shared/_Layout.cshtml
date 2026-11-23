@@ -1,3 +1,4 @@
+@inject RestaurantMenu.Services.BackofficeShell Shell
 @{
     // Pages that care about being found supply ViewData["Seo"]. Everything else
     // reaching this layout is a signed-in dashboard screen, so the default is to
@@ -13,12 +14,8 @@
     // Public marketing pages on this layout (pricing, privacy, terms) get the marketing header and footer.
     var marketing = ViewData["Marketing"] as RestaurantMenu.Services.MarketingChrome;
     var signedIn = User.Identity?.IsAuthenticated == true && marketing == null;
-    var userName = User.Identity?.Name ?? "";
-    var initial = string.IsNullOrEmpty(userName) ? "?" : userName.Substring(0, 1).ToUpperInvariant();
-    var controller = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
-
-    string? Current(params string[] controllers) =>
-        controllers.Contains(controller, StringComparer.OrdinalIgnoreCase) ? "page" : null;
+    // Side panel, current branch and branch switcher (docs/PLAN-backoffice.md, phase 1).
+    var shell = signedIn ? await Shell.BuildAsync() : null;
 
     var flashes = new[]
     {
@@ -36,6 +33,7 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <partial name="_HeadAssets" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/shell.css" asp-append-version="true" />
     @if (marketing != null)
     {
         <link rel="stylesheet" href="~/css/marketing-chrome.css" asp-append-version="true" />
@@ -49,84 +47,13 @@
         <a class="skip-link" href="#main">Skip to content</a>
     }
 
-    @if (signedIn)
+    @if (signedIn && shell != null)
     {
         <div class="app">
-            <aside class="sidebar offcanvas-lg offcanvas-start" tabindex="-1" id="sidebar" aria-label="Main navigation">
-                <div class="sidebar-head">
-                    <a class="sidebar-brand" asp-controller="Home" asp-action="Index">
-                        <partial name="_BrandMark" model="26" />
-                        <span class="brand-word">myquick<em>menu</em></span>
-                    </a>
-                    <button type="button" class="icon-btn d-lg-none" data-bs-dismiss="offcanvas" data-bs-target="#sidebar" aria-label="Close navigation">
-                        <i class="ph ph-x" aria-hidden="true"></i>
-                    </button>
-                </div>
-
-                <nav class="sidebar-nav">
-                    @if (User.IsInRole("OWNER") || User.IsInRole("STAFF"))
-                    {
-                        <a asp-controller="Dashboard" asp-action="Index" aria-current="@Current("Dashboard", "Branch", "Category", "Product", "Tables", "Stock", "Shifts", "Sales", "Bookings", "Website")">
-                            <i class="ph ph-storefront" aria-hidden="true"></i>My branches
-                        </a>
-                        <a asp-controller="Manage" asp-action="Index" aria-current="@Current("Manage")">
-                            <i class="ph ph-chart-line-up" aria-hidden="true"></i>Overview
-                        </a>
-                    }
-                    @if (User.IsInRole("OWNER"))
-                    {
-                        <a asp-controller="Billing" asp-action="Index" aria-current="@Current("Billing")">
-                            <i class="ph ph-receipt" aria-hidden="true"></i>Billing
-                        </a>
-                    }
-                    @if (User.IsInRole("ADMIN"))
-                    {
-                        var adminAction = ViewContext.RouteData.Values["action"]?.ToString();
-                        <a asp-controller="Admin" asp-action="Index" aria-current="@(Current("Admin") != null && adminAction is not ("Prices" or "Billing" or "Referrals") ? "page" : null)">
-                            <i class="ph ph-users-three" aria-hidden="true"></i>User management
-                        </a>
-                        <a asp-controller="Admin" asp-action="Prices" aria-current="@(Current("Admin") != null && adminAction == "Prices" ? "page" : null)">
-                            <i class="ph ph-currency-eur" aria-hidden="true"></i>Plans &amp; prices
-                        </a>
-                        <a asp-controller="Admin" asp-action="Billing" aria-current="@(Current("Admin") != null && adminAction == "Billing" ? "page" : null)">
-                            <i class="ph ph-receipt" aria-hidden="true"></i>Invoices
-                        </a>
-                        <a asp-controller="Admin" asp-action="Referrals" aria-current="@(Current("Admin") != null && adminAction == "Referrals" ? "page" : null)">
-                            <i class="ph ph-sparkle" aria-hidden="true"></i>AI referrals
-                        </a>
-                    }
-                    <a asp-controller="Account" asp-action="ChangePassword" aria-current="@Current("Account")">
-                        <i class="ph ph-key" aria-hidden="true"></i>Password
-                    </a>
-                </nav>
-
-                <div class="sidebar-foot">
-                    <div class="sidebar-user">
-                        <span class="avatar" aria-hidden="true">@initial</span>
-                        <span class="sidebar-user-name">
-                            <small>Signed in as</small>
-                            <span>@userName</span>
-                        </span>
-                    </div>
-                    <form asp-controller="Account" asp-action="Logout" method="post">
-                        <button type="submit" class="icon-btn" aria-label="Sign out" title="Sign out">
-                            <i class="ph ph-sign-out" aria-hidden="true"></i>
-                        </button>
-                    </form>
-                </div>
-            </aside>
+            <partial name="_BackofficeSidebar" model="shell" />
 
             <div class="app-main">
-                <header class="topbar d-lg-none">
-                    <button type="button" class="icon-btn" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="sidebar" aria-label="Open navigation">
-                        <i class="ph ph-list" aria-hidden="true"></i>
-                    </button>
-                    <a class="sidebar-brand" asp-controller="Home" asp-action="Index">
-                        <partial name="_BrandMark" model="22" />
-                        <span class="brand-word">myquick<em>menu</em></span>
-                    </a>
-                    <span class="avatar" aria-hidden="true">@initial</span>
-                </header>
+                <partial name="_BackofficeTopbar" model="shell" />
 
                 <main id="main" class="content">
                     <div class="flash-stack" aria-live="polite">
@@ -163,6 +90,7 @@
                 </footer>
             </div>
         </div>
+        <partial name="_CommandPalette" model="shell" />
     }
     else if (marketing != null)
     {
@@ -197,6 +125,10 @@
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    @if (signedIn)
+    {
+        <script src="~/js/shell.js" asp-append-version="true"></script>
+    }
     @if (marketing != null)
     {
         <script src="~/js/landing.js" asp-append-version="true" defer></script>

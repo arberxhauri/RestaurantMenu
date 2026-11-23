@@ -1,0 +1,81 @@
+@model RestaurantMenu.Services.ShellModel
+@* The back office's top bar: branch switcher, search (command palette) and the account menu. *@
+@{
+    var userName = User.Identity?.Name ?? "";
+    var initial = string.IsNullOrEmpty(userName) ? "?" : userName.Substring(0, 1).ToUpperInvariant();
+    string SwitchHref(int id) => Model.ActiveKey == null ? $"/switch-branch/{id}" : $"/switch-branch/{id}?to={Uri.EscapeDataString(Model.ActiveKey)}";
+}
+<header class="topbar">
+    <button type="button" class="icon-btn d-lg-none" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="sidebar" aria-label="Open navigation">
+        <i class="ph ph-list" aria-hidden="true"></i>
+    </button>
+
+    @if (Model.Current is { } current)
+    {
+        if (Model.Branches.Count > 1)
+        {
+            <div class="dropdown">
+                <button type="button" class="branch-switch" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Branch: @current.Name. Switch branch">
+                    <span class="branch-switch-icon" aria-hidden="true"><i class="ph ph-storefront"></i></span>
+                    <span class="branch-switch-text"><small>Branch</small><strong>@current.Name</strong></span>
+                    <i class="ph ph-caret-up-down branch-switch-caret" aria-hidden="true"></i>
+                </button>
+                <ul class="dropdown-menu branch-menu">
+                    @foreach (var branch in Model.Branches)
+                    {
+                        <li>
+                            <a class="dropdown-item" href="@SwitchHref(branch.Id)" aria-current="@(branch.Id == current.Id ? "true" : null)">
+                                <i class="ph ph-storefront" aria-hidden="true"></i><span>@branch.Name</span>
+                                @if (branch.Id == current.Id)
+                                {
+                                    <i class="ph ph-check branch-menu-check" aria-hidden="true"></i>
+                                }
+                            </a>
+                        </li>
+                    }
+                    <li><hr class="dropdown-divider" /></li>
+                    <li><a class="dropdown-item" href="/Dashboard"><i class="ph ph-buildings" aria-hidden="true"></i><span>All branches</span></a></li>
+                </ul>
+            </div>
+        }
+        else
+        {
+            <div class="branch-switch branch-switch--single">
+                <span class="branch-switch-icon" aria-hidden="true"><i class="ph ph-storefront"></i></span>
+                <span class="branch-switch-text"><small>Branch</small><strong>@current.Name</strong></span>
+            </div>
+        }
+    }
+
+    <span class="topbar-spacer"></span>
+
+    <button type="button" class="topbar-search" data-cmdk-open aria-haspopup="dialog" aria-controls="cmdk">
+        <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+        <span class="topbar-search-text">Search pages…</span>
+        <kbd data-cmdk-hint>Ctrl K</kbd>
+    </button>
+
+    <div class="dropdown">
+        <button type="button" class="topbar-user" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account menu">
+            <span class="avatar" aria-hidden="true">@initial</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end account-menu">
+            <li class="account-menu-head">
+                <span class="avatar" aria-hidden="true">@initial</span>
+                <span><small>Signed in as</small><strong>@userName</strong></span>
+            </li>
+            <li><hr class="dropdown-divider" /></li>
+            <li><a class="dropdown-item" asp-controller="Account" asp-action="ChangePassword"><i class="ph ph-key" aria-hidden="true"></i>Password</a></li>
+            @if (User.IsInRole("OWNER"))
+            {
+                <li><a class="dropdown-item" asp-controller="Billing" asp-action="Index"><i class="ph ph-receipt" aria-hidden="true"></i>Billing</a></li>
+            }
+            <li><hr class="dropdown-divider" /></li>
+            <li>
+                <form asp-controller="Account" asp-action="Logout" method="post">
+                    <button type="submit" class="dropdown-item"><i class="ph ph-sign-out" aria-hidden="true"></i>Sign out</button>
+                </form>
+            </li>
+        </ul>
+    </div>
+</header>

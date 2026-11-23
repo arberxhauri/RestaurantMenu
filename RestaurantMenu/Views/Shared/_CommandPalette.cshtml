@@ -1,0 +1,46 @@
+@model RestaurantMenu.Services.ShellModel
+@* Ctrl/⌘ K: jump to any back-office page or switch branch. The list is rendered here, so it works
+   with exactly the pages the side panel offers; shell.js only filters it and moves the selection. *@
+@{
+    string SwitchHref(int id) => Model.ActiveKey == null ? $"/switch-branch/{id}" : $"/switch-branch/{id}?to={Uri.EscapeDataString(Model.ActiveKey)}";
+}
+<dialog class="cmdk" id="cmdk" aria-label="Search pages">
+    <div class="cmdk-box">
+        <label class="cmdk-input">
+            <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+            <span class="visually-hidden">Search pages and branches</span>
+            <input type="search" placeholder="Search pages and branches…" autocomplete="off" spellcheck="false"
+                   role="combobox" aria-expanded="true" aria-controls="cmdk-list" aria-autocomplete="list" data-cmdk-input />
+            <kbd>Esc</kbd>
+        </label>
+        <ul class="cmdk-list" id="cmdk-list" role="listbox" aria-label="Pages" data-cmdk-list>
+            @foreach (var group in Model.Groups)
+            {
+                foreach (var item in group.Items)
+                {
+                    <li role="option" aria-selected="false" data-cmdk-item data-cmdk-text="@group.Label @item.Label">
+                        <a href="@item.Href" tabindex="-1">
+                            <i class="ph @item.Icon" aria-hidden="true"></i>
+                            <span>@item.Label</span>
+                            <small>@group.Label</small>
+                        </a>
+                    </li>
+                }
+            }
+            @if (Model.Branches.Count > 1)
+            {
+                foreach (var branch in Model.Branches.Where(b => b.Id != Model.Current?.Id))
+                {
+                    <li role="option" aria-selected="false" data-cmdk-item data-cmdk-text="Branch switch @branch.Name">
+                        <a href="@SwitchHref(branch.Id)" tabindex="-1">
+                            <i class="ph ph-storefront" aria-hidden="true"></i>
+                            <span>Switch to @branch.Name</span>
+                            <small>Branch</small>
+                        </a>
+                    </li>
+                }
+            }
+        </ul>
+        <p class="cmdk-empty" hidden data-cmdk-empty>No page matches.</p>
+    </div>
+</dialog>

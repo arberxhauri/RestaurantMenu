@@ -23,6 +23,7 @@
 .ph.ph-caret-down:before { content: "\e136"; }
 .ph.ph-caret-left:before { content: "\e138"; }
 .ph.ph-caret-right:before { content: "\e13a"; }
+.ph.ph-caret-up-down:before { content: "\e140"; }
 .ph.ph-carrot:before { content: "\ed38"; }
 .ph.ph-chart-bar:before { content: "\e150"; }
 .ph.ph-chart-line-up:before { content: "\e156"; }
@@ -32,6 +33,7 @@
 .ph.ph-check:before { content: "\e182"; }
 .ph.ph-check-circle:before { content: "\e184"; }
 .ph.ph-checks:before { content: "\e53a"; }
+.ph.ph-chef-hat:before { content: "\ed8e"; }
 .ph.ph-circle:before { content: "\e18a"; }
 .ph.ph-circle-half:before { content: "\e18c"; }
 .ph.ph-clock:before { content: "\e19a"; }
@@ -57,6 +59,8 @@
 .ph.ph-fork-knife:before { content: "\e262"; }
 .ph.ph-funnel:before { content: "\e266"; }
 .ph.ph-gear:before { content: "\e270"; }
+.ph.ph-gear-six:before { content: "\e272"; }
+.ph.ph-globe:before { content: "\e288"; }
 .ph.ph-globe-simple:before { content: "\e28e"; }
 .ph.ph-google-logo:before { content: "\e292"; }
 .ph.ph-grains-slash:before { content: "\ec6a"; }
@@ -75,6 +79,7 @@
 .ph.ph-link-break:before { content: "\e2e4"; }
 .ph.ph-list:before { content: "\e2f0"; }
 .ph.ph-list-bullets:before { content: "\e2f2"; }
+.ph.ph-list-checks:before { content: "\eadc"; }
 .ph.ph-lock:before { content: "\e2fa"; }
 .ph.ph-lock-open:before { content: "\e306"; }
 .ph.ph-lock-simple:before { content: "\e308"; }
@@ -106,6 +111,7 @@
 .ph.ph-resize:before { content: "\ed6e"; }
 .ph.ph-seal-check:before { content: "\e606"; }
 .ph.ph-shield-check:before { content: "\e40c"; }
+.ph.ph-sidebar-simple:before { content: "\ec24"; }
 .ph.ph-sign-out:before { content: "\e42a"; }
 .ph.ph-sliders-horizontal:before { content: "\e434"; }
 .ph.ph-sparkle:before { content: "\e6a2"; }
@@ -157,6 +163,7 @@
 .ph-fill.ph-caret-down:before { content: "\e136"; }
 .ph-fill.ph-caret-left:before { content: "\e138"; }
 .ph-fill.ph-caret-right:before { content: "\e13a"; }
+.ph-fill.ph-caret-up-down:before { content: "\e140"; }
 .ph-fill.ph-carrot:before { content: "\ed38"; }
 .ph-fill.ph-chart-bar:before { content: "\e150"; }
 .ph-fill.ph-chart-line-up:before { content: "\e156"; }
@@ -166,6 +173,7 @@
 .ph-fill.ph-check:before { content: "\e182"; }
 .ph-fill.ph-check-circle:before { content: "\e184"; }
 .ph-fill.ph-checks:before { content: "\e53a"; }
+.ph-fill.ph-chef-hat:before { content: "\ed8e"; }
 .ph-fill.ph-circle:before { content: "\e18a"; }
 .ph-fill.ph-circle-half:before { content: "\e18c"; }
 .ph-fill.ph-clock:before { content: "\e19a"; }
@@ -191,6 +199,8 @@
 .ph-fill.ph-fork-knife:before { content: "\e262"; }
 .ph-fill.ph-funnel:before { content: "\e266"; }
 .ph-fill.ph-gear:before { content: "\e270"; }
+.ph-fill.ph-gear-six:before { content: "\e272"; }
+.ph-fill.ph-globe:before { content: "\e288"; }
 .ph-fill.ph-globe-simple:before { content: "\e28e"; }
 .ph-fill.ph-google-logo:before { content: "\e292"; }
 .ph-fill.ph-grains-slash:before { content: "\ec6a"; }
@@ -209,6 +219,7 @@
 .ph-fill.ph-link-break:before { content: "\e2e4"; }
 .ph-fill.ph-list:before { content: "\e2f0"; }
 .ph-fill.ph-list-bullets:before { content: "\e2f2"; }
+.ph-fill.ph-list-checks:before { content: "\eadc"; }
 .ph-fill.ph-lock:before { content: "\e2fa"; }
 .ph-fill.ph-lock-open:before { content: "\e306"; }
 .ph-fill.ph-lock-simple:before { content: "\e308"; }
@@ -240,6 +251,7 @@
 .ph-fill.ph-resize:before { content: "\ed6e"; }
 .ph-fill.ph-seal-check:before { content: "\e606"; }
 .ph-fill.ph-shield-check:before { content: "\e40c"; }
+.ph-fill.ph-sidebar-simple:before { content: "\ec24"; }
 .ph-fill.ph-sign-out:before { content: "\e42a"; }
 .ph-fill.ph-sliders-horizontal:before { content: "\e434"; }
 .ph-fill.ph-sparkle:before { content: "\e6a2"; }

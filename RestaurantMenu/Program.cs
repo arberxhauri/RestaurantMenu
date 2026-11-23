@@ -174,6 +174,8 @@ builder.Services.AddScoped<BillingRunner>();
 builder.Services.AddHostedService<BillingWorker>();
 // Who may do what to a branch (owner, or staff member with a role). Used by every back-office controller.
 builder.Services.AddScoped<IBranchAccess, BranchAccess>();
+// The back office's frame: side panel, current branch and branch switcher (Views/Shared/_Layout).
+builder.Services.AddScoped<BackofficeShell>();
 builder.Services.AddTransient<InviteMailer>();
 
 // Table ordering: guests' orders go to kitchen displays live over SignalR (WebSockets,
