@@ -1,0 +1,117 @@
+@using RestaurantMenu.Helpers
+@using RestaurantMenu.Services
+@model ReportPage
+@{
+    var branch = (Branch)ViewBag.Branch;
+    var currency = (string)ViewBag.Currency;
+    ViewData["Title"] = "Reports - " + branch.Name;
+    string Money(decimal v) => $"{currency} {v:0.00}";
+    var range = $"from={Model.From:yyyy-MM-dd}&to={Model.To:yyyy-MM-dd}";
+    var kpis = new[]
+    {
+        ("Sales", Money(Model.Now.Revenue), ReportRules.Change(Model.Now.Revenue, Model.Before.Revenue), true),
+        ("Orders", Model.Now.Orders.ToString(), ReportRules.Change(Model.Now.Orders, Model.Before.Orders), true),
+        ("Average bill", Money(Model.Now.AverageBill), ReportRules.Change(Model.Now.AverageBill, Model.Before.AverageBill), true),
+        ("Discounts", Money(Model.Now.Discounts), ReportRules.Change(Model.Now.Discounts, Model.Before.Discounts), false),
+        ("Waste cost", Money(Model.Now.Waste), ReportRules.Change(Model.Now.Waste, Model.Before.Waste), false)
+    };
+    var days = new[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
+    var charts = new[]
+    {
+        ("Sales by hour", Model.ByHour, Enumerable.Range(0, 24).Select(h => h.ToString("00")).ToArray(), true),
+        ("Sales by weekday", Model.ByWeekday, days, false)
+    };
+}
+
+<header class="page-head">
+    <div>
+        <h1>Reports</h1>
+        <p>@branch.Name · @Model.From.ToString("d MMM yyyy") – @Model.To.ToString("d MMM yyyy"), compared with @Model.PreviousFrom.ToString("d MMM") – @Model.PreviousTo.ToString("d MMM").</p>
+    </div>
+    <form method="get" class="d-flex flex-wrap gap-2 align-items-end">
+        <div><label class="form-label" for="from">From</label><input id="from" name="from" type="date" class="form-control" value="@Model.From.ToString("yyyy-MM-dd")" /></div>
+        <div><label class="form-label" for="to">To</label><input id="to" name="to" type="date" class="form-control" value="@Model.To.ToString("yyyy-MM-dd")" /></div>
+        <button class="btn btn-primary" type="submit">Show</button>
+        <a class="btn btn-outline-secondary" href="/branch/@branch.Id/reports/export.csv?@range"><i class="ph ph-download-simple" aria-hidden="true"></i>CSV</a>
+    </form>
+</header>
+
+<section class="row g-3 mb-4" aria-label="Headline numbers">
+    @foreach (var (label, value, change, upIsGood) in kpis)
+    {
+        <div class="col-6 col-lg">
+            <div class="panel panel-body h-100">
+                <small class="text-secondary d-block">@label</small>
+                <strong class="fs-4 d-block">@value</strong>
+                @if (change is { } c)
+                {
+                    var good = c == 0 ? (bool?)null : (c > 0) == upIsGood;
+                    <span class="chip @(good == true ? "chip--ok" : good == false ? "chip--warn" : "")">@(c > 0 ? "▲" : c < 0 ? "▼" : "") @Math.Abs(c)% vs previous</span>
+                }
+                else
+                {
+                    <small class="text-secondary">No previous data</small>
+                }
+            </div>
+        </div>
+    }
+</section>
+
+<div class="row g-3 mb-4">
+    <section class="col-lg-7" aria-labelledby="dishes-title">
+        <div class="panel h-100">
+            <div class="panel-head"><h2 id="dishes-title">Best-selling dishes</h2></div>
+            @if (Model.Dishes.Count == 0)
+            {
+                <div class="panel-body"><p class="mb-0 text-secondary">No orders in this period.</p></div>
+            }
+            else
+            {
+                <div class="table-responsive"><table class="table mb-0">
+                    <thead><tr><th scope="col">Dish</th><th scope="col" class="text-end">Sold</th><th scope="col" class="text-end">Revenue</th></tr></thead>
+                    <tbody>@foreach (var d in Model.Dishes) { <tr><td>@d.Name</td><td class="text-end">@d.Quantity</td><td class="text-end">@Money(d.Revenue)</td></tr> }</tbody>
+                </table></div>
+            }
+        </div>
+    </section>
+    <section class="col-lg-5 d-flex flex-column gap-3" aria-label="Categories and payments">
+        <div class="panel">
+            <div class="panel-head"><h2>Categories</h2></div>
+            <div class="table-responsive"><table class="table mb-0">
+                <tbody>@foreach (var c in Model.Categories) { <tr><td>@c.Name</td><td class="text-end">@c.Quantity</td><td class="text-end">@Money(c.Revenue)</td></tr> }</tbody>
+            </table></div>
+        </div>
+        <div class="panel">
+            <div class="panel-head"><h2>Payments (POS)</h2></div>
+            <div class="panel-body">
+                @foreach (var p in Model.Payments) { <div class="d-flex justify-content-between"><span>@p.Key</span><strong>@Money(p.Value)</strong></div> }
+            </div>
+        </div>
+    </section>
+</div>
+
+<div class="row g-3">
+    @foreach (var (title, values, labels, skipEmpty) in charts)
+    {
+        var max = Math.Max(1m, values.Max());
+        <section class="col-lg-6" aria-label="@title">
+            <div class="panel h-100">
+                <div class="panel-head"><h2>@title</h2></div>
+                <div class="panel-body">
+                    @for (var i = 0; i < values.Count; i++)
+                    {
+                        if (skipEmpty && values[i] == 0) { continue; }
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="text-secondary" style="width:3rem">@labels[i]</span>
+                            <div class="flex-grow-1 rounded" style="background:var(--bg-2);height:12px">
+                                <div class="rounded" style="background:var(--accent);height:12px;width:@((int)Math.Round(values[i] / max * 100))%"></div>
+                            </div>
+                            <span style="width:6.5rem" class="text-end">@Money(values[i])</span>
+                        </div>
+                    }
+                    @if (values.All(v => v == 0)) { <p class="mb-0 text-secondary">No sales in this period.</p> }
+                </div>
+            </div>
+        </section>
+    }
+</div>

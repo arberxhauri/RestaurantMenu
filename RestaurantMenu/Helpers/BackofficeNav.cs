@@ -54,6 +54,7 @@ public static class BackofficeNav
     {
         new("dashboard", "dashboard", "Overview", "ph-squares-four", _ => "/manage", Audience.Workspace),
 
+        new("reports.overview", "reports", "Overview", "ph-chart-bar", b => $"/branch/{b}/reports", Audience.Branch, BranchPermission.ViewInsights, BillingModule.Management),
         new("reports.cash", "reports", "Cash report", "ph-coins", b => $"/pos/{b}/cash", Audience.Branch, BranchPermission.ViewInsights, BillingModule.Ordering),
         new("reports.sales", "reports", "Sales", "ph-currency-eur", b => $"/branch/{b}/sales", Audience.Branch, BranchPermission.ViewInsights, BillingModule.Management),
         new("reports.insights", "reports", "Menu analytics", "ph-chart-line-up", b => $"/Branch/Insights/{b}", Audience.Branch, BranchPermission.ViewInsights),
@@ -127,6 +128,7 @@ public static class BackofficeNav
         {
             "manage" => "dashboard",
             "sales" => "reports.sales",
+            "reports" => "reports.overview",
             "feedback" => "reports.feedback",
             "kitchen" => Is(action, "Bar") ? "stations.bar" : "stations.kitchen",
             "pos" => Is(action, "Cash") ? "reports.cash" : "stations.pos",

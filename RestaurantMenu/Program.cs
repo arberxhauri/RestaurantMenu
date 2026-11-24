@@ -178,6 +178,8 @@ builder.Services.AddScoped<IBranchAccess, BranchAccess>();
 builder.Services.AddScoped<BackofficeShell>();
 // The POS: open bills, discounts, payments and the cash report (PosController).
 builder.Services.AddScoped<PosService>();
+// Reports: date range, comparison and CSV export (ReportsController).
+builder.Services.AddScoped<ReportService>();
 builder.Services.AddTransient<InviteMailer>();
 
 // Table ordering: guests' orders go to kitchen displays live over SignalR (WebSockets,
