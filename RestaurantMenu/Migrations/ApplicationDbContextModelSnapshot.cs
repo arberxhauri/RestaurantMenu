@@ -2020,6 +2020,9 @@ namespace RestaurantMenu.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("TableId")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime>("UpdatedUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -2027,6 +2030,8 @@ namespace RestaurantMenu.Migrations
 
                     b.HasIndex("PublicId")
                         .IsUnique();
+
+                    b.HasIndex("TableId");
 
                     b.HasIndex("BranchId", "ClientRequestId")
                         .IsUnique()
@@ -2829,7 +2834,14 @@ namespace RestaurantMenu.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("RestaurantMenu.Models.DiningTable", "Table")
+                        .WithMany()
+                        .HasForeignKey("TableId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Branch");
+
+                    b.Navigation("Table");
                 });
 
             modelBuilder.Entity("RestaurantMenu.Models.ReservationSettings", b =>

@@ -42,6 +42,7 @@ public class TablesController : Controller
     }
 
     private IActionResult Back(int id) => RedirectToAction(nameof(Index), new { id });
+    private IActionResult BackToFloor(int id) => RedirectToAction(nameof(Floor), new { id });
 
     [HttpGet("")]
     public async Task<IActionResult> Index(int id)
@@ -49,7 +50,8 @@ public class TablesController : Controller
         var branch = await BranchAsync(id);
         if (branch == null) return NotFound();
 
-        var tables = await _context.Tables.AsNoTracking().Where(t => t.BranchId == id).OrderBy(t => t.Number).ToListAsync();
+        var tables = await _context.Tables.AsNoTracking().Include(t => t.Area).Where(t => t.BranchId == id).OrderBy(t => t.Number).ToListAsync();
+        var areas = await _context.TableAreas.AsNoTracking().Where(a => a.BranchId == id).OrderBy(a => a.DisplayOrder).ThenBy(a => a.Name).ToListAsync();
         var since = DateTime.UtcNow.AddDays(-30);
         ViewBag.OrderCounts = await _context.Orders.AsNoTracking()
             .Where(o => o.BranchId == id && o.CreatedUtc > since && o.TableId != null)
@@ -57,7 +59,48 @@ public class TablesController : Controller
             .Select(g => new { g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.Key, x => x.Count);
         ViewBag.Links = tables.ToDictionary(t => t.Id, t => _qr.MenuLink(branch, t.Number, t.Code));
-        return View(new TablesPage(branch, tables));
+        return View(new TablesPage(branch, tables, areas));
+    }
+
+    [HttpGet("floor")]
+    public async Task<IActionResult> Floor(int id)
+    {
+        var branch = await BranchAsync(id);
+        if (branch == null) return NotFound();
+
+        var tables = await _context.Tables.AsNoTracking().Include(t => t.Area)
+            .Where(t => t.BranchId == id).OrderBy(t => t.Number).ToListAsync();
+        var areas = await _context.TableAreas.AsNoTracking().Where(a => a.BranchId == id)
+            .OrderBy(a => a.DisplayOrder).ThenBy(a => a.Name).ToListAsync();
+        var openOrders = await _context.Orders.AsNoTracking()
+            .Where(o => o.BranchId == id && o.TableId != null && (o.Status == OrderStatus.New || o.Status == OrderStatus.Preparing))
+            .OrderByDescending(o => o.CreatedUtc).ToListAsync();
+        var orderByTable = openOrders.GroupBy(o => o.TableId!.Value).ToDictionary(g => g.Key, g => g.First());
+
+        var zone = OpeningHours.Zone(branch.TimeZone);
+        var localNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zone);
+        var from = localNow.Date;
+        var to = from.AddDays(1).AddHours(6);
+        var canSeeBookings = await _access.HasModuleAsync(id, BillingModule.Bookings)
+            && await _access.CanAsync(id, BranchPermission.Bookings);
+        var reservations = canSeeBookings
+            ? await _context.Reservations.AsNoTracking().Where(r => r.BranchId == id && r.StartsAtLocal >= from && r.StartsAtLocal < to
+                    && r.Status != ReservationStatus.Cancelled && r.Status != ReservationStatus.NoShow)
+                .OrderBy(r => r.StartsAtLocal).ToListAsync()
+            : new List<Reservation>();
+        var reservationsByTable = reservations.Where(r => r.TableId != null).GroupBy(r => r.TableId!.Value)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<Reservation>)g.ToList());
+
+        var rows = tables.Select(t =>
+        {
+            orderByTable.TryGetValue(t.Id, out var order);
+            reservationsByTable.TryGetValue(t.Id, out var tableReservations);
+            tableReservations ??= Array.Empty<Reservation>();
+            var status = TableStatusRules.Resolve(order, tableReservations, localNow);
+            return new LiveTable(t, status, TableStatusRules.Label(status), order, tableReservations);
+        }).ToList();
+
+        return View(new FloorPage(branch, areas, rows, reservations, canSeeBookings, localNow));
     }
 
     [HttpPost("settings")]
@@ -89,7 +132,7 @@ public class TablesController : Controller
 
     [HttpPost("add")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Add(int id, int from, int? to, string? name)
+    public async Task<IActionResult> Add(int id, int from, int? to, string? name, int? areaId)
     {
         var branch = await BranchAsync(id);
         if (branch == null) return NotFound();
@@ -107,6 +150,11 @@ public class TablesController : Controller
             return Back(id);
         }
         name = CleanName(name);
+        if (areaId != null && !await _context.TableAreas.AnyAsync(a => a.Id == areaId && a.BranchId == id))
+        {
+            TempData["Error"] = "Choose an area from this branch.";
+            return Back(id);
+        }
 
         var existing = await _context.Tables.Where(t => t.BranchId == id).Select(t => t.Number).ToListAsync();
         var numbers = Enumerable.Range(from, last - from + 1).Where(n => !existing.Contains(n)).ToList();
@@ -122,7 +170,12 @@ public class TablesController : Controller
         }
 
         var now = DateTime.UtcNow;
-        _context.Tables.AddRange(numbers.Select(n => new DiningTable { BranchId = id, Number = n, Name = name, Code = OrderRules.NewCode(), CreatedUtc = now }));
+        var offset = existing.Count;
+        _context.Tables.AddRange(numbers.Select((n, index) => new DiningTable
+        {
+            BranchId = id, Number = n, Name = name, AreaId = areaId, Code = OrderRules.NewCode(), CreatedUtc = now,
+            X = 8 + ((offset + index) % 5) * 18, Y = 8 + ((offset + index) / 5 % 5) * 18
+        }));
         try
         {
             await _context.SaveChangesAsync();
@@ -140,6 +193,86 @@ public class TablesController : Controller
         TempData["PrintFrom"] = numbers.Min();
         TempData["PrintTo"] = numbers.Max();
         return Back(id);
+    }
+
+    [HttpPost("areas")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddArea(int id, string? name)
+    {
+        var branch = await BranchAsync(id);
+        if (branch == null) return NotFound();
+        name = CleanAreaName(name);
+        if (name == null)
+        {
+            TempData["Error"] = "Enter an area name.";
+            return Back(id);
+        }
+        if (await _context.TableAreas.AnyAsync(a => a.BranchId == id && a.Name.ToLower() == name.ToLower()))
+        {
+            TempData["Warning"] = $"{name} already exists.";
+            return Back(id);
+        }
+        var displayOrder = await _context.TableAreas.Where(a => a.BranchId == id).Select(a => (int?)a.DisplayOrder).MaxAsync() ?? -1;
+        _context.TableAreas.Add(new TableArea { BranchId = id, Name = name, DisplayOrder = displayOrder + 1 });
+        await _context.SaveChangesAsync();
+        TempData["Success"] = $"{name} added.";
+        return Back(id);
+    }
+
+    [HttpPost("areas/{areaId:int}/delete")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteArea(int id, int areaId)
+    {
+        var branch = await BranchAsync(id);
+        if (branch == null) return NotFound();
+        var area = await _context.TableAreas.FirstOrDefaultAsync(a => a.Id == areaId && a.BranchId == id);
+        if (area == null) return NotFound();
+        await _context.Tables.Where(t => t.BranchId == id && t.AreaId == areaId).ExecuteUpdateAsync(s => s.SetProperty(t => t.AreaId, (int?)null));
+        _context.TableAreas.Remove(area);
+        await _context.SaveChangesAsync();
+        TempData["Success"] = $"{area.Name} removed. Its tables are now unassigned.";
+        return Back(id);
+    }
+
+    [HttpPost("{tableId:int}/layout")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Layout(int id, int tableId, int? areaId, TableShape shape, int seats, decimal x, decimal y, int rotation)
+    {
+        var table = await TableAsync(id, tableId);
+        if (table == null) return NotFound();
+        if (!TableLayoutRules.IsValid(shape, seats, x, y, rotation))
+        {
+            TempData["Error"] = "Use 1–50 seats, a position from 0–100, and a valid rotation.";
+            return Back(id);
+        }
+        if (areaId != null && !await _context.TableAreas.AnyAsync(a => a.Id == areaId && a.BranchId == id)) return BadRequest();
+        table.AreaId = areaId;
+        table.Shape = shape;
+        table.Seats = seats;
+        table.X = x;
+        table.Y = y;
+        table.Rotation = rotation;
+        await _context.SaveChangesAsync();
+        TempData["Success"] = $"Table {table.Number}'s layout saved.";
+        return Back(id);
+    }
+
+    [HttpPost("floor/reservations/{reservationId:int}/seat")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SeatReservation(int id, int reservationId, int tableId)
+    {
+        if (await BranchAsync(id) == null || !await _access.HasModuleAsync(id, BillingModule.Bookings)
+            || !await _access.CanAsync(id, BranchPermission.Bookings)) return NotFound();
+        var table = await _context.Tables.FirstOrDefaultAsync(t => t.Id == tableId && t.BranchId == id);
+        var reservation = await _context.Reservations.FirstOrDefaultAsync(r => r.Id == reservationId && r.BranchId == id);
+        if (table == null || reservation == null) return NotFound();
+        if (reservation.Status is ReservationStatus.Cancelled or ReservationStatus.NoShow) return BadRequest();
+        reservation.TableId = table.Id;
+        reservation.Status = ReservationStatus.Seated;
+        reservation.UpdatedUtc = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        TempData["Success"] = $"{reservation.Name} seated at table {table.Number}.";
+        return BackToFloor(id);
     }
 
     [HttpPost("{tableId:int}/rename")]
@@ -203,6 +336,15 @@ public class TablesController : Controller
         name = name?.Trim();
         return string.IsNullOrEmpty(name) ? null : name.Length > 40 ? name[..40] : name;
     }
+
+    private static string? CleanAreaName(string? name)
+    {
+        name = name?.Trim();
+        return string.IsNullOrEmpty(name) ? null : name.Length > 60 ? name[..60] : name;
+    }
 }
 
-public record TablesPage(Branch Branch, IReadOnlyList<DiningTable> Tables);
+public record TablesPage(Branch Branch, IReadOnlyList<DiningTable> Tables, IReadOnlyList<TableArea> Areas);
+public record LiveTable(DiningTable Table, LiveTableStatus Status, string StatusLabel, Order? Order, IReadOnlyList<Reservation> Reservations);
+public record FloorPage(Branch Branch, IReadOnlyList<TableArea> Areas, IReadOnlyList<LiveTable> Tables,
+    IReadOnlyList<Reservation> Reservations, bool CanSeeBookings, DateTime LocalNow);

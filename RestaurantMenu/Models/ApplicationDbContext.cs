@@ -429,9 +429,11 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.HasIndex(r => r.PublicId).IsUnique();
             e.HasIndex(r => new { r.BranchId, r.ClientRequestId }).IsUnique().HasFilter("\"ClientRequestId\" IS NOT NULL");
             e.HasIndex(r => new { r.BranchId, r.StartsAtUtc });
+            e.HasIndex(r => r.TableId);
             e.HasIndex(r => new { r.BranchId, r.Phone });
             e.HasIndex(r => new { r.Status, r.StartsAtUtc }); // reminders
             e.HasOne(r => r.Branch).WithMany().HasForeignKey(r => r.BranchId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(r => r.Table).WithMany().HasForeignKey(r => r.TableId).OnDelete(DeleteBehavior.SetNull);
             e.Property(r => r.Name).HasMaxLength(80);
             e.Property(r => r.Phone).HasMaxLength(20);
             e.Property(r => r.Email).HasMaxLength(256);

@@ -64,6 +64,7 @@
 .ph.ph-globe-simple:before { content: "\e28e"; }
 .ph.ph-google-logo:before { content: "\e292"; }
 .ph.ph-grains-slash:before { content: "\ec6a"; }
+.ph.ph-grid-four:before { content: "\e296"; }
 .ph.ph-hand-grabbing:before { content: "\e57c"; }
 .ph.ph-heart:before { content: "\e2a8"; }
 .ph.ph-hourglass-medium:before { content: "\e2b8"; }
@@ -204,6 +205,7 @@
 .ph-fill.ph-globe-simple:before { content: "\e28e"; }
 .ph-fill.ph-google-logo:before { content: "\e292"; }
 .ph-fill.ph-grains-slash:before { content: "\ec6a"; }
+.ph-fill.ph-grid-four:before { content: "\e296"; }
 .ph-fill.ph-hand-grabbing:before { content: "\e57c"; }
 .ph-fill.ph-heart:before { content: "\e2a8"; }
 .ph-fill.ph-hourglass-medium:before { content: "\e2b8"; }

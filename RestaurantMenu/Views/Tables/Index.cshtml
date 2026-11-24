@@ -1,10 +1,12 @@
 @using RestaurantMenu.Controllers
 @using RestaurantMenu.Services
 @model TablesPage
+@section Styles { <link rel="stylesheet" href="~/css/floor.css" asp-append-version="true" /> }
 @{
     var branch = Model.Branch;
     var tables = Model.Tables;
-    ViewData["Title"] = "Tables & ordering - " + branch.Name;
+    var areas = Model.Areas;
+    ViewData["Title"] = "Areas & layout - " + branch.Name;
     var counts = (Dictionary<int, int>)ViewBag.OrderCounts;
     var links = (Dictionary<int, string>)ViewBag.Links;
     var printFrom = TempData["PrintFrom"] as int? ?? (tables.Count > 0 ? tables[0].Number : 1);
@@ -15,23 +17,57 @@
 <ol class="crumbs">
     <li><a asp-controller="Dashboard" asp-action="Index">My branches</a></li>
     <li><a asp-controller="Branch" asp-action="Details" asp-route-id="@branch.Id">@branch.Name</a></li>
-    <li aria-current="page">Tables &amp; ordering</li>
+    <li aria-current="page">Areas &amp; layout</li>
 </ol>
 
 <header class="page-head">
     <div>
-        <h1>Tables &amp; ordering</h1>
-        <p>Guests scan their table's QR code, pick dishes and send the order straight to the kitchen.</p>
+        <h1>Areas &amp; layout</h1>
+        <p>Organize the floor while keeping every table's existing number, link and QR code.</p>
     </div>
-    @if (branch.OrderingEnabled)
-    {
-        <div class="page-actions">
+    <div class="page-actions">
+        <a class="btn btn-outline-secondary btn-sm" asp-action="Floor" asp-route-id="@branch.Id">
+            <i class="ph ph-grid-four" aria-hidden="true"></i>Open live floor
+        </a>
+        @if (branch.OrderingEnabled)
+        {
             <a class="btn btn-primary btn-sm" asp-controller="Kitchen" asp-action="Index" asp-route-id="@branch.Id">
                 <i class="ph ph-cooking-pot" aria-hidden="true"></i>Kitchen display
             </a>
-        </div>
-    }
+        }
+    </div>
 </header>
+
+<section class="panel mb-4" aria-labelledby="areas-title">
+    <div class="panel-head">
+        <h2 id="areas-title" class="h5 m-0">Areas <span class="count">@areas.Count</span></h2>
+    </div>
+    <div class="panel-body">
+        <form asp-action="AddArea" asp-route-id="@branch.Id" method="post" class="area-add">
+            <div>
+                <label class="form-label" for="area-name">New area</label>
+                <input id="area-name" name="name" class="form-control" maxlength="60" placeholder="e.g. Main room or Terrace" required />
+            </div>
+            <button class="btn btn-primary" type="submit"><i class="ph ph-plus" aria-hidden="true"></i>Add area</button>
+        </form>
+        @if (areas.Count > 0)
+        {
+            <div class="area-chips mt-3">
+                @foreach (var area in areas)
+                {
+                    var count = tables.Count(t => t.AreaId == area.Id);
+                    <span class="area-chip">
+                        @area.Name <span class="count">@count</span>
+                        <form asp-action="DeleteArea" asp-route-id="@branch.Id" asp-route-areaId="@area.Id" method="post" data-confirm="Remove @area.Name? Its tables will become unassigned.">
+                            <button type="submit" aria-label="Remove @area.Name"><i class="ph ph-x" aria-hidden="true"></i></button>
+                        </form>
+                    </span>
+                }
+            </div>
+        }
+        <p class="hint mb-0 mt-2">Removing an area never removes its tables or changes their QR codes.</p>
+    </div>
+</section>
 
 <div class="tables-layout">
     <section class="panel" aria-labelledby="ordering-title">
@@ -72,12 +108,15 @@
                     <input id="to" name="to" type="number" class="form-control" min="1" max="@SeoService.MaxTable" value="@(nextFree + 9)" inputmode="numeric" />
                 </div>
                 <div class="tables-add-name">
-                    <label class="form-label" for="name">Area <span class="optional">optional</span></label>
-                    <input id="name" name="name" class="form-control" maxlength="40" placeholder="e.g. Terrace" />
+                    <label class="form-label" for="areaId">Area <span class="optional">optional</span></label>
+                    <select id="areaId" name="areaId" class="form-select">
+                        <option value="">Unassigned</option>
+                        @foreach (var area in areas) { <option value="@area.Id">@area.Name</option> }
+                    </select>
                 </div>
                 <button type="submit" class="btn btn-primary"><i class="ph ph-plus" aria-hidden="true"></i>Add</button>
             </form>
-            <p class="hint mb-0">Same numbers as on your tables. Numbers already set up are skipped. The area shows next to the number in the kitchen.</p>
+            <p class="hint mb-0">Same numbers as on your tables. Numbers already set up are skipped.</p>
         </div>
     </section>
 </div>
@@ -112,7 +151,7 @@
                 <thead>
                     <tr>
                         <th scope="col">Table</th>
-                        <th scope="col">Area</th>
+                        <th scope="col">Layout</th>
                         <th scope="col">Code</th>
                         <th scope="col" class="text-end">Orders (30 days)</th>
                         <th scope="col"><span class="visually-hidden">Actions</span></th>
@@ -124,10 +163,14 @@
                         <tr>
                             <th scope="row" class="tabular">@t.Number</th>
                             <td>
-                                <form asp-action="Rename" asp-route-id="@branch.Id" asp-route-tableId="@t.Id" method="post" class="limit-form">
-                                    <label class="visually-hidden" for="area-@t.Id">Area of table @t.Number</label>
-                                    <input id="area-@t.Id" name="name" value="@t.Name" class="form-control form-control-sm" maxlength="40" placeholder="—" />
-                                    <button type="submit" class="icon-btn icon-btn--line" aria-label="Save area of table @t.Number" title="Save"><i class="ph ph-check" aria-hidden="true"></i></button>
+                                <form asp-action="Layout" asp-route-id="@branch.Id" asp-route-tableId="@t.Id" method="post" class="table-layout-form">
+                                    <label><span>Area</span><select name="areaId" class="form-select form-select-sm"><option value="">Unassigned</option>@foreach (var area in areas) { <option value="@area.Id" selected="@(t.AreaId == area.Id ? "selected" : null)">@area.Name</option> }</select></label>
+                                    <label><span>Shape</span><select name="shape" class="form-select form-select-sm">@foreach (var shape in Enum.GetValues<TableShape>()) { <option value="@shape" selected="@(t.Shape == shape ? "selected" : null)">@shape</option> }</select></label>
+                                    <label><span>Seats</span><input name="seats" type="number" min="1" max="50" value="@t.Seats" class="form-control form-control-sm" /></label>
+                                    <label><span>X</span><input name="x" type="number" min="0" max="100" step="0.5" value="@t.X" class="form-control form-control-sm" /></label>
+                                    <label><span>Y</span><input name="y" type="number" min="0" max="100" step="0.5" value="@t.Y" class="form-control form-control-sm" /></label>
+                                    <label><span>Turn</span><select name="rotation" class="form-select form-select-sm">@foreach (var turn in new[] { 0, 90, 180, 270 }) { <option value="@turn" selected="@(t.Rotation == turn ? "selected" : null)">@turn°</option> }</select></label>
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm">Save</button>
                                 </form>
                             </td>
                             <td><span class="mono">@t.Code</span></td>

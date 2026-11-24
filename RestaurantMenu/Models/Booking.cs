@@ -8,7 +8,6 @@ public class ReservationSettings
 {
     public int BranchId { get; set; }
     public Branch? Branch { get; set; }
-
     public bool Enabled { get; set; }
     /// <summary>Minutes between bookable times: 15, 30 or 60.</summary>
     public int SlotMinutes { get; set; } = 30;
@@ -55,6 +54,8 @@ public class Reservation
 
     public int BranchId { get; set; }
     public Branch? Branch { get; set; }
+    public int? TableId { get; set; }
+    public DiningTable? Table { get; set; }
 
     public string Name { get; set; } = "";
     /// <summary>International format, e.g. +355691234567.</summary>

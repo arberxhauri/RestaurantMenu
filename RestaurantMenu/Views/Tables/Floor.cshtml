@@ -1,0 +1,122 @@
+@using RestaurantMenu.Controllers
+@using RestaurantMenu.Helpers
+@using RestaurantMenu.Models
+@model FloorPage
+@section Styles { <link rel="stylesheet" href="~/css/floor.css" asp-append-version="true" /> }
+@{
+    var branch = Model.Branch;
+    ViewData["Title"] = "Live floor - " + branch.Name;
+    var groups = Model.Areas.Select(a => new { Id = (int?)a.Id, a.Name })
+        .Append(new { Id = (int?)null, Name = "Unassigned" })
+        .Where(a => Model.Tables.Any(t => t.Table.AreaId == a.Id))
+        .ToList();
+}
+
+<ol class="crumbs">
+    <li><a asp-controller="Dashboard" asp-action="Index">My branches</a></li>
+    <li><a asp-controller="Branch" asp-action="Details" asp-route-id="@branch.Id">@branch.Name</a></li>
+    <li aria-current="page">Live floor</li>
+</ol>
+
+<header class="page-head">
+    <div>
+        <h1>Live floor</h1>
+        <p>@Model.LocalNow.ToString("dddd d MMMM, HH:mm") · orders and reservations at a glance.</p>
+    </div>
+    <div class="page-actions">
+        <a class="btn btn-outline-secondary btn-sm" asp-action="Index" asp-route-id="@branch.Id"><i class="ph ph-pencil-simple" aria-hidden="true"></i>Areas &amp; layout</a>
+        <a class="btn btn-primary btn-sm" asp-controller="Kitchen" asp-action="Index" asp-route-id="@branch.Id"><i class="ph ph-cooking-pot" aria-hidden="true"></i>Kitchen display</a>
+    </div>
+</header>
+
+<div class="floor-legend" aria-label="Table statuses">
+    @foreach (var status in Enum.GetValues<LiveTableStatus>())
+    {
+        <span><i class="floor-dot floor-dot--@status.ToString().ToLowerInvariant()"></i>@TableStatusRules.Label(status)</span>
+    }
+</div>
+
+<div class="floor-shell @(Model.CanSeeBookings ? "floor-shell--with-bookings" : "")">
+    <main class="floor-areas">
+        @if (Model.Tables.Count == 0)
+        {
+            <section class="panel empty">
+                <i class="ph ph-armchair" aria-hidden="true"></i>
+                <h2>No tables yet</h2>
+                <p>Add tables and place them in an area to build the floor.</p>
+                <a class="btn btn-primary" asp-action="Index" asp-route-id="@branch.Id">Set up tables</a>
+            </section>
+        }
+        @foreach (var group in groups)
+        {
+            var areaTables = Model.Tables.Where(t => t.Table.AreaId == group.Id).ToList();
+            <section class="floor-area panel" aria-labelledby="area-@(group.Id?.ToString() ?? "none")">
+                <div class="panel-head">
+                    <h2 id="area-@(group.Id?.ToString() ?? "none")" class="h5 m-0">@group.Name <span class="count">@areaTables.Count</span></h2>
+                </div>
+                <div class="floor-canvas">
+                    @foreach (var row in areaTables)
+                    {
+                        var table = row.Table;
+                        var statusClass = row.Status.ToString().ToLowerInvariant();
+                        <article class="floor-table floor-table--@statusClass floor-table--@table.Shape.ToString().ToLowerInvariant()"
+                                 style="--table-x:@table.X.ToString(System.Globalization.CultureInfo.InvariantCulture)%;--table-y:@table.Y.ToString(System.Globalization.CultureInfo.InvariantCulture)%;--table-turn:@(table.Rotation)deg"
+                                 aria-label="Table @table.Number, @row.StatusLabel">
+                            <strong>@table.Number</strong>
+                            <span>@table.Seats seats</span>
+                            <small>@row.StatusLabel</small>
+                            @if (row.Order != null)
+                            {
+                                <small>Order #@row.Order.Number@(row.Order.Guests > 0 ? $" · {row.Order.Guests} guests" : "")</small>
+                            }
+                            else if (row.Reservations.FirstOrDefault() is { } booking)
+                            {
+                                <small>@booking.StartsAtLocal.ToString("HH:mm") · @booking.Name</small>
+                            }
+                        </article>
+                    }
+                </div>
+            </section>
+        }
+    </main>
+
+    @if (Model.CanSeeBookings)
+    {
+        <aside class="floor-bookings panel" aria-labelledby="today-bookings">
+            <div class="panel-head">
+                <h2 id="today-bookings" class="h5 m-0">Today's reservations <span class="count">@Model.Reservations.Count</span></h2>
+                <a asp-controller="Bookings" asp-action="Index" asp-route-id="@branch.Id">Open all</a>
+            </div>
+            @if (Model.Reservations.Count == 0)
+            {
+                <div class="panel-body"><p class="hint mb-0">No active reservations today.</p></div>
+            }
+            else
+            {
+                <div class="floor-booking-list">
+                    @foreach (var booking in Model.Reservations)
+                    {
+                        var assigned = Model.Tables.FirstOrDefault(t => t.Table.Id == booking.TableId)?.Table;
+                        <article class="floor-booking">
+                            <div><time>@booking.StartsAtLocal.ToString("HH:mm")</time><strong>@booking.Name</strong><span>@booking.Guests guests · @booking.Status</span></div>
+                            @if (booking.Status is not ReservationStatus.Cancelled and not ReservationStatus.NoShow)
+                            {
+                                <form asp-action="SeatReservation" asp-route-id="@branch.Id" asp-route-reservationId="@booking.Id" method="post">
+                                    <label class="visually-hidden" for="seat-@booking.Id">Table for @booking.Name</label>
+                                    <select id="seat-@booking.Id" name="tableId" class="form-select form-select-sm" required>
+                                        <option value="">Choose table</option>
+                                        @foreach (var table in Model.Tables.Select(t => t.Table).OrderBy(t => t.Number))
+                                        {
+                                            <option value="@table.Id" selected="@(table.Id == booking.TableId ? "selected" : null)">Table @table.Number (@table.Seats)</option>
+                                        }
+                                    </select>
+                                    <button class="btn btn-outline-secondary btn-sm" type="submit">@(assigned == null ? "Seat" : "Move")</button>
+                                </form>
+                            }
+                        </article>
+                    }
+                </div>
+            }
+        </aside>
+    }
+</div>

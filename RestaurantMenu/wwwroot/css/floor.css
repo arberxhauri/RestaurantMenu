@@ -1,0 +1,119 @@
+/* =========================================================================
+   Tables (docs/PLAN-backoffice.md, phase 4): the live floor plan and the
+   areas & layout editor. Loaded only by Views/Tables/Floor and Index.
+   Status is always shown as text as well as colour.
+   ========================================================================= */
+
+.floor-shell { display: grid; gap: 20px; align-items: start; }
+@media (min-width: 1200px) {
+    .floor-shell--with-bookings { grid-template-columns: minmax(0, 1fr) 340px; }
+}
+.floor-areas { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+
+/* ---------- Status colours (one meaning everywhere) ---------- */
+.floor-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: -8px 0 18px; color: var(--ink-2); font-size: 13.5px; }
+.floor-legend span { display: inline-flex; align-items: center; gap: 7px; }
+.floor-dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; background: var(--table-ink, var(--ink-3)); }
+
+.floor-dot--free, .floor-table--free { --table-ink: var(--ok); --table-bg: var(--ok-soft); }
+.floor-dot--reserved, .floor-table--reserved { --table-ink: var(--warn); --table-bg: var(--warn-soft); }
+.floor-dot--occupied, .floor-table--occupied { --table-ink: var(--accent); --table-bg: var(--accent-soft); }
+.floor-dot--billrequested, .floor-table--billrequested { --table-ink: var(--danger); --table-bg: var(--danger-soft); }
+
+/* ---------- The plan ---------- */
+.floor-canvas {
+    position: relative;
+    min-height: 380px;
+    aspect-ratio: 16 / 9;
+    margin: 0 20px 20px;
+    border-radius: var(--r-md);
+    background-color: var(--surface-2);
+    background-image: radial-gradient(circle, var(--line) 1px, transparent 1.2px);
+    background-size: 22px 22px;
+    overflow: hidden;
+}
+
+.floor-table {
+    position: absolute;
+    /* Saved positions are 0–100 % of the area; keep a margin so edge tables stay whole. */
+    left: calc(7% + var(--table-x, 50%) * .86);
+    top: calc(9% + var(--table-y, 50%) * .82);
+    transform: translate(-50%, -50%);
+    width: 96px; height: 96px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 1px;
+    padding: 8px;
+    color: var(--ink);
+    text-align: center;
+    line-height: 1.15;
+    isolation: isolate;
+}
+/* The table's shape is drawn behind the text, so turning it never turns the label. */
+.floor-table::before {
+    content: "";
+    position: absolute; inset: 0;
+    z-index: -1;
+    border: 2px solid var(--table-ink, var(--line));
+    border-radius: 14px;
+    background: var(--table-bg, var(--surface));
+    box-shadow: var(--shadow-sm);
+    transform: rotate(var(--table-turn, 0deg));
+}
+.floor-table--round::before { border-radius: 50%; }
+.floor-table--rectangle { width: 132px; }
+.floor-table--rectangle::before { inset: 12px 0; }
+.floor-table strong { font: 650 20px/1 var(--font-display); }
+.floor-table span { font-size: 12px; color: var(--ink-2); }
+.floor-table small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; font-weight: 600; color: var(--table-ink, var(--ink-2)); }
+
+/* Phones: a plain list of tables is easier to read than a tiny plan. */
+@media (max-width: 767.98px) {
+    .floor-canvas {
+        aspect-ratio: auto; min-height: 0;
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px;
+        padding: 12px; margin: 0 12px 12px;
+        background-image: none;
+    }
+    .floor-table, .floor-table--rectangle { position: relative; left: auto; top: auto; transform: none; width: auto; height: 104px; }
+    .floor-table::before, .floor-table--rectangle::before { inset: 0; transform: none; }
+}
+
+/* ---------- Today's reservations ---------- */
+.floor-bookings { position: sticky; top: calc(var(--topbar-h, 64px) + 16px); }
+.floor-bookings .panel-head a { font-size: 13.5px; }
+.floor-booking-list { display: flex; flex-direction: column; max-height: 70vh; overflow-y: auto; }
+.floor-booking { display: flex; flex-direction: column; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--line-2); }
+.floor-booking > div { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; }
+.floor-booking time { grid-row: span 2; font: 600 15px/1.3 var(--font-mono); color: var(--accent); }
+.floor-booking strong { font-size: 14.5px; }
+.floor-booking span { font-size: 13px; color: var(--ink-3); }
+.floor-booking form { display: flex; gap: 8px; margin: 0; }
+.floor-booking select { flex: 1; min-width: 0; }
+
+/* ---------- Areas & layout editor ---------- */
+.area-add { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.area-add > div { flex: 1 1 260px; }
+.area-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.area-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 5px 6px 5px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    background: var(--surface-2);
+    font-weight: 500; font-size: 14px;
+}
+.area-chip .count { font: 500 12.5px/1 var(--font-mono); color: var(--ink-3); }
+.area-chip form { margin: 0; }
+.area-chip button {
+    width: 26px; height: 26px;
+    display: inline-grid; place-items: center;
+    border: 0; border-radius: 50%;
+    background: transparent; color: var(--ink-3);
+}
+.area-chip button:hover { background: var(--danger-soft); color: var(--danger); }
+
+.table-layout-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin: 0; }
+.table-layout-form label { display: flex; flex-direction: column; gap: 2px; margin: 0; }
+.table-layout-form label span { font-size: 11.5px; color: var(--ink-3); }
+.table-layout-form select { min-width: 110px; }
+.table-layout-form input[type="number"] { width: 74px; }

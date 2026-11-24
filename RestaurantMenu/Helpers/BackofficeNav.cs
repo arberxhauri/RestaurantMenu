@@ -60,6 +60,7 @@ public static class BackofficeNav
 
         new("stations.kitchen", "stations", "Kitchen", "ph-chef-hat", b => $"/kitchen/{b}", Audience.Branch, BranchPermission.Kitchen, BillingModule.Ordering),
 
+        new("tables.floor", "tables", "Live floor", "ph-armchair", b => $"/branch/{b}/tables/floor", Audience.Branch, BranchPermission.EditBranch, BillingModule.Ordering),
         new("tables.tables", "tables", "Tables & QR codes", "ph-qr-code", b => $"/branch/{b}/tables", Audience.Branch, BranchPermission.EditBranch, BillingModule.Ordering),
         new("tables.bookings", "tables", "Reservations", "ph-calendar-check", b => $"/branch/{b}/bookings", Audience.Branch, BranchPermission.Bookings, BillingModule.Bookings),
 
@@ -125,7 +126,7 @@ public static class BackofficeNav
             "sales" => "reports.sales",
             "feedback" => "reports.feedback",
             "kitchen" => "stations.kitchen",
-            "tables" => "tables.tables",
+            "tables" => Is(action, "Floor") ? "tables.floor" : "tables.tables",
             "bookings" => "tables.bookings",
             "category" or "product" => "menu.items",
             "stock" => Is(action, "Recipes") ? "menu.recipes" : Is(action, "Waste") ? "stock.waste" : "stock.items",
