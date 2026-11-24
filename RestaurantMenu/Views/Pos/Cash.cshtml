@@ -1,0 +1,82 @@
+@using RestaurantMenu.Helpers
+@using RestaurantMenu.Services
+@model CashReport
+@{
+    var branch = (Branch)ViewBag.Branch;
+    var currency = (string)ViewBag.Currency;
+    var today = (DateOnly)ViewBag.Today;
+    ViewData["Title"] = "Cash report - " + branch.Name;
+    string Money(decimal value) => $"{currency} {value:0.00}";
+}
+
+<ol class="crumbs">
+    <li><a href="/manage">Overview</a></li>
+    <li>@branch.Name</li>
+    <li aria-current="page">Cash report</li>
+</ol>
+
+<header class="page-head">
+    <div>
+        <h1>Cash report</h1>
+        <p>Payments taken at the POS on @Model.Day.ToString("dddd d MMMM yyyy"). These are the restaurant's own records, not fiscal receipts.</p>
+    </div>
+    <form method="get" class="d-flex gap-2 align-items-end">
+        <div>
+            <label class="form-label" for="date">Day</label>
+            <input id="date" name="date" type="date" class="form-control" value="@Model.Day.ToString("yyyy-MM-dd")" max="@today.ToString("yyyy-MM-dd")" />
+        </div>
+        <button class="btn btn-outline-secondary" type="submit">Show</button>
+    </form>
+</header>
+
+<section class="row g-3 mb-4" aria-label="Totals">
+    @foreach (var (label, value) in new[]
+    {
+        ("Taken", Money(Model.Total)),
+        ("Cash", Money(Model.ByMethod.GetValueOrDefault(PaymentMethod.Cash))),
+        ("Card", Money(Model.ByMethod.GetValueOrDefault(PaymentMethod.Card))),
+        ("Tips", Money(Model.Tips)),
+        ("Discounts given", Money(Model.Discounts)),
+        ("Bills paid", Model.Bills.ToString())
+    })
+    {
+        <div class="col-6 col-lg-2">
+            <div class="panel panel-body h-100">
+                <small class="text-secondary d-block">@label</small>
+                <strong class="fs-4">@value</strong>
+            </div>
+        </div>
+    }
+</section>
+
+<section class="panel" aria-labelledby="payments-title">
+    <div class="panel-head">
+        <h2 id="payments-title">Payments <span class="count">@Model.Payments.Count</span></h2>
+        <a class="btn btn-outline-secondary btn-sm" href="/branch/@branch.Id/sales">End-of-day close</a>
+    </div>
+    @if (Model.Payments.Count == 0)
+    {
+        <div class="panel-body"><p class="mb-0 text-secondary">No payments on this day.</p></div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead><tr><th scope="col">Time</th><th scope="col">Order</th><th scope="col">Method</th><th scope="col" class="text-end">Amount</th><th scope="col" class="text-end">Tip</th><th scope="col">By</th></tr></thead>
+                <tbody>
+                    @foreach (var p in Model.Payments)
+                    {
+                        <tr>
+                            <td>@TimeZoneInfo.ConvertTimeFromUtc(p.Utc, OpeningHours.Zone(branch.TimeZone)).ToString("HH:mm")</td>
+                            <td>#@p.OrderNumber</td>
+                            <td>@p.Method</td>
+                            <td class="text-end">@Money(p.Amount)</td>
+                            <td class="text-end">@(p.Tip > 0 ? Money(p.Tip) : "")</td>
+                            <td>@(p.By ?? "")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>

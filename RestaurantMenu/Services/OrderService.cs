@@ -114,41 +114,101 @@ public class OrderService
         }
         if (problem != null) return Fail(problem.Value, lang);
 
-        var orderItems = lines.Select(l => new OrderItem
+        var order = NewOrder(branch.Id, req.RequestId, lines, products, zone, utcNow);
+        order.TableId = table.Id;
+        order.TableNumber = table.Number;
+        order.TableName = table.Name;
+        order.Note = OrderRules.CleanNote(req.Note);
+        order.Language = lang;
+        order.Source = OrderSource.GuestQr;
+        order.Type = OrderType.DineIn;
+        return await SaveNewAsync(order, req.RequestId, utcNow);
+    }
+
+    /// <summary>
+    /// An order taken by staff at the POS (docs/PLAN-backoffice.md, phase 6): dine-in at a table or
+    /// takeaway. Priced like a guest's order (OrderRules), but not limited by the guest switches (ordering
+    /// on/paused, opening or serving times): staff decide. Needs the Ordering module; the same request id
+    /// twice returns the order already saved.
+    /// </summary>
+    public async Task<PlaceResult> PlacePosAsync(int branchId, PosOrderRequest req, string? userId, DateTime utcNow)
+    {
+        const string lang = "en";
+        if (req.RequestId == Guid.Empty || req.Items == null || PosRules.ParseOrderType(req.Type) is not { } type)
+            return Fail(OrderProblem.Invalid, lang);
+
+        var branch = await _db.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == branchId);
+        if (branch == null || (await _entitlements.ForBranchAsync(branch.Id))?.Has(BillingModule.Ordering) != true)
+            return Fail(OrderProblem.Unavailable, lang);
+
+        DiningTable? table = null;
+        if (type == OrderType.DineIn)
+        {
+            table = req.TableId is { } tableId
+                ? await _db.Tables.AsNoTracking().FirstOrDefaultAsync(t => t.Id == tableId && t.BranchId == branchId)
+                : null;
+            if (table == null) return Fail(OrderProblem.Invalid, lang, message: "Choose a table for a dine-in order.");
+        }
+
+        var existing = await LoadByRequestAsync(branchId, req.RequestId);
+        if (existing != null) return new PlaceResult(existing, null, null, Array.Empty<int>());
+
+        var ids = req.Items.Select(i => i.Id).Distinct().Take(OrderRules.MaxLines + 1).ToList();
+        var products = await _db.Products.AsNoTracking()
+            .Where(p => p.BranchId == branchId && ids.Contains(p.Id))
+            .Include(p => p.Category)
+            .Include(p => p.OptionGroups!).ThenInclude(g => g.Options)
+            .AsSplitQuery()
+            .ToDictionaryAsync(p => p.Id);
+        var (lines, problem, _) = OrderRules.Price(req.Items, products, _ => true);
+        if (problem != null) return Fail(problem.Value, lang);
+
+        var order = NewOrder(branchId, req.RequestId, lines, products, OpeningHours.Zone(branch.TimeZone), utcNow);
+        order.TableId = table?.Id;
+        order.TableNumber = table?.Number ?? 0;
+        order.TableName = table?.Name ?? (type == OrderType.Takeaway ? "Takeaway" : null);
+        order.Note = OrderRules.CleanNote(req.Note);
+        order.Language = branch.SupportedLanguages.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? lang;
+        order.Source = OrderSource.Pos;
+        order.Type = type;
+        order.Guests = Math.Clamp(req.Guests, 0, 99);
+        order.ServerUserId = userId;
+        return await SaveNewAsync(order, req.RequestId, utcNow);
+    }
+
+    /// <summary>An unsaved order from priced lines: items with their station, and one ticket per station.</summary>
+    private static Order NewOrder(int branchId, Guid requestId, IReadOnlyList<PricedLine> lines,
+        IReadOnlyDictionary<int, Product> products, TimeZoneInfo zone, DateTime utcNow)
+    {
+        var items = lines.Select(l => new OrderItem
         {
             ProductId = l.ProductId, Name = l.Name, Options = l.Options, OptionIds = l.OptionIds,
             UnitPrice = l.UnitPrice, Quantity = l.Quantity,
             Station = StationRules.Effective(products[l.ProductId].Station,
                 products[l.ProductId].Category?.Station ?? ServiceStation.Kitchen)
         }).ToList();
-        var stations = StationRules.Split(orderItems.Select(i => i.Station));
-
-        var order = new Order
+        return new Order
         {
             PublicId = Guid.NewGuid(),
-            ClientRequestId = req.RequestId,
-            BranchId = branch.Id,
-            TableId = table.Id,
-            TableNumber = table.Number,
-            TableName = table.Name,
+            ClientRequestId = requestId,
+            BranchId = branchId,
             OrderDay = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(utcNow, zone)),
             Status = OrderStatus.New,
-            Note = OrderRules.CleanNote(req.Note),
-            Language = lang,
             Total = lines.Sum(l => l.UnitPrice * l.Quantity),
-            Source = OrderSource.GuestQr,
-            Type = OrderType.DineIn,
             CreatedUtc = utcNow,
             UpdatedUtc = utcNow,
-            Items = orderItems,
-            Tickets = stations.Select(station => new OrderTicket
-            {
-                Station = station, Status = TicketStatus.New, CreatedUtc = utcNow
-            }).ToList()
+            Items = items,
+            Tickets = StationRules.Split(items.Select(i => i.Station))
+                .Select(station => new OrderTicket { Station = station, Status = TicketStatus.New, CreatedUtc = utcNow })
+                .ToList()
         };
-        _db.Orders.Add(order);
+    }
 
-        order.Number = await NextNumberAsync(branch.Id, order.OrderDay);
+    /// <summary>Saves a new order with the day's next number, tells the stations, and uses the recipes' stock.</summary>
+    private async Task<PlaceResult> SaveNewAsync(Order order, Guid requestId, DateTime utcNow)
+    {
+        _db.Orders.Add(order);
+        order.Number = await NextNumberAsync(order.BranchId, order.OrderDay);
         try
         {
             await _db.SaveChangesAsync();
@@ -158,7 +218,7 @@ public class OrderService
         {
             // The same attempt arrived twice at once and the other copy was saved first.
             _db.ChangeTracker.Clear();
-            var saved = await LoadByRequestAsync(branch.Id, req.RequestId);
+            var saved = await LoadByRequestAsync(order.BranchId, requestId);
             if (saved != null) return new PlaceResult(saved, null, null, Array.Empty<int>());
             throw;
         }

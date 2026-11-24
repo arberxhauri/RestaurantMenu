@@ -54,10 +54,12 @@ public static class BackofficeNav
     {
         new("dashboard", "dashboard", "Overview", "ph-squares-four", _ => "/manage", Audience.Workspace),
 
+        new("reports.cash", "reports", "Cash report", "ph-coins", b => $"/pos/{b}/cash", Audience.Branch, BranchPermission.ViewInsights, BillingModule.Ordering),
         new("reports.sales", "reports", "Sales", "ph-currency-eur", b => $"/branch/{b}/sales", Audience.Branch, BranchPermission.ViewInsights, BillingModule.Management),
         new("reports.insights", "reports", "Menu analytics", "ph-chart-line-up", b => $"/Branch/Insights/{b}", Audience.Branch, BranchPermission.ViewInsights),
         new("reports.feedback", "reports", "Guest feedback", "ph-chat-circle-text", b => $"/branch/{b}/feedback", Audience.Branch, BranchPermission.ViewInsights),
 
+        new("stations.pos", "stations", "POS", "ph-cash-register", b => $"/pos/{b}", Audience.Branch, BranchPermission.Kitchen, BillingModule.Ordering),
         new("stations.kitchen", "stations", "Kitchen", "ph-chef-hat", b => $"/kitchen/{b}", Audience.Branch, BranchPermission.Kitchen, BillingModule.Ordering),
         new("stations.bar", "stations", "Bar", "ph-wine", b => $"/kitchen/{b}/bar", Audience.Branch, BranchPermission.Kitchen, BillingModule.Ordering),
 
@@ -127,6 +129,7 @@ public static class BackofficeNav
             "sales" => "reports.sales",
             "feedback" => "reports.feedback",
             "kitchen" => Is(action, "Bar") ? "stations.bar" : "stations.kitchen",
+            "pos" => Is(action, "Cash") ? "reports.cash" : "stations.pos",
             "tables" => Is(action, "Floor") ? "tables.floor" : "tables.tables",
             "bookings" => "tables.bookings",
             "category" or "product" => "menu.items",

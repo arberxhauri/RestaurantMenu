@@ -11,6 +11,7 @@
 .ph.ph-arrow-u-up-left:before { content: "\e08a"; }
 .ph.ph-arrow-up-right:before { content: "\e092"; }
 .ph.ph-arrows-clockwise:before { content: "\e094"; }
+.ph.ph-bag:before { content: "\e0b0"; }
 .ph.ph-bell-ringing:before { content: "\e5e8"; }
 .ph.ph-bell-simple:before { content: "\e0d0"; }
 .ph.ph-book-open-text:before { content: "\e8f2"; }
@@ -25,6 +26,7 @@
 .ph.ph-caret-right:before { content: "\e13a"; }
 .ph.ph-caret-up-down:before { content: "\e140"; }
 .ph.ph-carrot:before { content: "\ed38"; }
+.ph.ph-cash-register:before { content: "\ed80"; }
 .ph.ph-chart-bar:before { content: "\e150"; }
 .ph.ph-chart-line-up:before { content: "\e156"; }
 .ph.ph-chat-centered-text:before { content: "\e166"; }
@@ -39,6 +41,7 @@
 .ph.ph-clock:before { content: "\e19a"; }
 .ph.ph-clock-countdown:before { content: "\ed2c"; }
 .ph.ph-clock-counter-clockwise:before { content: "\e1a0"; }
+.ph.ph-coins:before { content: "\e78e"; }
 .ph.ph-compass:before { content: "\e1c8"; }
 .ph.ph-cooking-pot:before { content: "\e764"; }
 .ph.ph-copy:before { content: "\e1ca"; }
@@ -88,6 +91,7 @@
 .ph.ph-map-pin:before { content: "\e316"; }
 .ph.ph-map-trifold:before { content: "\e31a"; }
 .ph.ph-minus:before { content: "\e32a"; }
+.ph.ph-money:before { content: "\e588"; }
 .ph.ph-monitor:before { content: "\e32e"; }
 .ph.ph-moon:before { content: "\e330"; }
 .ph.ph-navigation-arrow:before { content: "\eade"; }
@@ -153,6 +157,7 @@
 .ph-fill.ph-arrow-u-up-left:before { content: "\e08a"; }
 .ph-fill.ph-arrow-up-right:before { content: "\e092"; }
 .ph-fill.ph-arrows-clockwise:before { content: "\e094"; }
+.ph-fill.ph-bag:before { content: "\e0b0"; }
 .ph-fill.ph-bell-ringing:before { content: "\e5e8"; }
 .ph-fill.ph-bell-simple:before { content: "\e0d0"; }
 .ph-fill.ph-book-open-text:before { content: "\e8f2"; }
@@ -167,6 +172,7 @@
 .ph-fill.ph-caret-right:before { content: "\e13a"; }
 .ph-fill.ph-caret-up-down:before { content: "\e140"; }
 .ph-fill.ph-carrot:before { content: "\ed38"; }
+.ph-fill.ph-cash-register:before { content: "\ed80"; }
 .ph-fill.ph-chart-bar:before { content: "\e150"; }
 .ph-fill.ph-chart-line-up:before { content: "\e156"; }
 .ph-fill.ph-chat-centered-text:before { content: "\e166"; }
@@ -181,6 +187,7 @@
 .ph-fill.ph-clock:before { content: "\e19a"; }
 .ph-fill.ph-clock-countdown:before { content: "\ed2c"; }
 .ph-fill.ph-clock-counter-clockwise:before { content: "\e1a0"; }
+.ph-fill.ph-coins:before { content: "\e78e"; }
 .ph-fill.ph-compass:before { content: "\e1c8"; }
 .ph-fill.ph-cooking-pot:before { content: "\e764"; }
 .ph-fill.ph-copy:before { content: "\e1ca"; }
@@ -230,6 +237,7 @@
 .ph-fill.ph-map-pin:before { content: "\e316"; }
 .ph-fill.ph-map-trifold:before { content: "\e31a"; }
 .ph-fill.ph-minus:before { content: "\e32a"; }
+.ph-fill.ph-money:before { content: "\e588"; }
 .ph-fill.ph-monitor:before { content: "\e32e"; }
 .ph-fill.ph-moon:before { content: "\e330"; }
 .ph-fill.ph-navigation-arrow:before { content: "\eade"; }

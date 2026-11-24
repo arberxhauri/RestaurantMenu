@@ -176,6 +176,8 @@ builder.Services.AddHostedService<BillingWorker>();
 builder.Services.AddScoped<IBranchAccess, BranchAccess>();
 // The back office's frame: side panel, current branch and branch switcher (Views/Shared/_Layout).
 builder.Services.AddScoped<BackofficeShell>();
+// The POS: open bills, discounts, payments and the cash report (PosController).
+builder.Services.AddScoped<PosService>();
 builder.Services.AddTransient<InviteMailer>();
 
 // Table ordering: guests' orders go to kitchen displays live over SignalR (WebSockets,

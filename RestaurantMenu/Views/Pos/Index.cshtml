@@ -1,0 +1,138 @@
+@model Branch
+@{
+    // Full-screen POS for a tablet or the counter (docs/PLAN-backoffice.md, phase 6): no side panel.
+    Layout = null;
+    var canSeeCash = ViewBag.CanSeeCash == true;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>POS - @Model.Name</title>
+    <link rel="icon" href="~/favicon.ico" />
+    <partial name="_HeadAssets" />
+    <link rel="stylesheet" href="~/css/pos.css" asp-append-version="true" />
+</head>
+<body class="pos-page"
+      data-p-data="@Url.Content($"~/pos/{Model.Id}/data")"
+      data-p-base="@Url.Content($"~/pos/{Model.Id}/")"
+      data-p-currency="@ViewBag.Currency">
+    @Html.AntiForgeryToken()
+
+    <header class="pos-bar">
+        <a class="pos-back" href="/manage" aria-label="Back to the back office"><i class="ph ph-arrow-left" aria-hidden="true"></i></a>
+        <div class="pos-title"><h1>POS</h1><span>@Model.Name</span></div>
+        <nav class="pos-links" aria-label="Stations">
+            <a href="@Url.Content($"~/branch/{Model.Id}/tables/floor")"><i class="ph ph-armchair" aria-hidden="true"></i><span>Floor</span></a>
+            <a href="@Url.Content($"~/kitchen/{Model.Id}")"><i class="ph ph-chef-hat" aria-hidden="true"></i><span>Kitchen</span></a>
+            @if (canSeeCash)
+            {
+                <a href="@Url.Content($"~/pos/{Model.Id}/cash")"><i class="ph ph-coins" aria-hidden="true"></i><span>Cash report</span></a>
+            }
+        </nav>
+        <p class="pos-note">Pro-forma bills only: not a fiscal receipt.</p>
+    </header>
+
+    <nav class="pos-tabs" aria-label="Sections">
+        <button type="button" data-p-tab="bills" aria-pressed="false">Bills <span data-p-count>0</span></button>
+        <button type="button" data-p-tab="menu" aria-pressed="true">Menu</button>
+        <button type="button" data-p-tab="ticket" aria-pressed="false">Ticket</button>
+    </nav>
+
+    <main class="pos-shell" id="main" data-p-show="menu">
+        <section class="pos-col pos-bills" aria-labelledby="bills-title" data-p-col="bills">
+            <div class="pos-col-head">
+                <h2 id="bills-title">Open bills</h2>
+                <button type="button" class="pos-btn pos-btn--primary" data-p-new><i class="ph ph-plus" aria-hidden="true"></i>New order</button>
+            </div>
+            <div class="pos-bill-list" data-p-bills aria-live="polite"></div>
+            <p class="pos-empty" data-p-bills-empty>No open bills. New orders and guests' table orders show here.</p>
+        </section>
+
+        <section class="pos-col pos-menu" aria-labelledby="menu-title" data-p-col="menu">
+            <div class="pos-col-head">
+                <h2 id="menu-title" class="visually-hidden">Menu</h2>
+                <label class="pos-search">
+                    <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+                    <span class="visually-hidden">Search dishes</span>
+                    <input type="search" placeholder="Search dishes…" autocomplete="off" data-p-search />
+                </label>
+            </div>
+            <div class="pos-cats" role="tablist" aria-label="Categories" data-p-cats></div>
+            <div class="pos-grid" data-p-grid></div>
+        </section>
+
+        <section class="pos-col pos-ticket" aria-labelledby="ticket-title" data-p-col="ticket">
+            @* New order: the cart. *@
+            <div class="pos-panel" data-p-cart>
+                <div class="pos-col-head"><h2 id="ticket-title">New order</h2></div>
+                <div class="pos-type" role="group" aria-label="Order type">
+                    <button type="button" data-p-type="dinein" aria-pressed="true"><i class="ph ph-armchair" aria-hidden="true"></i>Dine in</button>
+                    <button type="button" data-p-type="takeaway" aria-pressed="false"><i class="ph ph-bag" aria-hidden="true"></i>Takeaway</button>
+                </div>
+                <div class="pos-fields" data-p-dinein>
+                    <label><span>Table</span><select data-p-table><option value="">Choose…</option></select></label>
+                    <label><span>Guests</span><input type="number" min="0" max="99" value="2" inputmode="numeric" data-p-guests /></label>
+                </div>
+                <ul class="pos-lines" data-p-lines></ul>
+                <p class="pos-empty" data-p-lines-empty>Tap dishes to add them.</p>
+                <label class="pos-note-field"><span>Note for the kitchen</span><input type="text" maxlength="200" data-p-note /></label>
+                <div class="pos-total"><span>Total</span><strong data-p-cart-total>0.00</strong></div>
+                <button type="button" class="pos-btn pos-btn--primary pos-btn--big" data-p-send disabled>
+                    <i class="ph ph-paper-plane-tilt" aria-hidden="true"></i>Send to kitchen &amp; bar
+                </button>
+            </div>
+
+            @* An open bill: discount, ask for the bill, print, pay. *@
+            <div class="pos-panel" data-p-bill hidden>
+                <div class="pos-col-head">
+                    <h2 data-p-bill-title>Bill</h2>
+                    <button type="button" class="pos-btn" data-p-add-items><i class="ph ph-plus" aria-hidden="true"></i>Add items</button>
+                </div>
+                <p class="pos-meta" data-p-bill-meta></p>
+                <ul class="pos-lines pos-lines--bill" data-p-bill-lines></ul>
+                <label class="pos-discount"><span>Discount</span><select data-p-discount><option value="">No discount</option></select></label>
+                <dl class="pos-sums">
+                    <div><dt>Subtotal</dt><dd data-p-sub></dd></div>
+                    <div><dt>Discount</dt><dd data-p-off></dd></div>
+                    <div class="pos-sums-total"><dt>To pay</dt><dd data-p-due></dd></div>
+                </dl>
+                <div class="pos-row">
+                    <button type="button" class="pos-btn" data-p-request><i class="ph ph-receipt" aria-hidden="true"></i><span>Bill requested</span></button>
+                    <a class="pos-btn" data-p-print target="_blank" rel="noopener"><i class="ph ph-printer" aria-hidden="true"></i>Print bill</a>
+                </div>
+                <fieldset class="pos-pay">
+                    <legend>Payment</legend>
+                    <div class="pos-tenders" data-p-tenders></div>
+                    <div class="pos-row">
+                        <button type="button" class="pos-btn" data-p-add-tender="Cash"><i class="ph ph-money" aria-hidden="true"></i>+ Cash</button>
+                        <button type="button" class="pos-btn" data-p-add-tender="Card"><i class="ph ph-credit-card" aria-hidden="true"></i>+ Card</button>
+                    </div>
+                    <label class="pos-tip"><span>Tip</span><input type="number" min="0" step="0.01" value="0" inputmode="decimal" data-p-tip /></label>
+                    <p class="pos-change" data-p-change aria-live="polite"></p>
+                    <button type="button" class="pos-btn pos-btn--primary pos-btn--big" data-p-pay><i class="ph ph-check-circle" aria-hidden="true"></i>Take payment</button>
+                </fieldset>
+            </div>
+        </section>
+    </main>
+
+    @* Sizes and add-ons of a dish. *@
+    <dialog class="pos-dialog" data-p-options aria-labelledby="options-title">
+        <form method="dialog">
+            <h2 id="options-title" data-p-options-title>Options</h2>
+            <div data-p-options-body></div>
+            <p class="pos-error" data-p-options-error aria-live="assertive"></p>
+            <div class="pos-row pos-row--end">
+                <button type="submit" value="cancel" class="pos-btn">Cancel</button>
+                <button type="button" class="pos-btn pos-btn--primary" data-p-options-add>Add</button>
+            </div>
+        </form>
+    </dialog>
+
+    <div class="pos-toast" role="status" aria-live="polite" data-p-toast hidden></div>
+
+    <script src="~/js/pos.js" asp-append-version="true"></script>
+</body>
+</html>

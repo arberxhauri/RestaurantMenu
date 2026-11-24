@@ -1,0 +1,57 @@
+@using RestaurantMenu.Services
+@model (Branch Branch, PosBill Bill)
+@{
+    // A pro-forma bill to print or show the guest. Not a fiscal receipt (docs/PLAN-backoffice.md §8).
+    Layout = null;
+    var currency = (string)ViewBag.Currency;
+    var localNow = (DateTime)ViewBag.LocalNow;
+    string Money(decimal value) => $"{currency} {value:0.00}";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Bill - @Model.Bill.Label</title>
+    <style>
+        body { margin: 0; padding: 24px; font: 14px/1.45 ui-monospace, "SFMono-Regular", Menlo, monospace; color: #111; background: #fff; }
+        .bill { max-width: 320px; margin: 0 auto; }
+        h1 { margin: 0; font-size: 18px; text-align: center; }
+        .center { text-align: center; }
+        .muted { color: #555; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+        td { padding: 3px 0; vertical-align: top; }
+        td:last-child { text-align: right; white-space: nowrap; }
+        .options { color: #555; font-size: 12px; }
+        .sum td { border-top: 1px dashed #999; padding-top: 6px; }
+        .total td { font-weight: 700; font-size: 16px; }
+        .notice { margin-top: 16px; padding: 8px; border: 1px solid #111; text-align: center; font-weight: 700; }
+        .actions { margin-top: 20px; text-align: center; }
+        @@media print { .actions { display: none; } body { padding: 0; } }
+    </style>
+</head>
+<body>
+    <div class="bill">
+        <h1>@Model.Branch.Name</h1>
+        <p class="center muted">@Model.Bill.Label · orders #@string.Join(", #", Model.Bill.OrderNumbers)<br />@localNow.ToString("d MMM yyyy, HH:mm")</p>
+        <table>
+            @foreach (var line in Model.Bill.Lines)
+            {
+                <tr>
+                    <td>@line.Qty × @line.Name @if (!string.IsNullOrEmpty(line.Options)) { <div class="options">@line.Options</div> }</td>
+                    <td>@Money(line.Total)</td>
+                </tr>
+            }
+            <tr class="sum"><td>Subtotal</td><td>@Money(Model.Bill.Subtotal)</td></tr>
+            @if (Model.Bill.Discount > 0)
+            {
+                <tr><td>Discount@(Model.Bill.DiscountName == null ? "" : $" ({Model.Bill.DiscountName})")</td><td>− @Money(Model.Bill.Discount)</td></tr>
+            }
+            <tr class="total"><td>Total</td><td>@Money(Model.Bill.Total)</td></tr>
+        </table>
+        <p class="notice">PRO-FORMA BILL<br />Not a fiscal receipt</p>
+        <p class="actions muted">Print with your browser: Ctrl P (Windows) or ⌘ P (Mac).</p>
+    </div>
+</body>
+</html>
