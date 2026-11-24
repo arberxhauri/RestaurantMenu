@@ -42,9 +42,9 @@
             <span><i class="ph ph-map-pin" aria-hidden="true"></i>@Model.Address</span>
             <span><i class="ph ph-phone" aria-hidden="true"></i>@Model.PhoneNumber</span>
             <span><i class="ph ph-translate" aria-hidden="true"></i>@string.Join(", ", languages.Select(LanguageHelper.GetLanguageName))</span>
-            @if (role is BranchRole.Manager or BranchRole.Editor)
+            @if (role is not (BranchRole.Owner or BranchRole.None))
             {
-                <span class="role-chip"><i class="ph ph-user-circle" aria-hidden="true"></i>You're @(role == BranchRole.Manager ? "a manager" : "an editor") here</span>
+                <span class="role-chip"><i class="ph ph-user-circle" aria-hidden="true"></i>Your role here: @BranchPermissions.Label(role)</span>
             }
         </div>
     </div>
@@ -402,13 +402,26 @@
                 </label>
                 <label class="team-field">
                     <span class="form-label">Role</span>
-                    <select class="form-select" name="role">
-                        <option value="@BranchMemberRole.Editor">Editor</option>
-                        <option value="@BranchMemberRole.Manager">Manager</option>
+                    <select class="form-select" name="role" aria-describedby="team-roles">
+                        @foreach (var memberRole in BranchPermissions.MemberRoles)
+                        {
+                            <option value="@memberRole">@BranchPermissions.Label(memberRole)</option>
+                        }
                     </select>
                 </label>
                 <button type="submit" class="btn btn-primary"><i class="ph ph-user-plus" aria-hidden="true"></i>Invite</button>
             </form>
+            <details class="team-roles hint" id="team-roles">
+                <summary>What each role can open</summary>
+                <dl>
+                    @foreach (var memberRole in BranchPermissions.MemberRoles)
+                    {
+                        <dt>@BranchPermissions.Label(memberRole)</dt>
+                        <dd>@BranchPermissions.Describe(memberRole)</dd>
+                    }
+                </dl>
+                <p class="m-0">For a shared kitchen or bar tablet, use a <a href="/branch/@Model.Id/devices">station device</a> instead of someone's account.</p>
+            </details>
 
             @if (!team.Any())
             {
@@ -437,8 +450,10 @@
                                 <input type="hidden" name="memberId" value="@member.Id" />
                                 <label class="visually-hidden" for="role-@member.Id">Role of @member.Name</label>
                                 <select class="form-select form-select-sm" id="role-@member.Id" name="role">
-                                    <option value="@BranchMemberRole.Editor" selected="@(member.Role == BranchMemberRole.Editor)">Editor</option>
-                                    <option value="@BranchMemberRole.Manager" selected="@(member.Role == BranchMemberRole.Manager)">Manager</option>
+                                    @foreach (var memberRole in BranchPermissions.MemberRoles)
+                                    {
+                                        <option value="@memberRole" selected="@(member.Role == memberRole)">@BranchPermissions.Label(memberRole)</option>
+                                    }
                                 </select>
                                 <noscript><button type="submit" class="btn btn-quiet btn-sm">Save</button></noscript>
                             </form>

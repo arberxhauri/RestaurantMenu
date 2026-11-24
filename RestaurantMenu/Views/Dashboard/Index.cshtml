@@ -156,9 +156,9 @@ else
                     {
                         <span class="chip chip--later branch-role" title="Over the plan's branch count: menu online, changes paused"><i class="ph ph-pause" aria-hidden="true"></i>Paused</span>
                     }
-                    @if (RoleOf(branch) is BranchRole.Manager or BranchRole.Editor)
+                    @if (RoleOf(branch) is not (BranchRole.Owner or BranchRole.None))
                     {
-                        <span class="chip chip--accent branch-role"><i class="ph ph-user-circle" aria-hidden="true"></i>@(RoleOf(branch) == BranchRole.Manager ? "Manager" : "Editor")</span>
+                        <span class="chip chip--accent branch-role"><i class="ph ph-user-circle" aria-hidden="true"></i>@BranchPermissions.Label(RoleOf(branch))</span>
                     }
                     <div class="branch-meta"><i class="ph ph-map-pin" aria-hidden="true"></i><span>@branch.Address</span></div>
                     <div class="branch-counts">

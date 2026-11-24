@@ -8,6 +8,8 @@
     var station = ViewBag.Station is ServiceStation s ? s : ServiceStation.Kitchen;
     var stationId = station == ServiceStation.Bar ? "bar" : "kitchen";
     var stationName = station == ServiceStation.Bar ? "Bar" : "Kitchen";
+    // A shared tablet signed in as a station device (docs/PLAN-backoffice.md phase 8): it stays on this screen.
+    var deviceName = ViewBag.DeviceName as string;
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -34,12 +36,15 @@
     @Html.AntiForgeryToken()
 
     <header class="k-bar">
-        <a class="k-back" asp-controller="Branch" asp-action="Details" asp-route-id="@Model.Id" aria-label="Back to @Model.Name">
-            <i class="ph ph-arrow-left" aria-hidden="true"></i>
-        </a>
+        @if (deviceName == null)
+        {
+            <a class="k-back" asp-controller="Branch" asp-action="Details" asp-route-id="@Model.Id" aria-label="Back to @Model.Name">
+                <i class="ph ph-arrow-left" aria-hidden="true"></i>
+            </a>
+        }
         <div class="k-title">
             <h1>@stationName</h1>
-            <span>@Model.Name</span>
+            <span>@Model.Name@(deviceName != null ? " · " + deviceName : "")</span>
         </div>
         <span class="k-conn" data-conn="connecting" role="status" aria-live="polite">
             <span class="k-conn-dot" aria-hidden="true"></span><span data-conn-text>Connecting…</span>
@@ -54,6 +59,14 @@
             <button type="button" class="k-tool k-tool--icon" data-fullscreen aria-label="Full screen" title="Full screen">
                 <i class="ph ph-corners-out" aria-hidden="true"></i>
             </button>
+            @if (deviceName != null)
+            {
+                <form asp-controller="Station" asp-action="SignOutDevice" method="post" data-confirm="Sign this screen out? A manager will need to give it a new code.">
+                    <button type="submit" class="k-tool k-tool--icon" aria-label="Sign this screen out" title="Sign this screen out">
+                        <i class="ph ph-sign-out" aria-hidden="true"></i>
+                    </button>
+                </form>
+            }
         </div>
     </header>
     @* Ordering not in the plan (or the branch paused): say so above the board. *@
@@ -90,7 +103,14 @@
     </div>
     <div class="k-banner k-banner--danger" data-denied-banner hidden>
         <i class="ph ph-lock" aria-hidden="true"></i>
-        <p><strong>You no longer have access to this branch's orders.</strong> <a asp-controller="Dashboard" asp-action="Index">Back to my branches</a></p>
+        @if (deviceName != null)
+        {
+            <p><strong>This screen was signed out.</strong> Ask a manager for a new code on Station devices, then <a asp-controller="Station" asp-action="Index">enter it here</a>.</p>
+        }
+        else
+        {
+            <p><strong>You no longer have access to this branch's orders.</strong> <a asp-controller="Dashboard" asp-action="Index">Back to my branches</a></p>
+        }
     </div>
 
     <nav class="k-tabs" aria-label="Order columns">

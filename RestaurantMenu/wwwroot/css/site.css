@@ -956,6 +956,12 @@ a.chip--link:hover { background: var(--accent-soft); color: var(--accent); }
 .team-invite { display: grid; grid-template-columns: minmax(200px, 2fr) minmax(140px, 1.3fr) 130px auto; gap: 10px; align-items: end; margin-bottom: 18px; }
 .team-field { display: flex; flex-direction: column; margin: 0; }
 .team-field .form-label { margin-bottom: 4px; }
+.team-roles { margin: 12px 0 16px; }
+.team-roles summary { cursor: pointer; font-weight: 600; }
+.team-roles dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 8px 0; }
+.team-roles dt { font-weight: 600; }
+.team-roles dd { margin: 0; }
+@media (max-width: 479.98px) { .team-roles dl { grid-template-columns: 1fr; } .team-roles dd { margin-bottom: 6px; } }
 @media (max-width: 767.98px) { .team-invite { grid-template-columns: 1fr 1fr; } .team-field--email { grid-column: 1 / -1; } }
 .team-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line-2); }
 .team-member { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 0; border-bottom: 1px solid var(--line-2); }
@@ -1228,3 +1234,10 @@ a.chip--link:hover { background: var(--accent-soft); color: var(--accent); }
 .seo-card .panel-body { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .seo-card .panel-body > div { flex: 1 1 320px; }
 .seo-card .seo-meter { max-width: 360px; margin: 6px 0 8px; }
+
+/* Station devices (phase 8): the one-time pairing code, large enough to read across a kitchen. */
+.pair-code-body { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; justify-content: space-between; }
+.pair-code-value { font-family: var(--font-mono, ui-monospace, monospace); font-size: clamp(2rem, 6vw, 3rem); font-weight: 700; letter-spacing: .12em; margin: 8px 0 12px; }
+.pair-code-qr { width: 180px; max-width: 100%; background: #fff; padding: 8px; border-radius: 8px; }
+.pair-code-qr svg { display: block; width: 100%; height: auto; }
+.pair-input { font-family: var(--font-mono, ui-monospace, monospace); letter-spacing: .12em; text-transform: uppercase; }

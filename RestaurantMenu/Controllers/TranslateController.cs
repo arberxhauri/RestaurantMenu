@@ -58,7 +58,7 @@ public class TranslateController : Controller
             return BadRequest(new { message = "Unknown form." });
         }
 
-        // Dishes: Editor and up; categories: Manager and up.
+        // Dishes: BranchPermission.EditDishes; categories: .EditCategories.
         var allowedBranches = _access.BranchIds(request.Kind == "category" ? BranchPermission.EditCategories : BranchPermission.EditDishes);
         var supported = await _context.Branches.AsNoTracking()
             .Where(b => b.Id == request.BranchId && allowedBranches.Contains(b.Id) && !b.IsDeleted)

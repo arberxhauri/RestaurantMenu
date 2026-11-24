@@ -87,15 +87,3 @@ public class StockCategory
     public int DisplayOrder { get; set; }
 }
 
-public class StationDevice
-{
-    public int Id { get; set; }
-    public int BranchId { get; set; }
-    public Branch? Branch { get; set; }
-    public string Name { get; set; } = "";
-    public ServiceStation Station { get; set; }
-    public string TokenHash { get; set; } = "";
-    public bool Revoked { get; set; }
-    public DateTime CreatedUtc { get; set; }
-    public DateTime? LastSeenUtc { get; set; }
-}

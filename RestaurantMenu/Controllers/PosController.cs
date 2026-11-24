@@ -13,7 +13,8 @@ namespace RestaurantMenu.Controllers;
 /// <summary>
 /// The POS (docs/PLAN-backoffice.md, phase 6): staff take dine-in and takeaway orders, see open bills
 /// (guest QR orders included), add a discount, take payment and print a pro-forma bill; managers see the
-/// day's cash report. Editors and up use it (the same permission as the station screens).
+/// day's cash report. Waiters, cashiers and up use it (BranchPermission.Pos); the cash report is
+/// BranchPermission.CashReport (cashiers and managers).
 /// </summary>
 [Authorize(Roles = "OWNER,STAFF")]
 [NoIndex]
@@ -38,7 +39,7 @@ public class PosController : Controller
         _users = users;
     }
 
-    private Task<Branch?> BranchAsync(int id, BranchPermission permission = BranchPermission.Kitchen)
+    private Task<Branch?> BranchAsync(int id, BranchPermission permission = BranchPermission.Pos)
     {
         var allowed = _access.BranchIds(permission);
         return _db.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == id && allowed.Contains(b.Id));
@@ -50,7 +51,7 @@ public class PosController : Controller
         var branch = await BranchAsync(id);
         if (branch == null) return NotFound();
         ViewBag.Currency = CurrencyHelper.GetCurrencySymbol(branch.Currency);
-        ViewBag.CanSeeCash = await _access.CanAsync(id, BranchPermission.ViewInsights);
+        ViewBag.CanSeeCash = await _access.CanAsync(id, BranchPermission.CashReport);
         return View(branch);
     }
 
@@ -171,12 +172,12 @@ public class PosController : Controller
         return View("Bill", (branch, bill));
     }
 
-    /// <summary>The day's payments (managers and up).</summary>
+    /// <summary>The day's payments (cashiers, managers and the owner).</summary>
     [HttpGet("cash")]
     [AllowWhenModuleOff]
     public async Task<IActionResult> Cash(int id, string? date)
     {
-        var branch = await BranchAsync(id, BranchPermission.ViewInsights);
+        var branch = await BranchAsync(id, BranchPermission.CashReport);
         if (branch == null) return NotFound();
         var zone = OpeningHours.Zone(branch.TimeZone);
         var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zone));

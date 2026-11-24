@@ -1,4 +1,5 @@
 using RestaurantMenu.Models;
+using RestaurantMenu.Services;
 
 namespace RestaurantMenu.Helpers;
 
@@ -12,6 +13,10 @@ public static class StationRules
         return new[] { ServiceStation.Kitchen, ServiceStation.Bar }
             .Where(station => (combined & station) != 0).ToList();
     }
+
+    /// <summary>Who may open a station's screen: the kitchen's or the bar's own permission.</summary>
+    public static BranchPermission Permission(ServiceStation station) =>
+        station == ServiceStation.Bar ? BranchPermission.Bar : BranchPermission.Kitchen;
 
     /// <summary>The station a screen shows: "kitchen" (the default) or "bar"; null for anything else.</summary>
     public static ServiceStation? ParseStation(string? value) => value?.Trim().ToLowerInvariant() switch

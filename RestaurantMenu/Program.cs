@@ -174,6 +174,10 @@ builder.Services.AddScoped<BillingRunner>();
 builder.Services.AddHostedService<BillingWorker>();
 // Who may do what to a branch (owner, or staff member with a role). Used by every back-office controller.
 builder.Services.AddScoped<IBranchAccess, BranchAccess>();
+// Shared kitchen and bar tablets sign in with a pairing code (their own cookie scheme).
+builder.Services.AddScoped<StationDeviceService>();
+builder.Services.AddSingleton<StationConnections>();
+builder.Services.AddStationDevices();
 // The back office's frame: side panel, current branch and branch switcher (Views/Shared/_Layout).
 builder.Services.AddScoped<BackofficeShell>();
 // The POS: open bills, discounts, payments and the cash report (PosController).
@@ -271,6 +275,12 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("login", context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = Math.Max(5, builder.Configuration.GetValue("Auth:LoginRateLimitPerIp", 20)), Window = TimeSpan.FromMinutes(10), QueueLimit = 0 }));
+
+    // Station pairing codes, per client address: its own budget, so a tablet being set up can't
+    // use up the team's sign-in attempts on a shared Wi-Fi (and the other way round).
+    options.AddPolicy("station-pair", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(10), QueueLimit = 0 }));
 
     // Signup and "send the link again", per client address: a restaurant signing up (and maybe
     // retrying), not a script creating accounts or spraying confirmation emails.

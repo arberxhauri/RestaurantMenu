@@ -10,10 +10,12 @@ namespace RestaurantMenu.Controllers;
 
 /// <summary>
 /// The kitchen display (/kitchen/{branch}): table orders as they arrive, moved from New
-/// to Preparing to Served. Editors and up (BranchPermission.Kitchen). The page gets live
-/// updates from KitchenHub and makes every change here, so the server stays the referee.
+/// to Preparing to Served, and the same for the bar (/kitchen/{branch}/bar). Each screen needs
+/// its own station's permission (BranchPermission.Kitchen or .Bar), held by a person or by a
+/// paired station device (StationAuth). The page gets live updates from KitchenHub and makes
+/// every change here, so the server stays the referee.
 /// </summary>
-[Authorize(Roles = "OWNER,STAFF")]
+[Authorize(Policy = StationAuth.Policy)]
 [NoIndex]
 [Route("kitchen/{id:int}")]
 [RequireModule(BillingModule.Ordering)]
@@ -30,9 +32,9 @@ public class KitchenController : Controller
         _orders = orders;
     }
 
-    private Task<Branch?> BranchAsync(int id)
+    private Task<Branch?> BranchAsync(int id, ServiceStation station)
     {
-        var allowed = _access.BranchIds(BranchPermission.Kitchen);
+        var allowed = _access.BranchIds(StationRules.Permission(station));
         return _context.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == id && allowed.Contains(b.Id));
     }
 
@@ -45,8 +47,12 @@ public class KitchenController : Controller
 
     private async Task<IActionResult> StationAsync(int id, ServiceStation station)
     {
-        var branch = await BranchAsync(id);
+        var branch = await BranchAsync(id, station);
         if (branch == null) return NotFound();
+        // A shared tablet signed in as a station device: no way back into the back office from here.
+        ViewBag.DeviceName = !User.IsInRole("OWNER") && !User.IsInRole("STAFF") && StationAuth.Read(User) != null
+            ? User.Identity?.Name
+            : null;
         ViewBag.Currency = CurrencyHelper.GetCurrencySymbol(branch.Currency);
         ViewBag.CanManage = await _access.CanAsync(id, BranchPermission.EditBranch);
         ViewBag.TableCount = await _context.Tables.CountAsync(t => t.BranchId == id);
@@ -59,7 +65,7 @@ public class KitchenController : Controller
     public async Task<IActionResult> Orders(int id, string? station)
     {
         if (StationRules.ParseStation(station) is not { } s) return BadRequest();
-        var branch = await BranchAsync(id);
+        var branch = await BranchAsync(id, s);
         if (branch == null) return NotFound();
         Response.Headers.CacheControl = "no-store";
         return Ok(new
@@ -80,24 +86,24 @@ public class KitchenController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Status(int id, int orderId, [FromForm] string from, [FromForm] string to, [FromForm] string? station)
     {
-        if (await BranchAsync(id) == null) return NotFound();
         if (StationRules.FromScreen(from) is not { } f || StationRules.FromScreen(to) is not { } t
             || StationRules.ParseStation(station) is not { } s)
         {
             return BadRequest();
         }
+        if (await BranchAsync(id, s) == null) return NotFound();
 
         var (order, conflict) = await _orders.SetStationStatusAsync(id, orderId, s, f, t, DateTime.UtcNow);
         if (order == null) return NotFound();
         return conflict ? Conflict(new { order }) : Ok(new { order });
     }
 
+    /// <summary>Pauses guest ordering for the whole branch: from the kitchen's or the bar's screen.</summary>
     [HttpPost("pause")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Pause(int id, [FromForm] bool paused)
     {
-        var branch = await BranchAsync(id);
-        if (branch == null) return NotFound();
+        if (await BranchAsync(id, ServiceStation.Kitchen) == null && await BranchAsync(id, ServiceStation.Bar) == null) return NotFound();
         await _orders.SetPausedAsync(id, paused);
         return Ok(new { paused });
     }

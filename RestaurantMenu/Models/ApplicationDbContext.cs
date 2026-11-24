@@ -32,6 +32,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<ProductOptionGroup> ProductOptionGroups { get; set; }
     public DbSet<ProductOption> ProductOptions { get; set; }
     public DbSet<BranchMember> BranchMembers { get; set; }
+    public DbSet<StationDevice> StationDevices { get; set; }
     public DbSet<DiningTable> Tables { get; set; }
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
@@ -40,7 +41,6 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Payment> Payments { get; set; }
     public DbSet<Discount> Discounts { get; set; }
     public DbSet<OrderDiscount> OrderDiscounts { get; set; }
-    public DbSet<StationDevice> StationDevices { get; set; }
     public DbSet<ReservationSettings> ReservationSettings { get; set; }
     public DbSet<Reservation> Reservations { get; set; }
     public DbSet<BranchSite> BranchSites { get; set; }
@@ -328,6 +328,20 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.HasQueryFilter(m => !m.Branch!.IsDeleted && !m.User!.IsDeleted);
         });
 
+        // Shared kitchen and bar tablets (phase 8). Only code and session hashes are stored; they go
+        // with their branch, and a soft-deleted branch's devices stop working through the filter.
+        builder.Entity<StationDevice>(e =>
+        {
+            e.Property(d => d.Name).HasMaxLength(StationDeviceRules.MaxNameLength);
+            e.Property(d => d.PairingCodeHash).HasMaxLength(64);
+            e.Property(d => d.SessionStamp).HasMaxLength(64);
+            e.Property(d => d.CreatedByUserId).HasMaxLength(450);
+            e.HasIndex(d => d.BranchId);
+            e.HasIndex(d => d.PairingCodeHash);
+            e.HasOne(d => d.Branch).WithMany().HasForeignKey(d => d.BranchId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(d => !d.Branch!.IsDeleted);
+        });
+
         // Table ordering. Tables and orders follow their branch's soft delete. Orders keep
         // copies of everything they show, so dishes and tables may change or go.
         builder.Entity<DiningTable>(e =>
@@ -404,14 +418,6 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.Property(d => d.Name).HasMaxLength(80);
             e.Property(d => d.Amount).HasPrecision(18, 2);
             e.HasQueryFilter(d => !d.Order!.Branch!.IsDeleted);
-        });
-        builder.Entity<StationDevice>(e =>
-        {
-            e.HasIndex(d => d.TokenHash).IsUnique();
-            e.HasOne(d => d.Branch).WithMany().HasForeignKey(d => d.BranchId).OnDelete(DeleteBehavior.Cascade);
-            e.Property(d => d.Name).HasMaxLength(80);
-            e.Property(d => d.TokenHash).HasMaxLength(64);
-            e.HasQueryFilter(d => !d.Branch!.IsDeleted);
         });
 
         // Bookings. Settings are one row per branch (key = BranchId). Reservations follow

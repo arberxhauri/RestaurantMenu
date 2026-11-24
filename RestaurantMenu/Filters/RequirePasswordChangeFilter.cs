@@ -13,7 +13,7 @@ public sealed class RequirePasswordChangeFilter : IAsyncActionFilter
 {
     private static readonly HashSet<string> OpenControllers = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Account", "Home", "Menu", "Seo"
+        "Account", "Home", "Menu", "Seo", "Station"
     };
 
     private readonly UserManager<ApplicationUser> _userManager;

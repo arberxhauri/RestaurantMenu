@@ -1,0 +1,119 @@
+@using RestaurantMenu.Controllers
+@using RestaurantMenu.Helpers
+@model StationDevicesPage
+@{
+    ViewData["Title"] = "Station devices - " + Model.Branch.Name;
+    string Local(DateTime utc) => TimeZoneInfo.ConvertTimeFromUtc(utc, Model.Zone).ToString("d MMM, HH:mm");
+    string StationName(ServiceStation s) => s == ServiceStation.Bar ? "Bar" : "Kitchen";
+}
+
+<header class="page-head">
+    <div>
+        <h1>Station devices</h1>
+        <p>Sign a shared kitchen or bar tablet in to its screen with a one-time code, instead of someone's password. A device sees only its own station.</p>
+    </div>
+</header>
+
+@if (Model.Pairing is { } pairing)
+{
+    <section class="panel pair-code mb-4" aria-labelledby="pair-title">
+        <header class="panel-head"><h2 id="pair-title">Pair @pairing.Device.Name</h2></header>
+        <div class="panel-body pair-code-body">
+            <div>
+                <p>On the tablet, open <strong>@(Context.Request.Host)/station</strong> and enter:</p>
+                <p class="pair-code-value" aria-label="Pairing code @string.Join(" ", StationDeviceRules.FormatCode(pairing.Code).ToCharArray())">@StationDeviceRules.FormatCode(pairing.Code)</p>
+                <p class="hint">Or scan the QR code with the tablet's camera. The code works once, until @Local(pairing.ExpiresUtc). It isn't shown again: if you leave this page, give the device a new code.</p>
+            </div>
+            @if (Model.PairQrSvg != null)
+            {
+                <div class="pair-code-qr" role="img" aria-label="QR code that opens the pairing page with this code">@Html.Raw(Model.PairQrSvg)</div>
+            }
+        </div>
+    </section>
+}
+
+<div class="row g-4">
+    <div class="col-12 col-xl-7">
+        <section class="panel">
+            <header class="panel-head"><h2>Devices</h2></header>
+            @if (Model.Devices.Count == 0)
+            {
+                <div class="empty">
+                    <i class="ph ph-device-tablet" aria-hidden="true"></i>
+                    <h3>No station devices yet</h3>
+                    <p>Add the kitchen's or the bar's tablet alongside this list.</p>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead><tr><th>Device</th><th>Station</th><th>Status</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+                        <tbody>
+                            @foreach (var d in Model.Devices)
+                            {
+                                var state = StationDeviceRules.State(d, Model.NowUtc);
+                                <tr>
+                                    <th>@d.Name</th>
+                                    <td>@StationName(d.Station)</td>
+                                    <td>
+                                        @switch (state)
+                                        {
+                                            case StationDeviceState.Paired:
+                                                <span class="chip chip--ok"><i class="ph ph-check-circle" aria-hidden="true"></i>Signed in</span>
+                                                @if (d.LastSeenUtc is { } seen)
+                                                {
+                                                    <span class="hint d-block">Last seen @Local(seen)</span>
+                                                }
+                                                break;
+                                            case StationDeviceState.Waiting:
+                                                <span class="chip chip--warn"><i class="ph ph-hourglass" aria-hidden="true"></i>Waiting for the code</span>
+                                                break;
+                                            default:
+                                                <span class="chip chip--later"><i class="ph ph-clock-counter-clockwise" aria-hidden="true"></i>Code expired</span>
+                                                break;
+                                        }
+                                    </td>
+                                    <td class="text-end text-nowrap">
+                                        <form class="d-inline" method="post" asp-action="NewCode" asp-route-id="@Model.Branch.Id" asp-route-deviceId="@d.Id"
+                                              data-confirm="@(state == StationDeviceState.Paired ? $"Give {d.Name} a new code? The tablet signed in now is signed out." : null)">
+                                            <button class="btn btn-quiet btn-sm"><i class="ph ph-key" aria-hidden="true"></i>New code</button>
+                                        </form>
+                                        <form class="d-inline" method="post" asp-action="Remove" asp-route-id="@Model.Branch.Id" asp-route-deviceId="@d.Id"
+                                              data-confirm="Remove @d.Name? Its screen is signed out right away.">
+                                            <button class="icon-btn icon-btn--danger" aria-label="Remove @d.Name" title="Remove"><i class="ph ph-trash" aria-hidden="true"></i></button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    </div>
+    <div class="col-12 col-xl-5">
+        <section class="panel">
+            <header class="panel-head"><h2>New device</h2></header>
+            <div class="panel-body">
+                <form method="post" asp-action="Create" asp-route-id="@Model.Branch.Id">
+                    <label class="form-label" for="deviceName">Name</label>
+                    <input class="form-control mb-3" id="deviceName" name="name" maxlength="@StationDeviceRules.MaxNameLength" required placeholder="Kitchen tablet" autocomplete="off" />
+                    <fieldset>
+                        <legend class="form-label">Station</legend>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" id="stationKitchen" name="station" value="@ServiceStation.Kitchen" checked />
+                            <label class="form-check-label" for="stationKitchen">Kitchen</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" id="stationBar" name="station" value="@ServiceStation.Bar" />
+                            <label class="form-check-label" for="stationBar">Bar</label>
+                        </div>
+                    </fieldset>
+                    <button class="btn btn-primary w-100 mt-4"><i class="ph ph-plus" aria-hidden="true"></i>Add device and show its code</button>
+                </form>
+                <p class="hint mt-3 mb-0">The tablet stays signed in for 90 days of use. Waiters and cashiers sign in with their own accounts, so their sales and payments carry their name.</p>
+            </div>
+        </section>
+    </div>
+</div>

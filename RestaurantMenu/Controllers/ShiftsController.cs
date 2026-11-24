@@ -10,7 +10,7 @@ using RestaurantMenu.Services;
 namespace RestaurantMenu.Controllers;
 
 /// <summary>
-/// The weekly rota of a branch: who works when (Editor and up see it; Manager and up plan it).
+/// The weekly rota of a branch: who works when (all staff see it, BranchPermission.ViewShifts; managers plan it).
 /// People are team members or anyone typed by name. One person can't be in two places at once.
 /// </summary>
 [Authorize(Roles = "OWNER,STAFF")]
@@ -48,7 +48,7 @@ public class ShiftsController : Controller
     [HttpGet("")]
     public async Task<IActionResult> Index(int id, string? week)
     {
-        var branch = await BranchAsync(id, BranchPermission.Stock);
+        var branch = await BranchAsync(id, BranchPermission.ViewShifts);
         if (branch == null) return NotFound();
         var today = BookingRules.Today(OpeningHours.Zone(branch.TimeZone), DateTime.UtcNow);
         var monday = Monday(ParseDate(week) ?? today);

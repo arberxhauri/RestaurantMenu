@@ -24,11 +24,11 @@ public class ShellController : Controller
 
         BackofficeShell.RememberBranch(HttpContext, id);
 
-        // The same page if the person may open it on that branch, else the branch's menu.
+        // The same page if the person may open it on that branch, else their role's own screen.
         var everything = Enum.GetValues<BillingModule>().ToHashSet();
         var page = BackofficeNav.Build(new NavContext(id, role, User.IsInRole("OWNER"), User.IsInRole("ADMIN"), everything))
             .SelectMany(g => g.Items)
             .FirstOrDefault(i => string.Equals(i.Key, to, StringComparison.Ordinal));
-        return LocalRedirect(page?.Href ?? $"/Branch/Details/{id}");
+        return LocalRedirect(page?.Href ?? BranchPermissions.Home(role, id));
     }
 }

@@ -10,7 +10,7 @@ using RestaurantMenu.Services;
 namespace RestaurantMenu.Controllers;
 
 /// <summary>
-/// Stock for a branch: levels and their history (Editor and up record deliveries, usage,
+/// Stock for a branch: levels and their history (BranchPermission.Stock: waiters, stock staff and managers record deliveries, usage,
 /// waste and counts), ingredients and dish recipes (Manager and up). Table orders use stock
 /// through the recipes (StockService.SyncOrderAsync).
 /// </summary>

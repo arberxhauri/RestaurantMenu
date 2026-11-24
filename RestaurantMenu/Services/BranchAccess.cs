@@ -6,47 +6,9 @@ using RestaurantMenu.Models;
 
 namespace RestaurantMenu.Services;
 
-/// <summary>What the current user is to a branch. Higher includes everything below it.</summary>
-public enum BranchRole
-{
-    None = 0,
-    Editor = 1,
-    Manager = 2,
-    Owner = 3
-}
-
-/// <summary>Everything the back office lets someone do to a branch.</summary>
-public enum BranchPermission
-{
-    /// <summary>Open the branch page and see its menu (Editor and up).</summary>
-    View,
-    /// <summary>Add and edit dishes, sold out, recommend, reorder dishes, photos, translate (Editor and up).</summary>
-    EditDishes,
-    /// <summary>The kitchen display: see table orders, move them along, pause new orders (Editor and up).</summary>
-    Kitchen,
-    /// <summary>The bookings day view: add, confirm, seat, cancel, mark no-shows, close a day (Editor and up).</summary>
-    Bookings,
-    /// <summary>Stock levels: record deliveries, usage, waste and counts; see shifts (Editor and up).</summary>
-    Stock,
-    /// <summary>Delete and restore dishes (Manager and up).</summary>
-    DeleteDishes,
-    /// <summary>Create, edit, delete and reorder categories (Manager and up).</summary>
-    EditCategories,
-    /// <summary>Branch details, opening hours, brand, tables and ordering, booking settings, website, ingredients and recipes, shifts (Manager and up).</summary>
-    EditBranch,
-    /// <summary>Insights, sales and the end-of-day close (Manager and up).</summary>
-    ViewInsights,
-    /// <summary>QR codes and printing (Manager and up).</summary>
-    Print,
-    /// <summary>Invite, change and remove staff (Owner only).</summary>
-    ManageTeam,
-    /// <summary>Delete or restore the branch itself (Owner only).</summary>
-    DeleteBranch
-}
-
 /// <summary>
 /// The one place that decides who may do what to a branch: its owner (Branch.UserId), or
-/// a BranchMember with a high enough role. Every back-office action goes through here,
+/// a BranchMember whose role allows it (BranchPermissions), or a paired station device on its own branch. Every back-office action goes through here,
 /// either by checking a branch id or by composing <see cref="BranchIds"/> into its query,
 /// so the rule can't drift between controllers. Deleted branches and removed users never
 /// pass (global query filters).
@@ -105,6 +67,7 @@ public class BranchAccess : IBranchAccess
 {
     private readonly ApplicationDbContext _db;
     private readonly string? _userId;
+    private readonly StationDeviceIdentity? _device;
     private readonly Dictionary<int, BranchRole> _cache = new();
     private readonly IEntitlementService _entitlements;
     private readonly HttpContext? _http;
@@ -116,31 +79,36 @@ public class BranchAccess : IBranchAccess
         _http = http.HttpContext;
         var principal = http.HttpContext?.User;
         _userId = principal?.Identity?.IsAuthenticated == true ? users.GetUserId(principal) : null;
+        // A shared station tablet: only when no person is signed in on the same browser.
+        _device = _userId == null ? StationAuth.Read(principal) : null;
     }
 
-    /// <summary>The lowest role that has a permission. The single permission table.</summary>
-    public static BranchRole Required(BranchPermission permission) => permission switch
-    {
-        BranchPermission.View or BranchPermission.EditDishes or BranchPermission.Kitchen or BranchPermission.Bookings or BranchPermission.Stock => BranchRole.Editor,
-        BranchPermission.DeleteDishes or BranchPermission.EditCategories or BranchPermission.EditBranch
-            or BranchPermission.ViewInsights or BranchPermission.Print => BranchRole.Manager,
-        _ => BranchRole.Owner
-    };
-
-    public static bool Allows(BranchRole role, BranchPermission permission) => role >= Required(permission);
+    /// <summary>The permission table lives in <see cref="BranchPermissions"/>; kept here for the views.</summary>
+    public static bool Allows(BranchRole role, BranchPermission permission) => BranchPermissions.Allows(role, permission);
 
     public async Task<BranchRole> RoleAsync(int branchId)
     {
-        if (_userId == null) return BranchRole.None;
+        if (_userId == null && _device == null) return BranchRole.None;
         if (_cache.TryGetValue(branchId, out var cached)) return cached;
-        var role = await RoleOfAsync(_db, _userId, branchId);
+        var role = await RoleOfAsync(_db, _userId, _device, branchId);
         _cache[branchId] = role;
         return role;
     }
 
-    /// <summary>A given user's role on a branch, for places without the current request (the kitchen hub).</summary>
-    public static async Task<BranchRole> RoleOfAsync(ApplicationDbContext db, string userId, int branchId)
+    /// <summary>
+    /// A person's or station device's role on a branch, for places without the current request (the
+    /// kitchen hub). A device acts only on its own branch, with its station's role; its cookie was
+    /// already checked against the database when the request was signed in.
+    /// </summary>
+    public static async Task<BranchRole> RoleOfAsync(ApplicationDbContext db, string? userId, StationDeviceIdentity? device, int branchId)
     {
+        if (userId == null)
+        {
+            return device != null && device.BranchId == branchId && await db.Branches.AnyAsync(b => b.Id == branchId)
+                ? StationDeviceRules.RoleFor(device.Station)
+                : BranchRole.None;
+        }
+
         var info = await db.Branches.AsNoTracking()
             .Where(b => b.Id == branchId)
             .Select(b => new
@@ -152,9 +120,7 @@ public class BranchAccess : IBranchAccess
 
         return info == null ? BranchRole.None
             : info.UserId == userId ? BranchRole.Owner
-            : info.Member == BranchMemberRole.Manager ? BranchRole.Manager
-            : info.Member == BranchMemberRole.Editor ? BranchRole.Editor
-            : BranchRole.None;
+            : BranchPermissions.RoleOf(info.Member);
     }
 
     /// <summary>
@@ -174,18 +140,21 @@ public class BranchAccess : IBranchAccess
 
     public IQueryable<Branch> Branches(BranchPermission permission)
     {
-        if (_userId == null) return _db.Branches.Where(_ => false);
-        var userId = _userId;
-        var min = Required(permission);
         IQueryable<Branch> query;
-        if (min == BranchRole.Owner)
+        if (_userId is { } userId)
         {
-            query = _db.Branches.Where(b => b.UserId == userId);
+            var memberRoles = BranchPermissions.MemberRolesWith(permission).ToList();
+            query = memberRoles.Count == 0
+                ? _db.Branches.Where(b => b.UserId == userId)
+                : _db.Branches.Where(b => b.UserId == userId || b.Members!.Any(m => m.UserId == userId && memberRoles.Contains(m.Role)));
+        }
+        else if (_device is { } device && BranchPermissions.Allows(StationDeviceRules.RoleFor(device.Station), permission))
+        {
+            query = _db.Branches.Where(b => b.Id == device.BranchId);
         }
         else
         {
-            var minMember = min == BranchRole.Manager ? BranchMemberRole.Manager : BranchMemberRole.Editor;
-            query = _db.Branches.Where(b => b.UserId == userId || b.Members!.Any(m => m.UserId == userId && m.Role >= minMember));
+            return _db.Branches.Where(_ => false);
         }
 
         // Changes leave out branches that can't be changed right now (worked out once per

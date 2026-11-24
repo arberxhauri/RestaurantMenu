@@ -35,9 +35,9 @@ public class TablesController : Controller
         _orders = orders;
     }
 
-    private Task<Branch?> BranchAsync(int id)
+    private Task<Branch?> BranchAsync(int id, BranchPermission permission = BranchPermission.EditBranch)
     {
-        var allowed = _access.BranchIds(BranchPermission.EditBranch);
+        var allowed = _access.BranchIds(permission);
         return _context.Branches.FirstOrDefaultAsync(b => b.Id == id && allowed.Contains(b.Id));
     }
 
@@ -62,10 +62,11 @@ public class TablesController : Controller
         return View(new TablesPage(branch, tables, areas));
     }
 
+    /// <summary>The live floor plan (waiters, managers and the owner); changing the layout stays on Index.</summary>
     [HttpGet("floor")]
     public async Task<IActionResult> Floor(int id)
     {
-        var branch = await BranchAsync(id);
+        var branch = await BranchAsync(id, BranchPermission.FloorPlan);
         if (branch == null) return NotFound();
 
         var tables = await _context.Tables.AsNoTracking().Include(t => t.Area)
@@ -100,6 +101,8 @@ public class TablesController : Controller
             return new LiveTable(t, status, TableStatusRules.Label(status), order, tableReservations);
         }).ToList();
 
+        ViewBag.CanEditLayout = await _access.CanAsync(id, BranchPermission.EditBranch);
+        ViewBag.CanOpenKitchen = await _access.CanAsync(id, BranchPermission.Kitchen);
         return View(new FloorPage(branch, areas, rows, reservations, canSeeBookings, localNow));
     }
 
@@ -261,7 +264,7 @@ public class TablesController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SeatReservation(int id, int reservationId, int tableId)
     {
-        if (await BranchAsync(id) == null || !await _access.HasModuleAsync(id, BillingModule.Bookings)
+        if (await BranchAsync(id, BranchPermission.FloorPlan) == null || !await _access.HasModuleAsync(id, BillingModule.Bookings)
             || !await _access.CanAsync(id, BranchPermission.Bookings)) return NotFound();
         var table = await _context.Tables.FirstOrDefaultAsync(t => t.Id == tableId && t.BranchId == id);
         var reservation = await _context.Reservations.FirstOrDefaultAsync(r => r.Id == reservationId && r.BranchId == id);

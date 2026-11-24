@@ -30,3 +30,12 @@ public class StationRulesTests
         Assert.False(StationRules.AllReady(Array.Empty<TicketStatus>()));
     }
 }
+
+public class StationPermissionTests
+{
+    [Theory]
+    [InlineData(ServiceStation.Kitchen, RestaurantMenu.Services.BranchPermission.Kitchen)]
+    [InlineData(ServiceStation.Bar, RestaurantMenu.Services.BranchPermission.Bar)]
+    public void Each_screen_needs_its_own_stations_permission(ServiceStation station, RestaurantMenu.Services.BranchPermission permission) =>
+        Assert.Equal(permission, StationRules.Permission(station));
+}

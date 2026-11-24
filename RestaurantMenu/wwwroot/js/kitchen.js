@@ -7,6 +7,11 @@
     'use strict';
 
     var body = document.body;
+
+    // Forms that ask first (a station device's "sign this screen out").
+    document.querySelectorAll('form[data-confirm]').forEach(function (f) {
+        f.addEventListener('submit', function (e) { if (!window.confirm(f.getAttribute('data-confirm'))) e.preventDefault(); });
+    });
     var ORDERS_URL = body.dataset.ordersUrl;
     var STATUS_URL = body.dataset.statusUrl;
     var PAUSE_URL = body.dataset.pauseUrl;
@@ -347,6 +352,8 @@
             .build();
         connection.on('order', function (o) { upsert(o, true); render(); });
         connection.on('paused', function (p) { setPaused(p, true); });
+        // A station device removed or given a new code: stop here, the server already dropped it.
+        connection.on('signedout', setDenied);
         connection.onreconnecting(function () { setConn('reconnecting', 'Reconnecting…'); });
         connection.onreconnected(function () { join(); });
         connection.onclose(function () {

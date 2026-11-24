@@ -51,8 +51,7 @@ public class DashboardController : Controller
             .ToDictionaryAsync(m => m.BranchId, m => m.Role);
         var roles = branches.ToDictionary(b => b.Id, b =>
             b.UserId == user.Id ? BranchRole.Owner
-            : memberRoles.GetValueOrDefault(b.Id) == BranchMemberRole.Manager ? BranchRole.Manager
-            : BranchRole.Editor);
+            : BranchPermissions.RoleOf(memberRoles.TryGetValue(b.Id, out var member) ? member : null));
 
         // Quota and "New branch" are about the branches this user owns.
         var isOwner = User.IsInRole("OWNER");

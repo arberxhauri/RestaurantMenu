@@ -44,6 +44,7 @@
 @keyframes k-pulse { 50% { opacity: .35; } }
 
 .k-tools { margin-left: auto; display: flex; gap: 8px; }
+.k-tools form { display: contents; }
 .k-tool {
     display: inline-flex; align-items: center; gap: 8px;
     min-height: 44px; padding: 0 14px;

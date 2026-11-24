@@ -44,18 +44,46 @@ public class BackofficeNavTests
     [InlineData("config.team", "/Branch/Details/5#team")]
     [InlineData("config.shifts", "/branch/5/shifts")]
     [InlineData("config.website", "/branch/5/website")]
+    [InlineData("config.devices", "/branch/5/devices")]
     [InlineData("config.branches", "/Dashboard")]
     [InlineData("config.billing", "/billing")]
     [InlineData("config.password", "/Account/ChangePassword")]
     public void Each_page_links_to_its_existing_address_for_the_current_branch(string key, string href) =>
         Assert.Equal(href, Item(BackofficeNav.Build(Owner()), key).Href);
 
-    [Fact]
-    public void A_waiter_sees_only_what_their_role_opens()
-    {
-        var keys = Keys(BackofficeNav.Build(new NavContext(5, BranchRole.Editor, IsOwner: false, IsAdmin: false, AllModules))).ToList();
+    private static List<string> StaffKeys(BranchRole role) =>
+        Keys(BackofficeNav.Build(new NavContext(5, role, IsOwner: false, IsAdmin: false, AllModules))).ToList();
 
-        Assert.Equal(new[] { "dashboard", "stations.pos", "stations.kitchen", "stations.bar", "tables.bookings", "menu.items", "stock.items", "stock.waste", "config.shifts", "config.branches", "config.password" }, keys);
+    [Fact]
+    public void A_waiter_sees_only_what_their_role_opens() =>
+        Assert.Equal(new[] { "dashboard", "stations.pos", "stations.kitchen", "stations.bar", "tables.floor", "tables.bookings", "menu.items", "stock.items", "stock.waste", "config.shifts", "config.branches", "config.password" },
+            StaffKeys(BranchRole.Waiter));
+
+    [Fact]
+    public void A_cashier_sees_the_pos_and_the_cash_report() =>
+        Assert.Equal(new[] { "dashboard", "reports.cash", "stations.pos", "menu.items", "config.shifts", "config.branches", "config.password" },
+            StaffKeys(BranchRole.Cashier));
+
+    [Fact]
+    public void Kitchen_staff_see_only_the_kitchen_screen_and_their_shifts() =>
+        Assert.Equal(new[] { "dashboard", "stations.kitchen", "config.shifts", "config.branches", "config.password" },
+            StaffKeys(BranchRole.Kitchen));
+
+    [Fact]
+    public void Bar_staff_see_only_the_bar_screen_and_their_shifts() =>
+        Assert.Equal(new[] { "dashboard", "stations.bar", "config.shifts", "config.branches", "config.password" },
+            StaffKeys(BranchRole.Bar));
+
+    [Fact]
+    public void Stock_staff_see_stock_and_the_menu() =>
+        Assert.Equal(new[] { "dashboard", "menu.items", "stock.items", "stock.waste", "config.shifts", "config.branches", "config.password" },
+            StaffKeys(BranchRole.Stock));
+
+    [Fact]
+    public void Managers_set_up_station_devices_but_waiters_do_not()
+    {
+        Assert.Contains("config.devices", StaffKeys(BranchRole.Manager));
+        Assert.DoesNotContain("config.devices", StaffKeys(BranchRole.Waiter));
     }
 
     [Fact]
@@ -77,6 +105,7 @@ public class BackofficeNavTests
     [InlineData("stock.items", BillingModule.Management)]
     [InlineData("reports.sales", BillingModule.Management)]
     [InlineData("config.website", BillingModule.Website)]
+    [InlineData("config.devices", BillingModule.Ordering)]
     public void A_page_outside_the_plan_is_hidden(string key, BillingModule missing)
     {
         var modules = AllModules.Where(m => m != missing).ToHashSet();
@@ -129,6 +158,7 @@ public class BackofficeNavTests
     [InlineData("Dashboard", "Index", "config.branches")]
     [InlineData("Shifts", "Index", "config.shifts")]
     [InlineData("Website", "Index", "config.website")]
+    [InlineData("StationDevices", "Index", "config.devices")]
     [InlineData("Billing", "Index", "config.billing")]
     [InlineData("Account", "ChangePassword", "config.password")]
     [InlineData("Admin", "Index", "admin.users")]
@@ -180,6 +210,7 @@ public class BranchContextRulesTests
     [Theory]
     [InlineData("Tables", "Index", 4, null, 4)]
     [InlineData("Kitchen", "Index", 4, null, 4)]
+    [InlineData("StationDevices", "Index", 4, null, 4)]
     [InlineData("Stock", "Recipes", 4, null, 4)]
     [InlineData("Branch", "Details", 4, null, 4)]
     [InlineData("Branch", "Create", null, null, null)]

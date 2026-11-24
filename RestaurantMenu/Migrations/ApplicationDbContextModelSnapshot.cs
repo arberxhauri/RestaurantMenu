@@ -2152,6 +2152,10 @@ namespace RestaurantMenu.Migrations
                     b.Property<int>("BranchId")
                         .HasColumnType("integer");
 
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -2163,23 +2167,28 @@ namespace RestaurantMenu.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)");
 
-                    b.Property<bool>("Revoked")
-                        .HasColumnType("boolean");
+                    b.Property<DateTime?>("PairedUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PairingCodeHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("PairingExpiresUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SessionStamp")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<int>("Station")
                         .HasColumnType("integer");
-
-                    b.Property<string>("TokenHash")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("BranchId");
 
-                    b.HasIndex("TokenHash")
-                        .IsUnique();
+                    b.HasIndex("PairingCodeHash");
 
                     b.ToTable("StationDevices");
                 });

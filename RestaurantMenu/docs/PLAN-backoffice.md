@@ -162,6 +162,19 @@ Today: Owner, plus per-branch Editor (waiter) and Manager. Proposed per-branch r
 Stored as a role per branch member (existing Editor → Waiter, Manager → Manager, so no one loses access).
 Station screens can run on a shared tablet with a **station login** (device token, no personal password).
 
+**Built in phase 8** (24 November 2026):
+- The roles are a permission table, not a ladder (`Services/BranchPermissions.cs`); `BranchAccess`, the side
+  panel, the views and the kitchen hub all ask it. Stored values never change (Waiter = old Editor = 1).
+- Waiters keep everything editors had and gain the live floor plan. Cashiers: POS, payments and the cash
+  report. Kitchen / Bar: their own screen (and the shift rota). Stock: stock, waste and a read-only menu.
+  Everyone with a role sees the rota. Kitchen and bar staff opening a branch land on their station.
+- **Station devices** (Configuration → Station devices, managers and the owner): kitchen and bar tablets
+  only. A manager adds a device and gets a one-time 8-character code (30 minutes, shown once, only its hash
+  stored, also as a QR). The tablet enters it at `/station` and gets its own cookie scheme (90 days, sliding)
+  that only the station screens and the kitchen hub accept. Removing a device or giving it a new code signs
+  the tablet out on its next request. POS stays on personal logins, so payments carry a person's name.
+- Not built yet: role-limited discounts and voids above a limit (§4.2), which need the void flow first.
+
 ---
 
 ## 6. Data changes (EF Core migrations)
@@ -207,7 +220,7 @@ later project.
 | 5. Stations | Order tickets per station, kitchen display redesign, new bar display, station logins | Uses existing SignalR hub |
 | 6. POS | Order taking, table tickets, discounts, payments, bills, cash report | Fiscal note (§8) |
 | 7. Reports | All reports with filters, compare, export | Uses data from phases 3–6 |
-| 8. Roles | New roles and permissions, station devices | Can start alongside 5 |
+| 8. Roles | New roles and permissions, station devices | **Done** (see §5) |
 
 Every phase: tests first for the rules (pricing, ticket splitting, permissions, reports), the existing 491
 tests stay green, deploy with `./deploy.sh`, checked on a tablet and a phone in light and dark mode.

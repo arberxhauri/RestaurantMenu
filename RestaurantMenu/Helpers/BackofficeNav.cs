@@ -55,20 +55,20 @@ public static class BackofficeNav
         new("dashboard", "dashboard", "Overview", "ph-squares-four", _ => "/manage", Audience.Workspace),
 
         new("reports.overview", "reports", "Overview", "ph-chart-bar", b => $"/branch/{b}/reports", Audience.Branch, BranchPermission.ViewInsights, BillingModule.Management),
-        new("reports.cash", "reports", "Cash report", "ph-coins", b => $"/pos/{b}/cash", Audience.Branch, BranchPermission.ViewInsights, BillingModule.Ordering),
+        new("reports.cash", "reports", "Cash report", "ph-coins", b => $"/pos/{b}/cash", Audience.Branch, BranchPermission.CashReport, BillingModule.Ordering),
         new("reports.sales", "reports", "Sales", "ph-currency-eur", b => $"/branch/{b}/sales", Audience.Branch, BranchPermission.ViewInsights, BillingModule.Management),
         new("reports.insights", "reports", "Menu analytics", "ph-chart-line-up", b => $"/Branch/Insights/{b}", Audience.Branch, BranchPermission.ViewInsights),
         new("reports.feedback", "reports", "Guest feedback", "ph-chat-circle-text", b => $"/branch/{b}/feedback", Audience.Branch, BranchPermission.ViewInsights),
 
-        new("stations.pos", "stations", "POS", "ph-cash-register", b => $"/pos/{b}", Audience.Branch, BranchPermission.Kitchen, BillingModule.Ordering),
+        new("stations.pos", "stations", "POS", "ph-cash-register", b => $"/pos/{b}", Audience.Branch, BranchPermission.Pos, BillingModule.Ordering),
         new("stations.kitchen", "stations", "Kitchen", "ph-chef-hat", b => $"/kitchen/{b}", Audience.Branch, BranchPermission.Kitchen, BillingModule.Ordering),
-        new("stations.bar", "stations", "Bar", "ph-wine", b => $"/kitchen/{b}/bar", Audience.Branch, BranchPermission.Kitchen, BillingModule.Ordering),
+        new("stations.bar", "stations", "Bar", "ph-wine", b => $"/kitchen/{b}/bar", Audience.Branch, BranchPermission.Bar, BillingModule.Ordering),
 
-        new("tables.floor", "tables", "Live floor", "ph-armchair", b => $"/branch/{b}/tables/floor", Audience.Branch, BranchPermission.EditBranch, BillingModule.Ordering),
+        new("tables.floor", "tables", "Live floor", "ph-armchair", b => $"/branch/{b}/tables/floor", Audience.Branch, BranchPermission.FloorPlan, BillingModule.Ordering),
         new("tables.tables", "tables", "Tables & QR codes", "ph-qr-code", b => $"/branch/{b}/tables", Audience.Branch, BranchPermission.EditBranch, BillingModule.Ordering),
         new("tables.bookings", "tables", "Reservations", "ph-calendar-check", b => $"/branch/{b}/bookings", Audience.Branch, BranchPermission.Bookings, BillingModule.Bookings),
 
-        new("menu.items", "menu", "Items & categories", "ph-fork-knife", b => $"/Branch/Details/{b}", Audience.Branch),
+        new("menu.items", "menu", "Items & categories", "ph-fork-knife", b => $"/Branch/Details/{b}", Audience.Branch, BranchPermission.ViewMenu),
         new("menu.recipes", "menu", "Recipes", "ph-list-checks", b => $"/branch/{b}/stock/recipes", Audience.Branch, BranchPermission.EditBranch, BillingModule.Management),
         new("menu.discounts", "menu", "Discounts & happy hours", "ph-tag", b => $"/branch/{b}/discounts", Audience.Branch, BranchPermission.EditBranch, BillingModule.Ordering),
 
@@ -77,7 +77,8 @@ public static class BackofficeNav
 
         new("config.branch", "config", "Branch settings", "ph-storefront", b => $"/Branch/Edit/{b}", Audience.Branch, BranchPermission.EditBranch),
         new("config.team", "config", "Users & roles", "ph-users-three", b => $"/Branch/Details/{b}#team", Audience.Branch, BranchPermission.ManageTeam),
-        new("config.shifts", "config", "Shifts", "ph-clock", b => $"/branch/{b}/shifts", Audience.Branch, BranchPermission.Stock, BillingModule.Management),
+        new("config.devices", "config", "Station devices", "ph-device-tablet", b => $"/branch/{b}/devices", Audience.Branch, BranchPermission.ManageDevices, BillingModule.Ordering),
+        new("config.shifts", "config", "Shifts", "ph-clock", b => $"/branch/{b}/shifts", Audience.Branch, BranchPermission.ViewShifts, BillingModule.Management),
         new("config.website", "config", "Website & domains", "ph-globe", b => $"/branch/{b}/website", Audience.Branch, BranchPermission.EditBranch, BillingModule.Website),
         new("config.branches", "config", "Branches", "ph-buildings", _ => "/Dashboard", Audience.Workspace),
         new("config.billing", "config", "Billing", "ph-receipt", _ => "/billing", Audience.Owner),
@@ -139,6 +140,7 @@ public static class BackofficeNav
             "discounts" => "menu.discounts",
             "shifts" => "config.shifts",
             "website" => "config.website",
+            "stationdevices" => "config.devices",
             "dashboard" => "config.branches",
             "billing" => "config.billing",
             "account" => "config.password",

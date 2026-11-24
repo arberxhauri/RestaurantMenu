@@ -10,7 +10,7 @@ using RestaurantMenu.Services;
 namespace RestaurantMenu.Controllers;
 
 /// <summary>
-/// Bookings in the back office: the day view (Editor and up: confirm, seat, cancel, mark
+/// Bookings in the back office: the day view (BranchPermission.Bookings: confirm, seat, cancel, mark
 /// no-shows, add phone bookings and walk-ins, close a day) and the settings (Manager and up).
 /// </summary>
 [Authorize(Roles = "OWNER,STAFF")]

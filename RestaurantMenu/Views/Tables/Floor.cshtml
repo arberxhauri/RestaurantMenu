@@ -5,6 +5,8 @@
 @section Styles { <link rel="stylesheet" href="~/css/floor.css" asp-append-version="true" /> }
 @{
     var branch = Model.Branch;
+    var canEditLayout = ViewBag.CanEditLayout == true;
+    var canOpenKitchen = ViewBag.CanOpenKitchen == true;
     ViewData["Title"] = "Live floor - " + branch.Name;
     var groups = Model.Areas.Select(a => new { Id = (int?)a.Id, a.Name })
         .Append(new { Id = (int?)null, Name = "Unassigned" })
@@ -24,8 +26,14 @@
         <p>@Model.LocalNow.ToString("dddd d MMMM, HH:mm") · orders and reservations at a glance.</p>
     </div>
     <div class="page-actions">
-        <a class="btn btn-outline-secondary btn-sm" asp-action="Index" asp-route-id="@branch.Id"><i class="ph ph-pencil-simple" aria-hidden="true"></i>Areas &amp; layout</a>
-        <a class="btn btn-primary btn-sm" asp-controller="Kitchen" asp-action="Index" asp-route-id="@branch.Id"><i class="ph ph-cooking-pot" aria-hidden="true"></i>Kitchen display</a>
+        @if (canEditLayout)
+        {
+            <a class="btn btn-outline-secondary btn-sm" asp-action="Index" asp-route-id="@branch.Id"><i class="ph ph-pencil-simple" aria-hidden="true"></i>Areas &amp; layout</a>
+        }
+        @if (canOpenKitchen)
+        {
+            <a class="btn btn-primary btn-sm" asp-controller="Kitchen" asp-action="Index" asp-route-id="@branch.Id"><i class="ph ph-cooking-pot" aria-hidden="true"></i>Kitchen display</a>
+        }
     </div>
 </header>
 
@@ -43,8 +51,15 @@
             <section class="panel empty">
                 <i class="ph ph-armchair" aria-hidden="true"></i>
                 <h2>No tables yet</h2>
-                <p>Add tables and place them in an area to build the floor.</p>
-                <a class="btn btn-primary" asp-action="Index" asp-route-id="@branch.Id">Set up tables</a>
+                @if (canEditLayout)
+                {
+                    <p>Add tables and place them in an area to build the floor.</p>
+                    <a class="btn btn-primary" asp-action="Index" asp-route-id="@branch.Id">Set up tables</a>
+                }
+                else
+                {
+                    <p>A manager or the owner sets up the tables.</p>
+                }
             </section>
         }
         @foreach (var group in groups)

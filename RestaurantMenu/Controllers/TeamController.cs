@@ -40,7 +40,7 @@ public class TeamController : Controller
     private IActionResult BackToTeam(int branchId) =>
         Redirect(Url.Action("Details", "Branch", new { id = branchId }) + "#team");
 
-    private static string RoleName(BranchMemberRole role) => role == BranchMemberRole.Manager ? "Manager" : "Editor";
+    private static string RoleName(BranchMemberRole role) => BranchPermissions.Label(role);
 
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -60,7 +60,7 @@ public class TeamController : Controller
         }
         if (!Enum.IsDefined(role))
         {
-            role = BranchMemberRole.Editor;
+            role = BranchMemberRole.Waiter;
         }
         if (name is { Length: > 100 }) name = name[..100];
 

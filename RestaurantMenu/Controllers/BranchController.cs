@@ -360,7 +360,12 @@ public async Task<IActionResult> Edit(Branch branch, IFormFile? logo, IFormFile?
             }
 
             // The page shows only what this person may do (IBranchAccess); the actions check again.
+            // Kitchen and bar staff have no menu page: they go straight to their station.
             var role = await _access.RoleAsync(id);
+            if (!BranchAccess.Allows(role, BranchPermission.ViewMenu))
+            {
+                return LocalRedirect(BranchPermissions.Home(role, id));
+            }
             ViewBag.Role = role;
             if (BranchAccess.Allows(role, BranchPermission.ManageTeam))
             {

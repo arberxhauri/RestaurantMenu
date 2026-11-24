@@ -1,0 +1,39 @@
+@using RestaurantMenu.Controllers
+@using RestaurantMenu.Helpers
+@model StationPairPage
+@{
+    ViewData["Title"] = "Set up a station screen";
+    Layout = "_AuthLayout";
+}
+
+@if (Model.Current is { } current)
+{
+    <h1>@current.Name</h1>
+    <p class="auth-sub">This screen is signed in as a station device.</p>
+    <a class="btn btn-primary btn-lg w-100 mb-3" href="@current.Path"><i class="ph ph-cooking-pot" aria-hidden="true"></i>Open the station screen</a>
+    <form asp-action="SignOutDevice" method="post">
+        <button type="submit" class="btn btn-outline-secondary w-100">Sign this screen out</button>
+    </form>
+}
+else
+{
+    <h1>Set up a station screen</h1>
+    <p class="auth-sub">Enter the code a manager made on Station devices. This tablet will open the kitchen's or the bar's screen, and nothing else.</p>
+
+    <form asp-action="Pair" method="post" novalidate>
+        @if (Model.Error != null)
+        {
+            <div class="flash flash--danger mb-3" role="alert"><i class="ph ph-warning-circle" aria-hidden="true"></i><p>@Model.Error</p></div>
+        }
+        <div class="mb-3">
+            <label for="code" class="form-label">Pairing code</label>
+            <input id="code" name="code" class="form-control form-control-lg pair-input" value="@Model.Code" required
+                   autocomplete="one-time-code" autocapitalize="characters" spellcheck="false"
+                   maxlength="@(StationDeviceRules.CodeLength + 3)" placeholder="ABCD-EFGH" aria-describedby="code-hint" />
+            <p id="code-hint" class="hint mt-2 mb-0">Letters and numbers, 8 in all. The code works once, for 30 minutes.</p>
+        </div>
+        <button type="submit" class="btn btn-primary btn-lg w-100">Connect this screen</button>
+    </form>
+}
+
+<p class="mt-4 mb-0"><a class="auth-link" asp-controller="Account" asp-action="Login">Sign in with your own account instead</a></p>
