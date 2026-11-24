@@ -1513,6 +1513,9 @@ namespace RestaurantMenu.Migrations
                     b.Property<int>("Station")
                         .HasColumnType("integer");
 
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
                     b.Property<decimal>("UnitPrice")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");

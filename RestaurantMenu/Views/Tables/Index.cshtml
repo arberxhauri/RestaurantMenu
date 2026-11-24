@@ -121,6 +121,43 @@
     </section>
 </div>
 
+@if (tables.Count > 0)
+{
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    var planGroups = areas.Select(a => new { Id = (int?)a.Id, a.Name })
+        .Append(new { Id = (int?)null, Name = areas.Count == 0 ? "All tables" : "Unassigned" })
+        .ToList();
+    <section class="panel mb-4 floor-editor" aria-labelledby="plan-title"
+             data-position-url="@Url.Content($"~/branch/{branch.Id}/tables/")">
+        <div class="panel-head">
+            <h2 id="plan-title" class="h5 m-0">Floor plan</h2>
+            <p class="hint m-0 floor-editor-hint">Drag tables to place them; drop one on another area to move it there. Or select a table and use the arrow keys. Changes save as you go.</p>
+            <p class="hint m-0 floor-editor-phone">Arrange the plan on a tablet or computer.</p>
+        </div>
+        <div class="floor-editor-status visually-hidden" role="status" aria-live="polite" data-plan-status></div>
+        @foreach (var group in planGroups)
+        {
+            var groupTables = tables.Where(t => t.AreaId == group.Id).ToList();
+            <div class="floor-editor-area">
+                <h3 class="floor-editor-name">@group.Name <span class="count" data-area-count>@groupTables.Count</span></h3>
+                <div class="floor-canvas floor-canvas--edit@(group.Id == null && areas.Count > 0 ? " floor-canvas--tray" : "")"
+                     data-drop="@(group.Id?.ToString() ?? "")" aria-label="@group.Name">
+                    @foreach (var t in groupTables)
+                    {
+                        <button type="button" class="floor-table floor-table--edit floor-table--@t.Shape.ToString().ToLowerInvariant()"
+                                data-drag data-table="@t.Id" data-x="@t.X.ToString(inv)" data-y="@t.Y.ToString(inv)"
+                                style="--table-x:@t.X.ToString(inv)%;--table-y:@t.Y.ToString(inv)%;--table-turn:@(t.Rotation)deg"
+                                aria-label="Table @t.Number, @t.Seats seats, in @group.Name. Arrow keys move it.">
+                            <strong>@t.Number</strong>
+                            <span>@t.Seats seats</span>
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+    </section>
+}
+
 <section class="panel mt-4" aria-labelledby="list-title">
     <div class="panel-head">
         <h2 id="list-title" class="h5 m-0">Tables <span class="count">@tables.Count</span></h2>
@@ -167,8 +204,6 @@
                                     <label><span>Area</span><select name="areaId" class="form-select form-select-sm"><option value="">Unassigned</option>@foreach (var area in areas) { <option value="@area.Id" selected="@(t.AreaId == area.Id ? "selected" : null)">@area.Name</option> }</select></label>
                                     <label><span>Shape</span><select name="shape" class="form-select form-select-sm">@foreach (var shape in Enum.GetValues<TableShape>()) { <option value="@shape" selected="@(t.Shape == shape ? "selected" : null)">@shape</option> }</select></label>
                                     <label><span>Seats</span><input name="seats" type="number" min="1" max="50" value="@t.Seats" class="form-control form-control-sm" /></label>
-                                    <label><span>X</span><input name="x" type="number" min="0" max="100" step="0.5" value="@t.X" class="form-control form-control-sm" /></label>
-                                    <label><span>Y</span><input name="y" type="number" min="0" max="100" step="0.5" value="@t.Y" class="form-control form-control-sm" /></label>
                                     <label><span>Turn</span><select name="rotation" class="form-select form-select-sm">@foreach (var turn in new[] { 0, 90, 180, 270 }) { <option value="@turn" selected="@(t.Rotation == turn ? "selected" : null)">@turn°</option> }</select></label>
                                     <button type="submit" class="btn btn-outline-secondary btn-sm">Save</button>
                                 </form>
@@ -196,3 +231,8 @@
         </div>
     }
 </section>
+
+@section Scripts {
+    <script src="~/js/drag.js" asp-append-version="true"></script>
+    <script src="~/js/floor-editor.js" asp-append-version="true"></script>
+}

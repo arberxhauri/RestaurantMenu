@@ -67,8 +67,16 @@ public class PosController : Controller
         var products = await _db.Products.AsNoTracking().Where(p => p.BranchId == id)
             .Include(p => p.OptionGroups!).ThenInclude(g => g.Options).AsSplitQuery()
             .OrderBy(p => p.DisplayOrder).ToListAsync();
-        var tables = await _db.Tables.AsNoTracking().Where(t => t.BranchId == id).OrderBy(t => t.Number)
-            .Select(t => new { t.Id, t.Number, t.Name, Area = t.Area != null ? t.Area.Name : null }).ToListAsync();
+        // Tables with their place on the floor plan, for the table picker (plan or tiles).
+        var tableRows = await _db.Tables.AsNoTracking().Where(t => t.BranchId == id).OrderBy(t => t.Number)
+            .Select(t => new { t.Id, t.Number, t.Name, t.AreaId, Area = t.Area != null ? t.Area.Name : null, t.Shape, t.Seats, t.X, t.Y, t.Rotation })
+            .ToListAsync();
+        var tables = tableRows.Select(t => new
+        {
+            t.Id, t.Number, t.Name, t.AreaId, t.Area, shape = t.Shape.ToString().ToLowerInvariant(), t.Seats, t.X, t.Y, t.Rotation
+        });
+        var areas = await _db.TableAreas.AsNoTracking().Where(a => a.BranchId == id)
+            .OrderBy(a => a.DisplayOrder).ThenBy(a => a.Name).Select(a => new { a.Id, a.Name }).ToListAsync();
         var discounts = await _db.Discounts.AsNoTracking().Where(d => d.BranchId == id && d.Enabled)
             .OrderBy(d => d.Name).Select(d => new { d.Id, d.Name }).ToListAsync();
 
@@ -92,6 +100,7 @@ public class PosController : Controller
                 })
             }),
             tables,
+            areas,
             discounts,
             bills = await _pos.OpenBillsAsync(id, DateTime.UtcNow)
         });

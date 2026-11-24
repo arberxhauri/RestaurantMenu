@@ -78,22 +78,26 @@ public class KitchenController : Controller
     }
 
     /// <summary>
-    /// Moves a station's part of an order on. <paramref name="from"/> is the column the screen saw: if
-    /// another screen got there first, nothing changes and 409 returns the order as it is now.
+    /// Moves dishes of a station's part of an order on: those in <paramref name="items"/> (comma-separated
+    /// ids, a single dish dragged or tapped), or with none every dish in the <paramref name="from"/> column
+    /// (the whole card). <paramref name="from"/> is the column the screen saw: if another screen got there
+    /// first, 409 returns the order as it is now.
     /// </summary>
     [HttpPost("orders/{orderId:int}/status")]
     [AllowWhenModuleOff] // orders already sent can still be finished
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Status(int id, int orderId, [FromForm] string from, [FromForm] string to, [FromForm] string? station)
+    public async Task<IActionResult> Status(int id, int orderId, [FromForm] string from, [FromForm] string to, [FromForm] string? station,
+        [FromForm] string? items)
     {
         if (StationRules.FromScreen(from) is not { } f || StationRules.FromScreen(to) is not { } t
             || StationRules.ParseStation(station) is not { } s)
         {
             return BadRequest();
         }
+        if (StationRules.ParseItemIds(items) is not { } itemIds) return BadRequest();
         if (await BranchAsync(id, s) == null) return NotFound();
 
-        var (order, conflict) = await _orders.SetStationStatusAsync(id, orderId, s, f, t, DateTime.UtcNow);
+        var (order, conflict) = await _orders.SetStationStatusAsync(id, orderId, s, f, t, itemIds, DateTime.UtcNow);
         if (order == null) return NotFound();
         return conflict ? Conflict(new { order }) : Ok(new { order });
     }

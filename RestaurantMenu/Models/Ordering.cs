@@ -97,4 +97,6 @@ public class OrderItem
     public decimal UnitPrice { get; set; }
     public int Quantity { get; set; }
     public ServiceStation Station { get; set; } = ServiceStation.Kitchen;
+    /// <summary>Where this dish is at its station (moved one by one on the screen); the ticket follows its dishes.</summary>
+    public TicketStatus Status { get; set; } = TicketStatus.New;
 }

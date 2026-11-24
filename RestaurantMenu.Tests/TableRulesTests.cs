@@ -59,3 +59,21 @@ public class TableRulesTests
     public void Impossible_layouts_are_refused(int shape, int seats, double x, double y, int rotation) =>
         Assert.False(TableLayoutRules.IsValid((TableShape)shape, seats, (decimal)x, (decimal)y, rotation));
 }
+
+/// <summary>Dragging tables on the floor editor: positions snap to the grid and stay inside the area.</summary>
+public class TableSnapTests
+{
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(1.2, 0)]
+    [InlineData(1.3, 2.5)]
+    [InlineData(48.9, 50)]
+    [InlineData(99, 100)]
+    [InlineData(-12, 0)]
+    [InlineData(140, 100)]
+    public void A_dropped_position_snaps_to_the_grid_inside_the_area(double dropped, double expected) =>
+        Assert.Equal((decimal)expected, TableLayoutRules.Snap((decimal)dropped));
+
+    [Fact]
+    public void The_grid_is_forty_steps_across() => Assert.Equal(2.5m, TableLayoutRules.GridStep);
+}

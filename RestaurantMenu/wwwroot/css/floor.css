@@ -117,3 +117,47 @@
 .table-layout-form label span { font-size: 11.5px; color: var(--ink-3); }
 .table-layout-form select { min-width: 110px; }
 .table-layout-form input[type="number"] { width: 74px; }
+
+/* ---------- Floor plan editor (floor-editor.js, drag.js) ---------- */
+.floor-editor .panel-head { flex-wrap: wrap; gap: 4px 16px; }
+.floor-editor-phone { display: none; }
+.floor-editor-area { padding: 0 0 4px; }
+.floor-editor-name { margin: 4px 20px 8px; font-size: 14px; font-weight: 650; color: var(--ink-2); }
+.floor-editor-name .count { font: 500 12.5px/1 var(--font-mono); color: var(--ink-3); }
+/* The editor's grid: 40 steps across the area, matching TableLayoutRules.GridStep (2.5 %). */
+.floor-canvas--edit {
+    background-image:
+        linear-gradient(to right, var(--line-2, var(--line)) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--line-2, var(--line)) 1px, transparent 1px);
+    background-size: calc(86% / 40) calc(82% / 40);
+    background-position: 7% 9%;
+    transition: background-color .15s, outline-color .15s;
+}
+.floor-canvas--tray { aspect-ratio: 16 / 4; min-height: 150px; }
+.floor-canvas--edit.is-drop-target { outline: 3px dashed var(--accent); outline-offset: -3px; background-color: var(--accent-soft); }
+
+.floor-table--edit {
+    --table-ink: var(--ink-3); --table-bg: var(--surface);
+    border: 0; background: transparent; font: inherit;
+    cursor: grab; touch-action: manipulation;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+.floor-table--edit:hover { --table-ink: var(--accent); }
+.floor-table--edit:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; border-radius: 14px; }
+.floor-table--edit.is-dragging { opacity: .3; }
+.floor-table--edit.is-saving { opacity: .7; }
+.floor-table.drag-ghost {
+    position: fixed; left: 0; top: 0; z-index: 1000;
+    pointer-events: none; cursor: grabbing;
+    --table-ink: var(--accent); --table-bg: var(--accent-soft);
+    filter: drop-shadow(0 12px 18px rgb(0 0 0 / .2));
+}
+@media (prefers-reduced-motion: no-preference) {
+    .floor-table--edit { transition: left .12s var(--ease-out, ease-out), top .12s var(--ease-out, ease-out); }
+}
+@media (max-width: 767.98px) {
+    .floor-editor-hint { display: none; }
+    .floor-editor-phone { display: block; }
+    .floor-table--edit { cursor: default; }
+    .floor-canvas--tray { aspect-ratio: auto; min-height: 0; }
+}

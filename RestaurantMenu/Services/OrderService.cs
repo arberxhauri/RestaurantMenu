@@ -7,13 +7,17 @@ using RestaurantMenu.Models;
 
 namespace RestaurantMenu.Services;
 
-/// <summary>An order as the kitchen display shows it (JSON for kitchen.js and the hub).</summary>
+/// <summary>
+/// An order as the kitchen display shows it (JSON for kitchen.js and the hub). <see cref="ByItem"/>: its dishes
+/// move one by one (orders from before stations move only as a whole).
+/// </summary>
 public record KitchenOrder(int Id, int Number, int Table, string? TableName, string Status, DateTime Created, DateTime Updated,
-    string? Note, decimal Total, IReadOnlyList<KitchenOrderItem> Items)
+    string? Note, decimal Total, IReadOnlyList<KitchenOrderItem> Items, bool ByItem)
 {
     public static KitchenOrder From(Order o) => new(o.Id, o.Number, o.TableNumber, o.TableName, StatusId(o.Status),
         DateTime.SpecifyKind(o.CreatedUtc, DateTimeKind.Utc), DateTime.SpecifyKind(o.UpdatedUtc, DateTimeKind.Utc), o.Note, o.Total,
-        o.Items.OrderBy(i => i.Id).Select(i => new KitchenOrderItem(i.Quantity, i.Name, i.Options)).ToList());
+        o.Items.OrderBy(i => i.Id).Select(i => new KitchenOrderItem(i.Id, i.Quantity, i.Name, i.Options, StatusId(o.Status))).ToList(),
+        ByItem: false);
 
     public static string StatusId(OrderStatus s) => s.ToString().ToLowerInvariant();
 
@@ -28,11 +32,13 @@ public record KitchenOrder(int Id, int Number, int Table, string? TableName, str
         return new(o.Id, o.Number, o.TableNumber, o.TableName, StationRules.ToScreen(ticket.Status),
             DateTime.SpecifyKind(o.CreatedUtc, DateTimeKind.Utc), DateTime.SpecifyKind(o.UpdatedUtc, DateTimeKind.Utc), o.Note, o.Total,
             o.Items.Where(i => i.Station == station).OrderBy(i => i.Id)
-                .Select(i => new KitchenOrderItem(i.Quantity, i.Name, i.Options)).ToList());
+                .Select(i => new KitchenOrderItem(i.Id, i.Quantity, i.Name, i.Options, StationRules.ToScreen(i.Status))).ToList(),
+            ByItem: true);
     }
 }
 
-public record KitchenOrderItem(int Qty, string Name, string? Options);
+/// <summary>A dish on a station's screen; <see cref="Status"/> is its column ("new", "preparing", "served", "cancelled").</summary>
+public record KitchenOrderItem(int Id, int Qty, string Name, string? Options, string Status);
 
 /// <summary>What a guest's phone sees about its own order.</summary>
 public record GuestOrder(Guid Id, int Number, int Table, string Status, string StatusText, decimal Total, int Count);
@@ -285,13 +291,16 @@ public class OrderService
     }
 
     /// <summary>
-    /// Moves one station's ticket of an order, atomically like <see cref="SetStatusAsync"/>: a second screen
-    /// tapping at once gets the order as it now is and <c>Conflict = true</c>. The order's own status then
-    /// follows all its tickets (<see cref="StationRules.OrderStatusFor"/>). Orders without tickets (from
-    /// before stations) are moved as a whole, from the kitchen only. Null when it isn't this branch's.
+    /// Moves dishes of one station's part of an order from the <paramref name="from"/> column to <paramref name="to"/>:
+    /// the dishes named in <paramref name="itemIds"/>, or with none named every dish of the station in that column
+    /// (the whole card). Cancelling and restoring always take the station's whole part, since bills count every
+    /// dish. One atomic update, so a second screen tapping at once gets the order as it now is and
+    /// <c>Conflict = true</c>. The station's ticket then follows its dishes (<see cref="StationRules.TicketStatusFor"/>)
+    /// and the order follows its tickets. Orders without tickets (from before stations) move as a whole, from the
+    /// kitchen only. Null when it isn't this branch's.
     /// </summary>
     public async Task<(KitchenOrder? Order, bool Conflict)> SetStationStatusAsync(int branchId, int orderId, ServiceStation station,
-        TicketStatus from, TicketStatus to, DateTime utcNow)
+        TicketStatus from, TicketStatus to, IReadOnlyCollection<int>? itemIds, DateTime utcNow)
     {
         var hasTickets = await _db.OrderTickets.AnyAsync(t => t.OrderId == orderId && t.Order!.BranchId == branchId);
         if (!hasTickets)
@@ -301,21 +310,23 @@ public class OrderService
         }
 
         // "Done" on the screen is Ready or Served (a waiter may already have served it).
-        var fromStates = from == TicketStatus.Ready ? new[] { TicketStatus.Ready, TicketStatus.Served } : new[] { from };
-        var ticket = _db.OrderTickets.Where(t => t.OrderId == orderId && t.Order!.BranchId == branchId
-            && t.Station == station && fromStates.Contains(t.Status));
-        var changed = from != to && (to switch
-        {
-            TicketStatus.Ready => await ticket.ExecuteUpdateAsync(s => s.SetProperty(t => t.Status, to).SetProperty(t => t.ReadyUtc, utcNow)),
-            TicketStatus.Preparing => await ticket.ExecuteUpdateAsync(s => s.SetProperty(t => t.Status, to)
-                .SetProperty(t => t.StartedUtc, t => (DateTime?)(t.StartedUtc ?? utcNow)).SetProperty(t => t.ReadyUtc, (DateTime?)null)),
-            _ => await ticket.ExecuteUpdateAsync(s => s.SetProperty(t => t.Status, to).SetProperty(t => t.ReadyUtc, (DateTime?)null))
-        }) == 1;
+        var fromStates = StationRules.StatesIn(from);
+        var named = to == TicketStatus.Cancelled || from == TicketStatus.Cancelled || itemIds is not { Count: > 0 }
+            ? null
+            : itemIds.Distinct().ToList();
+        var items = _db.OrderItems.Where(i => i.OrderId == orderId && i.Order!.BranchId == branchId
+            && i.Station == station && fromStates.Contains(i.Status));
+        if (named != null) items = items.Where(i => named.Contains(i.Id));
+        var moved = from == to ? 0 : await items.ExecuteUpdateAsync(s => s.SetProperty(i => i.Status, to));
 
         var order = await _db.Orders.AsNoTracking().Include(o => o.Items).Include(o => o.Tickets).AsSplitQuery()
             .FirstOrDefaultAsync(o => o.Id == orderId && o.BranchId == branchId);
         if (order == null) return (null, false);
-        if (!changed) return (KitchenOrder.ForStation(order, station), true);
+        // Some named dishes had already moved on another screen: the rest moved, and the screen is told.
+        var conflict = moved == 0 || (named != null && moved != named.Count);
+        if (moved == 0) return (KitchenOrder.ForStation(order, station), true);
+
+        await SyncTicketAsync(order, station, utcNow);
 
         var was = order.Status;
         var now = StationRules.OrderStatusFor(order.Tickets.Select(t => t.Status)) ?? was;
@@ -326,7 +337,25 @@ public class OrderService
         // Cancelling the whole order gives the ingredients back; bringing it back uses them again.
         if ((was == OrderStatus.Cancelled) != (now == OrderStatus.Cancelled)) await _stock.SyncOrderAsync(orderId, utcNow);
         await NotifyAsync(order);
-        return (KitchenOrder.ForStation(order, station), false);
+        return (KitchenOrder.ForStation(order, station), conflict);
+    }
+
+    /// <summary>The station's ticket after its dishes moved: its status and when it started and was ready.</summary>
+    private async Task SyncTicketAsync(Order order, ServiceStation station, DateTime utcNow)
+    {
+        var ticket = order.Tickets.FirstOrDefault(t => t.Station == station);
+        if (ticket == null || StationRules.TicketStatusFor(order.Items.Where(i => i.Station == station).Select(i => i.Status)) is not { } status)
+            return;
+
+        var started = status == TicketStatus.New ? ticket.StartedUtc : ticket.StartedUtc ?? utcNow;
+        var ready = status is TicketStatus.Ready or TicketStatus.Served ? ticket.ReadyUtc ?? utcNow : (DateTime?)null;
+        await _db.OrderTickets.Where(t => t.Id == ticket.Id).ExecuteUpdateAsync(s => s
+            .SetProperty(t => t.Status, status)
+            .SetProperty(t => t.StartedUtc, started)
+            .SetProperty(t => t.ReadyUtc, ready));
+        ticket.Status = status;
+        ticket.StartedUtc = started;
+        ticket.ReadyUtc = ready;
     }
 
     private static OrderStatus AsOrderStatus(TicketStatus status) => status switch

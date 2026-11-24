@@ -56,6 +56,7 @@
     // ---------- State ----------
     var categories = [];
     var tables = [];
+    var areas = [];
     var discounts = [];
     var bills = [];
     var activeCat = 'all';
@@ -64,7 +65,7 @@
     var tenders = [];
 
     function newCart() {
-        return { requestId: uuid(), type: 'dinein', lines: [] };
+        return { requestId: uuid(), type: 'dinein', tableId: null, lines: [] };
     }
 
     // ---------- Phone tabs ----------
@@ -227,20 +228,151 @@
     }
     $$('[data-p-type]').forEach(function (b) { b.addEventListener('click', function () { setType(b.dataset.pType); }); });
 
-    function renderTables() {
-        var select = $('[data-p-table]');
-        tables.forEach(function (t) {
-            var o = document.createElement('option');
-            o.value = t.id;
-            o.textContent = 'Table ' + t.number + (t.name ? ' · ' + t.name : '') + (t.area ? ' (' + t.area + ')' : '');
-            select.appendChild(o);
+    // ---------- Table picker: the floor plan as it stands, or big tiles ----------
+    var VIEW_KEY = 'pos_table_view';
+    var tableView = 'plan';
+    try { if (localStorage.getItem(VIEW_KEY) === 'tiles') tableView = 'tiles'; } catch (e) { /* private mode */ }
+    var tableArea = 'all';
+    var tablesDialog = $('[data-p-tables]');
+
+    function tableById(id) { return tables.filter(function (t) { return t.id === id; })[0] || null; }
+
+    /** free, occupied (an open bill) or billrequested: the floor's status words and colours. */
+    function tableState(t) {
+        var bill = bills.filter(function (b) { return b.tableId === t.id; })[0];
+        return !bill ? 'free' : bill.billRequested ? 'billrequested' : 'occupied';
+    }
+    var STATE_TEXT = { free: 'Free', occupied: 'Open bill', billrequested: 'Bill requested' };
+
+    function setTable(id) {
+        cart.tableId = id;
+        var t = id ? tableById(id) : null;
+        $('[data-p-table-choice]').textContent = t
+            ? 'Table ' + t.number + (t.name ? ' · ' + t.name : '') + (t.area ? ' · ' + t.area : '')
+            : 'Choose a table';
+        $('[data-p-table-pick]').classList.toggle('is-set', !!t);
+    }
+
+    function tableButton(t, plan) {
+        var state = tableState(t);
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.dataset.pTableId = t.id;
+        b.className = plan
+            ? 'floor-table pos-plan-table floor-table--' + state + ' floor-table--' + t.shape
+            : 'pos-tile pos-tile--' + state;
+        if (plan) {
+            b.style.setProperty('--table-x', t.x + '%');
+            b.style.setProperty('--table-y', t.y + '%');
+            b.style.setProperty('--table-turn', t.rotation + 'deg');
+        }
+        if (cart.tableId === t.id) { b.classList.add('is-chosen'); b.setAttribute('aria-current', 'true'); }
+        b.setAttribute('aria-label', 'Table ' + t.number + (t.name ? ', ' + t.name : '') + ', ' + t.seats + ' seats, ' + STATE_TEXT[state]
+            + (t.area && !plan ? ', ' + t.area : ''));
+        var n = document.createElement('strong'); n.textContent = t.number; b.appendChild(n);
+        var seats = document.createElement('span'); seats.textContent = t.seats + ' seats'; b.appendChild(seats);
+        var s = document.createElement('small'); s.textContent = STATE_TEXT[state]; b.appendChild(s);
+        if (!plan && t.area && tableArea === 'all') { var a = document.createElement('small'); a.className = 'pos-tile-area'; a.textContent = t.area; b.appendChild(a); }
+        return b;
+    }
+
+    function clearNode(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+
+    function renderTablePicker() {
+        $$('[data-p-tables-view]').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.pTablesView === tableView ? 'true' : 'false'); });
+
+        // Area chips: All, each area, and Unassigned when some tables have none.
+        var chips = $('[data-p-tables-areas]');
+        clearNode(chips);
+        var choices = [{ id: 'all', name: 'All' }].concat(areas.map(function (a) { return { id: String(a.id), name: a.name }; }));
+        if (areas.length && tables.some(function (t) { return t.areaId == null; })) choices.push({ id: 'none', name: 'Unassigned' });
+        chips.hidden = !areas.length;
+        choices.forEach(function (c) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'pos-cat';
+            b.dataset.pTablesArea = c.id;
+            b.setAttribute('aria-pressed', tableArea === c.id ? 'true' : 'false');
+            b.textContent = c.name;
+            chips.appendChild(b);
+        });
+
+        var shown = tables.filter(function (t) {
+            return tableArea === 'all' || (tableArea === 'none' ? t.areaId == null : String(t.areaId) === tableArea);
+        });
+        var body = $('[data-p-tables-body]');
+        clearNode(body);
+        if (!shown.length) {
+            var empty = document.createElement('p');
+            empty.className = 'pos-empty';
+            empty.textContent = tables.length ? 'No tables in this area.' : 'No tables are set up yet. A manager adds them on Areas & layout.';
+            body.appendChild(empty);
+            return;
+        }
+
+        if (tableView === 'tiles') {
+            var grid = document.createElement('div');
+            grid.className = 'pos-tiles';
+            shown.forEach(function (t) { grid.appendChild(tableButton(t, false)); });
+            body.appendChild(grid);
+            return;
+        }
+
+        // Plan: one canvas per area, as on the live floor.
+        var groups = areas.map(function (a) { return { id: a.id, name: a.name }; }).concat([{ id: null, name: areas.length ? 'Unassigned' : '' }]);
+        groups.forEach(function (g) {
+            var inGroup = shown.filter(function (t) { return (t.areaId == null ? null : t.areaId) === g.id; });
+            if (!inGroup.length) return;
+            var section = document.createElement('section');
+            section.className = 'pos-plan-area';
+            if (g.name && tableArea === 'all') {
+                var h = document.createElement('h3'); h.textContent = g.name; section.appendChild(h);
+            }
+            var canvas = document.createElement('div');
+            canvas.className = 'floor-canvas pos-plan-canvas';
+            inGroup.forEach(function (t) { canvas.appendChild(tableButton(t, true)); });
+            section.appendChild(canvas);
+            body.appendChild(section);
         });
     }
 
+    function openTablePicker() {
+        renderTablePicker();
+        if (typeof tablesDialog.showModal === 'function') tablesDialog.showModal(); else tablesDialog.setAttribute('open', '');
+        var chosen = tablesDialog.querySelector('.is-chosen') || tablesDialog.querySelector('[data-p-table-id]');
+        if (chosen) chosen.focus();
+    }
+    function closeTablePicker() {
+        if (typeof tablesDialog.close === 'function') tablesDialog.close(); else tablesDialog.removeAttribute('open');
+        $('[data-p-table-pick]').focus();
+    }
+
+    $('[data-p-table-pick]').addEventListener('click', openTablePicker);
+    $('[data-p-tables-close]').addEventListener('click', closeTablePicker);
+    tablesDialog.addEventListener('click', function (e) {
+        if (e.target === tablesDialog) { closeTablePicker(); return; } // the backdrop
+        var view = e.target.closest('[data-p-tables-view]');
+        if (view) {
+            tableView = view.dataset.pTablesView;
+            try { localStorage.setItem(VIEW_KEY, tableView); } catch (err) { /* not fatal */ }
+            renderTablePicker();
+            return;
+        }
+        var area = e.target.closest('[data-p-tables-area]');
+        if (area) { tableArea = area.dataset.pTablesArea; renderTablePicker(); return; }
+        var pick = e.target.closest('[data-p-table-id]');
+        if (pick) {
+            var t = tableById(Number(pick.dataset.pTableId));
+            setTable(t ? t.id : null);
+            if (t && tableState(t) !== 'free') toast('Table ' + t.number + ' has an open bill: this order is added to it.');
+            closeTablePicker();
+        }
+    });
+
     $('[data-p-send]').addEventListener('click', function () {
         var btn = this;
-        var tableId = $('[data-p-table]').value;
-        if (cart.type === 'dinein' && !tableId) { toast('Choose a table, or switch to takeaway.', true); return; }
+        var tableId = cart.tableId;
+        if (cart.type === 'dinein' && !tableId) { toast('Choose a table, or switch to takeaway.', true); openTablePicker(); return; }
         btn.disabled = true;
         var payload = {
             requestId: cart.requestId, type: cart.type, tableId: cart.type === 'dinein' ? Number(tableId) : null,
@@ -253,6 +385,7 @@
                 cart = newCart();
                 $('[data-p-note]').value = '';
                 setType('dinein');
+                setTable(null);
                 bills = json.bills || bills;
                 renderBills();
                 renderCart();
@@ -413,7 +546,7 @@
         cart = newCart();
         if (b && b.tableId) {
             setType('dinein');
-            $('[data-p-table]').value = String(b.tableId);
+            setTable(b.tableId);
         } else {
             setType('takeaway');
         }
@@ -452,6 +585,7 @@
             .then(function (data) {
                 categories = data.categories.filter(function (c) { return c.items.length; });
                 tables = data.tables;
+                areas = data.areas || [];
                 discounts = data.discounts;
                 bills = data.bills;
                 var select = $('[data-p-discount]');
@@ -461,7 +595,7 @@
                     o.textContent = d.name;
                     select.appendChild(o);
                 });
-                renderTables();
+                setTable(null);
                 renderCats();
                 renderGrid();
                 renderCart();

@@ -31,6 +31,12 @@ public static class TableStatusRules
 public static class TableLayoutRules
 {
     public const int MaxSeats = 50;
+    /// <summary>The editor's grid: positions move in steps of 2.5 % (40 across an area).</summary>
+    public const decimal GridStep = 2.5m;
+
+    /// <summary>Where a dragged table lands: on the nearest grid point, inside the area.</summary>
+    public static decimal Snap(decimal position) =>
+        Math.Round(Math.Clamp(position, 0m, 100m) / GridStep, MidpointRounding.AwayFromZero) * GridStep;
 
     public static bool IsValid(TableShape shape, int seats, decimal x, decimal y, int rotation) =>
         Enum.IsDefined(shape)

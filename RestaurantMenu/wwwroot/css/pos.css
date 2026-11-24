@@ -214,3 +214,68 @@ h1, h2 { font-family: var(--font-display); letter-spacing: -.02em; margin: 0; }
 .pos-toast.is-bad { background: var(--danger); color: #fff; }
 
 @media (prefers-reduced-motion: reduce) { .pos-item { transition: none; } }
+
+/* ---------- Table picker: the plan as it stands, or tiles ---------- */
+.pos-table-field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ink-3); min-width: 0; }
+.pos-table-pick {
+    display: flex; align-items: center; gap: 10px;
+    min-height: 48px; padding: 8px 14px; text-align: left;
+    border: 1px dashed var(--line); border-radius: var(--r-sm);
+    background: var(--surface-2); color: var(--ink-2);
+    font: 600 15px var(--font-body); cursor: pointer;
+}
+.pos-table-pick i { font-size: 20px; }
+.pos-table-pick span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pos-table-pick.is-set { border-style: solid; border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
+.pos-table-pick:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.pos-dialog.pos-tables { width: min(1100px, calc(100% - 24px)); max-height: calc(100dvh - 24px); padding: 0; display: none; overflow: hidden; }
+.pos-dialog.pos-tables[open] { display: flex; flex-direction: column; }
+.pos-tables-head { display: flex; align-items: center; gap: 12px; padding: 16px 20px 8px; }
+.pos-tables-head h2 { margin: 0 auto 0 0; font: 650 20px var(--font-display); }
+.pos-seg { display: inline-grid; grid-auto-flow: column; gap: 4px; padding: 4px; border-radius: var(--r-pill); background: var(--bg-2); }
+.pos-seg button {
+    display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px;
+    border: 0; border-radius: var(--r-pill); background: none; color: var(--ink-2);
+    font: 600 14px var(--font-body); cursor: pointer;
+}
+.pos-seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
+.pos-icon-btn {
+    display: inline-grid; place-items: center; width: 44px; height: 44px;
+    border: 1px solid var(--line); border-radius: 50%; background: var(--surface); color: var(--ink);
+    font-size: 20px; cursor: pointer;
+}
+.pos-tables-areas { display: flex; gap: 8px; overflow-x: auto; padding: 4px 20px; }
+.pos-tables-areas .pos-cat[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.pos-tables-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 6px 20px 10px; font-size: 13px; color: var(--ink-2); }
+.pos-tables-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.pos-tables-body { overflow-y: auto; padding: 0 0 16px; border-top: 1px solid var(--line-2); }
+
+.pos-plan-area h3 { margin: 14px 20px 6px; font-size: 14px; font-weight: 650; color: var(--ink-2); }
+.pos-plan-canvas { margin: 0 20px 4px; }
+.pos-plan-table { border: 0; background: transparent; font: inherit; cursor: pointer; }
+.pos-plan-table:hover::before { box-shadow: var(--shadow-md, var(--shadow-sm)); }
+.pos-plan-table:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; border-radius: 14px; }
+.pos-plan-table.is-chosen::before, .pos-tile.is-chosen { outline: 3px solid var(--ink); outline-offset: 3px; }
+
+.pos-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 12px; padding: 16px 20px 0; }
+.pos-tile {
+    --table-ink: var(--ok); --table-bg: var(--ok-soft);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    min-height: 112px; padding: 10px;
+    border: 2px solid var(--table-ink); border-radius: var(--r-md);
+    background: var(--table-bg); color: var(--ink); font: inherit; cursor: pointer; text-align: center;
+}
+.pos-tile--occupied { --table-ink: var(--accent); --table-bg: var(--accent-soft); }
+.pos-tile--billrequested { --table-ink: var(--danger); --table-bg: var(--danger-soft); }
+.pos-tile strong { font: 700 28px/1 var(--font-display); }
+.pos-tile span { font-size: 13px; color: var(--ink-2); }
+.pos-tile small { font-size: 12.5px; font-weight: 650; color: var(--table-ink); }
+.pos-tile .pos-tile-area { color: var(--ink-3); font-weight: 500; }
+.pos-tile:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+
+@media (max-width: 767.98px) {
+    .pos-tables-head { flex-wrap: wrap; }
+    .pos-tables-head h2 { flex-basis: 100%; }
+    .pos-plan-canvas { margin: 0 12px; }
+}

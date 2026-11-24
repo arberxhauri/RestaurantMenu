@@ -60,6 +60,47 @@ public static class StationRules
         return active.Any(t => t != TicketStatus.New) ? OrderStatus.Preparing : OrderStatus.New;
     }
 
+    /// <summary>
+    /// A station's ticket from its dishes, which the screen moves one by one: preparing once any dish has
+    /// started, ready when every dish is done (served when every one is served), cancelled only when every
+    /// dish is. Null without dishes.
+    /// </summary>
+    public static TicketStatus? TicketStatusFor(IEnumerable<TicketStatus> items)
+    {
+        var all = items.ToList();
+        if (all.Count == 0) return null;
+        var active = all.Where(t => t != TicketStatus.Cancelled).ToList();
+        if (active.Count == 0) return TicketStatus.Cancelled;
+        if (active.All(t => t == TicketStatus.Served)) return TicketStatus.Served;
+        if (active.All(t => t is TicketStatus.Ready or TicketStatus.Served)) return TicketStatus.Ready;
+        return active.Any(t => t != TicketStatus.New) ? TicketStatus.Preparing : TicketStatus.New;
+    }
+
+    public const int MaxItemsPerMove = 200;
+
+    /// <summary>
+    /// The dishes a screen moves, from "12,13": empty for none (the whole card), null for anything that
+    /// isn't a short list of ids.
+    /// </summary>
+    public static IReadOnlyList<int>? ParseItemIds(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return Array.Empty<int>();
+        var parts = value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length > MaxItemsPerMove) return null;
+        var ids = new List<int>(parts.Length);
+        foreach (var part in parts)
+        {
+            if (!int.TryParse(part, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var id) || id <= 0)
+                return null;
+            ids.Add(id);
+        }
+        return ids.Distinct().ToList();
+    }
+
+    /// <summary>The states shown in a screen column: "Done" (Ready) also holds what a waiter already served.</summary>
+    public static TicketStatus[] StatesIn(TicketStatus column) =>
+        column == TicketStatus.Ready ? new[] { TicketStatus.Ready, TicketStatus.Served } : new[] { column };
+
     public static bool AllReady(IEnumerable<TicketStatus> statuses)
     {
         var list = statuses.ToList();

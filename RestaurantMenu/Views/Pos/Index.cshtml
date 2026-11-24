@@ -13,6 +13,7 @@
     <title>POS - @Model.Name</title>
     <link rel="icon" href="~/favicon.ico" />
     <partial name="_HeadAssets" />
+    <link rel="stylesheet" href="~/css/floor.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/pos.css" asp-append-version="true" />
 </head>
 <body class="pos-page"
@@ -73,7 +74,12 @@
                     <button type="button" data-p-type="takeaway" aria-pressed="false"><i class="ph ph-bag" aria-hidden="true"></i>Takeaway</button>
                 </div>
                 <div class="pos-fields" data-p-dinein>
-                    <label><span>Table</span><select data-p-table><option value="">Choose…</option></select></label>
+                    <div class="pos-table-field">
+                        <span id="table-label">Table</span>
+                        <button type="button" class="pos-table-pick" data-p-table-pick aria-labelledby="table-label table-choice" aria-haspopup="dialog">
+                            <i class="ph ph-armchair" aria-hidden="true"></i><span id="table-choice" data-p-table-choice>Choose a table</span>
+                        </button>
+                    </div>
                     <label><span>Guests</span><input type="number" min="0" max="99" value="2" inputmode="numeric" data-p-guests /></label>
                 </div>
                 <ul class="pos-lines" data-p-lines></ul>
@@ -117,6 +123,25 @@
             </div>
         </section>
     </main>
+
+    @* The table for a dine-in order: the floor plan as it stands, or big tiles. *@
+    <dialog class="pos-dialog pos-tables" data-p-tables aria-labelledby="tables-title">
+        <div class="pos-tables-head">
+            <h2 id="tables-title">Choose a table</h2>
+            <div class="pos-seg" role="group" aria-label="Show tables as">
+                <button type="button" data-p-tables-view="plan" aria-pressed="true"><i class="ph ph-grid-four" aria-hidden="true"></i>Plan</button>
+                <button type="button" data-p-tables-view="tiles" aria-pressed="false"><i class="ph ph-squares-four" aria-hidden="true"></i>Tiles</button>
+            </div>
+            <button type="button" class="pos-icon-btn" data-p-tables-close aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+        </div>
+        <div class="pos-cats pos-tables-areas" role="group" aria-label="Areas" data-p-tables-areas></div>
+        <div class="pos-tables-legend">
+            <span><span class="floor-dot floor-dot--free"></span>Free</span>
+            <span><span class="floor-dot floor-dot--occupied"></span>Open bill</span>
+            <span><span class="floor-dot floor-dot--billrequested"></span>Bill requested</span>
+        </div>
+        <div class="pos-tables-body" data-p-tables-body></div>
+    </dialog>
 
     @* Sizes and add-ons of a dish. *@
     <dialog class="pos-dialog" data-p-options aria-labelledby="options-title">

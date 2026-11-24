@@ -146,7 +146,21 @@
 .k-age.is-late { color: var(--danger); background: var(--danger-soft); padding: 4px 10px; border-radius: var(--r-pill); }
 
 .k-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.k-items li { display: flex; gap: 10px; align-items: baseline; font-size: 19px; line-height: 1.3; }
+.k-items li { display: flex; gap: 10px; align-items: center; font-size: 19px; line-height: 1.3; }
+/* A dish of a card with several: its own move button, and it can be dragged to another column. */
+.k-item[data-drag] { padding: 4px 6px; margin: 0 -6px; border-radius: var(--r-sm, 8px); cursor: grab; }
+.k-item[data-drag]:hover { background: var(--surface-2); }
+.k-item-btn {
+    margin-left: auto; flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 48px; height: 48px;
+    border-radius: var(--r-md); border: 1px solid var(--line);
+    background: var(--surface); color: var(--ink);
+    font-size: 22px; cursor: pointer;
+}
+.k-item-btn:hover { background: var(--surface-2); }
+.k-item-btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.k-part { color: var(--ink-2); font-size: 13px; font-weight: 600; }
 .k-qty { font: 800 19px/1.3 var(--font-mono); min-width: 2.4em; }
 .k-dish { font-weight: 600; overflow-wrap: anywhere; }
 .k-dish small { display: block; font-weight: 500; font-size: 15px; color: var(--ink-2); }
@@ -235,3 +249,18 @@
 .k-plan:empty { display: none; }
 .k-plan { padding: 12px 16px 0; }
 .k-plan .flash { margin: 0; }
+
+/* ---------- Drag and drop (drag.js) ---------- */
+.k-card[data-drag] .k-card-head { cursor: grab; }
+.k-card, .k-item { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.k-card.is-dragging, .k-item.is-dragging { opacity: .35; }
+.k-col.is-drop-target { outline: 3px dashed var(--accent); outline-offset: -6px; background: var(--accent-soft); }
+.k-tabs button.is-drop-target { background: var(--accent-soft); outline: 2px dashed var(--accent); }
+.drag-ghost {
+    position: fixed; left: 0; top: 0; z-index: 1000;
+    margin: 0; pointer-events: none;
+    box-shadow: var(--shadow-lg, 0 12px 32px rgba(0, 0, 0, .25));
+    background: var(--surface); border-radius: var(--r-md);
+    opacity: .95; list-style: none;
+}
+@media (prefers-reduced-motion: no-preference) { .drag-ghost { transition: box-shadow .15s; } }

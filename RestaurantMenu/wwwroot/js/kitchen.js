@@ -64,22 +64,47 @@
     }
 
     /* ---------- Rendering ---------- */
-    function column(o) {
-        return o.status === 'new' ? 'new' : o.status === 'preparing' ? 'preparing' : 'done';
-    }
+    // An order shows as one card per column it has dishes in: dishes move one by one (by button or by
+    // dragging), a card moves all of its dishes. Orders from before stations move only as a whole.
+    var COLUMN_STATUS = { 'new': 'new', 'preparing': 'preparing', 'done': 'served' };
+    function columnOf(status) { return status === 'new' ? 'new' : status === 'preparing' ? 'preparing' : 'done'; }
 
-    // Buttons per status: [label, icon, target status, style]
+    // Buttons per card status: [label, icon, target status, style]
     var ACTIONS = {
         'new': [['Start', 'ph-cooking-pot', 'preparing', 'primary'], ['Served', 'ph-check', 'served', 'line']],
         'preparing': [['Served', 'ph-check', 'served', 'primary'], ['Back to new', 'ph-arrow-u-up-left', 'new', 'line']],
         'served': [['Undo', 'ph-arrow-u-up-left', 'preparing', 'line']],
         'cancelled': [['Restore', 'ph-arrow-u-up-left', 'new', 'line']]
     };
+    // The one-tap move for a single dish: [label, icon, target status]
+    var ITEM_NEXT = {
+        'new': ['Start', 'ph-cooking-pot', 'preparing'],
+        'preparing': ['Served', 'ph-check', 'served'],
+        'served': ['Undo', 'ph-arrow-u-up-left', 'preparing']
+    };
 
-    function card(o) {
-        var c = el('article', 'k-card k-card--' + o.status);
+    /** The cards of one order: {order, col, status, items}. */
+    function cardsOf(o) {
+        if (!o.byItem) return [{ order: o, col: columnOf(o.status), status: o.status, items: o.items }];
+        var byCol = {};
+        o.items.forEach(function (i) {
+            var col = columnOf(i.status);
+            (byCol[col] = byCol[col] || []).push(i);
+        });
+        return Object.keys(byCol).map(function (col) {
+            var items = byCol[col];
+            return { order: o, col: col, status: col === 'done' ? items[0].status : col, items: items };
+        });
+    }
+
+    function card(k) {
+        var o = k.order;
+        var c = el('article', 'k-card k-card--' + k.status);
         c.dataset.id = o.id;
+        c.dataset.status = k.status;
+        c.dataset.drag = 'card';
         if (fresh[o.id]) c.classList.add('is-fresh');
+        var partial = o.byItem && k.items.length < o.items.length;
 
         var head = el('header', 'k-card-head');
         var table = el('span', 'k-table');
@@ -89,30 +114,47 @@
         var meta = el('div', 'k-meta');
         if (o.tableName) meta.appendChild(el('span', 'k-area', o.tableName));
         meta.appendChild(el('span', 'k-num', '#' + o.number + ' · ' + clock(o.created)));
+        if (partial) meta.appendChild(el('span', 'k-part', k.items.length + ' of ' + o.items.length + ' dishes'));
         head.appendChild(meta);
 
         var age = el('span', 'k-age');
-        var since = o.status === 'new' || o.status === 'preparing' ? o.created : o.updated;
+        var open = k.status === 'new' || k.status === 'preparing';
         var mins = minutesSince(o.created);
-        var late = (o.status === 'new' && mins >= LATE_NEW) || (o.status === 'preparing' && mins >= LATE_PREPARING);
+        var late = (k.status === 'new' && mins >= LATE_NEW) || (k.status === 'preparing' && mins >= LATE_PREPARING);
         if (late) { age.classList.add('is-late'); age.appendChild(icon('ph-warning')); age.appendChild(document.createTextNode(' Late · ')); }
-        age.appendChild(document.createTextNode(o.status === 'served' ? 'Served ' + ago(since) + (ago(since) === 'just now' ? '' : ' ago')
-            : o.status === 'cancelled' ? 'Cancelled' : ago(since)));
+        var since = open ? o.created : o.updated;
+        age.appendChild(document.createTextNode(k.status === 'served' ? 'Served ' + ago(since) + (ago(since) === 'just now' ? '' : ' ago')
+            : k.status === 'cancelled' ? 'Cancelled' : ago(since)));
         head.appendChild(age);
         c.appendChild(head);
 
         var list = el('ul', 'k-items');
-        o.items.forEach(function (i) {
-            var li = el('li');
+        // One-dish buttons only where they add something: a card with several dishes.
+        var perItem = o.byItem && k.status !== 'cancelled' && k.items.length > 1;
+        k.items.forEach(function (i) {
+            var li = el('li', 'k-item');
+            li.dataset.item = i.id;
+            if (o.byItem && k.status !== 'cancelled') li.dataset.drag = 'item';
             li.appendChild(el('span', 'k-qty', i.qty + '×'));
             var name = el('span', 'k-dish', i.name);
             if (i.options) name.appendChild(el('small', null, i.options));
             li.appendChild(name);
+            var next = perItem ? ITEM_NEXT[i.status] : null;
+            if (next) {
+                var b = el('button', 'k-item-btn');
+                b.type = 'button';
+                b.dataset.to = next[2];
+                b.dataset.item = i.id;
+                b.title = next[0];
+                b.setAttribute('aria-label', next[0] + ': ' + i.qty + ' × ' + i.name + ', table ' + o.table);
+                b.appendChild(icon(next[1]));
+                li.appendChild(b);
+            }
             list.appendChild(li);
         });
         c.appendChild(list);
 
-        if (o.note) {
+        if (o.note && (k.col !== 'done' || !partial)) {
             var note = el('p', 'k-note');
             note.appendChild(icon('ph-note-pencil'));
             note.appendChild(el('span', null, o.note));
@@ -120,18 +162,18 @@
         }
 
         var foot = el('footer', 'k-card-foot');
-        foot.appendChild(el('span', 'k-total', CURRENCY + money.format(o.total)));
+        foot.appendChild(el('span', 'k-total', partial ? '' : CURRENCY + money.format(o.total)));
         var actions = el('div', 'k-actions');
-        (ACTIONS[o.status] || []).forEach(function (a) {
+        (ACTIONS[k.status] || []).forEach(function (a) {
             var b = el('button', 'k-btn k-btn--' + a[3]);
             b.type = 'button';
             b.dataset.to = a[2];
             b.appendChild(icon(a[1]));
             b.appendChild(document.createTextNode(a[0]));
-            b.setAttribute('aria-label', a[0] + ': table ' + o.table + ', order ' + o.number);
+            b.setAttribute('aria-label', a[0] + ': table ' + o.table + ', order ' + o.number + (partial ? ', ' + k.items.length + ' dishes' : ''));
             actions.appendChild(b);
         });
-        if (o.status === 'new' || o.status === 'preparing') {
+        if (open) {
             var x = el('button', 'k-btn k-btn--icon');
             x.type = 'button';
             x.dataset.to = 'cancelled';
@@ -147,17 +189,19 @@
 
     function render() {
         var cols = { 'new': [], 'preparing': [], 'done': [] };
-        Object.keys(orders).forEach(function (id) { var o = orders[id]; cols[column(o)].push(o); });
-        // Open orders oldest first (cook in order); done ones newest first.
-        cols['new'].sort(function (a, b) { return a.created < b.created ? -1 : 1; });
-        cols.preparing.sort(function (a, b) { return a.created < b.created ? -1 : 1; });
-        cols.done.sort(function (a, b) { return a.updated > b.updated ? -1 : 1; });
+        Object.keys(orders).forEach(function (id) {
+            cardsOf(orders[id]).forEach(function (k) { cols[k.col].push(k); });
+        });
+        // Open cards oldest order first (cook in order); done ones newest first.
+        cols['new'].sort(function (a, b) { return a.order.created < b.order.created ? -1 : 1; });
+        cols.preparing.sort(function (a, b) { return a.order.created < b.order.created ? -1 : 1; });
+        cols.done.sort(function (a, b) { return a.order.updated > b.order.updated ? -1 : 1; });
         cols.done = cols.done.slice(0, 30);
 
         Object.keys(cols).forEach(function (k) {
             var list = $('[data-list="' + k + '"]');
             list.textContent = '';
-            cols[k].forEach(function (o) { list.appendChild(card(o)); });
+            cols[k].forEach(function (c) { list.appendChild(card(c)); });
             $('[data-empty="' + k + '"]').hidden = cols[k].length > 0;
             document.querySelectorAll('[data-count="' + k + '"]').forEach(function (n) { n.textContent = cols[k].length; });
         });
@@ -216,25 +260,25 @@
         });
     }
 
-    /* ---------- Buttons on cards ---------- */
-    document.querySelector('.k-board').addEventListener('click', function (e) {
-        var b = e.target.closest('button[data-to]');
-        if (!b) return;
-        var c = b.closest('.k-card');
-        var o = orders[c.dataset.id];
-        if (!o) return;
-        var to = b.dataset.to;
+    /* ---------- Moving dishes and cards: buttons and drag and drop ---------- */
+    /**
+     * Moves dishes of an order from one status to another: the dishes in itemIds, or the whole card
+     * (every dish of this station in that column) when itemIds is empty.
+     */
+    function move(o, from, to, itemIds, cardEl) {
         if (to === 'cancelled' && !window.confirm('Cancel order #' + o.number + ' for table ' + o.table + '?')) return;
-        c.querySelectorAll('button').forEach(function (x) { x.disabled = true; });
-        c.classList.add('is-busy');
-        post(STATUS_URL + o.id + '/status', { from: o.status, to: to, station: STATION })
+        if (cardEl) {
+            cardEl.querySelectorAll('button').forEach(function (x) { x.disabled = true; });
+            cardEl.classList.add('is-busy');
+        }
+        post(STATUS_URL + o.id + '/status', { from: from, to: to, station: STATION, items: (itemIds || []).join(',') })
             .then(function (r) {
                 if (r.status === 404) { delete orders[o.id]; render(); return; }
                 if (!r.ok && r.status !== 409) throw new Error('HTTP ' + r.status);
                 return r.json().then(function (data) {
                     // 409 without an order: refused by the plan (read-only account, paused branch).
                     if (r.status === 409 && !data.order) { toast(data.message || "This can't be changed right now."); render(); return; }
-                    if (r.status === 409) toast('Another screen already moved order #' + data.order.number + '.');
+                    if (r.status === 409) toast('Another screen already moved part of order #' + data.order.number + '.');
                     delete fresh[data.order.id];
                     orders[data.order.id] = data.order;
                     render();
@@ -244,7 +288,49 @@
                 toast("Couldn't save. Check the connection and try again.");
                 render();
             });
+    }
+
+    var board = document.querySelector('.k-board');
+    // After a tap moves something the cards re-flow, and a quick second tap would land on a different
+    // dish's button: ignore taps on the board for a moment.
+    var SETTLE_MS = 600;
+    var settleUntil = 0;
+    board.addEventListener('click', function (e) {
+        var b = e.target.closest('button[data-to]');
+        if (!b) return;
+        if (Date.now() < settleUntil) return;
+        settleUntil = Date.now() + SETTLE_MS;
+        var c = b.closest('.k-card');
+        var o = orders[c.dataset.id];
+        if (!o) return;
+        var item = b.dataset.item ? o.items.filter(function (i) { return String(i.id) === b.dataset.item; })[0] : null;
+        if (item) move(o, item.status, b.dataset.to, [item.id], c);
+        else move(o, c.dataset.status, b.dataset.to, [], c);
     });
+
+    if (window.MqmDrag) {
+        MqmDrag.attach(board, {
+            handle: '[data-drag]',
+            zones: '[data-drop]',
+            start: function (el) {
+                var c = el.closest('.k-card');
+                return !(c && (c.dataset.status === 'cancelled' || c.classList.contains('is-busy')));
+            },
+            drop: function (el, zone) {
+                if (!zone) return;
+                var c = el.closest('.k-card');
+                var o = orders[c.dataset.id];
+                var to = COLUMN_STATUS[zone.dataset.drop];
+                if (!o || !to) return;
+                if (el.dataset.drag === 'item') {
+                    var item = o.items.filter(function (i) { return String(i.id) === el.dataset.item; })[0];
+                    if (item && columnOf(item.status) !== zone.dataset.drop) move(o, item.status, to, [item.id], c);
+                    return;
+                }
+                if (columnOf(c.dataset.status) !== zone.dataset.drop) move(o, c.dataset.status, to, [], c);
+            }
+        });
+    }
 
     /* ---------- Pause ---------- */
     var pauseBtn = $('[data-pause]');

@@ -239,11 +239,14 @@ public class TablesController : Controller
 
     [HttpPost("{tableId:int}/layout")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Layout(int id, int tableId, int? areaId, TableShape shape, int seats, decimal x, decimal y, int rotation)
+    public async Task<IActionResult> Layout(int id, int tableId, int? areaId, TableShape shape, int seats, decimal? x, decimal? y, int rotation)
     {
         var table = await TableAsync(id, tableId);
         if (table == null) return NotFound();
-        if (!TableLayoutRules.IsValid(shape, seats, x, y, rotation))
+        // The plan above the list places tables by dragging; this form only changes them.
+        x ??= table.X;
+        y ??= table.Y;
+        if (!TableLayoutRules.IsValid(shape, seats, x.Value, y.Value, rotation))
         {
             TempData["Error"] = "Use 1–50 seats, a position from 0–100, and a valid rotation.";
             return Back(id);
@@ -252,12 +255,32 @@ public class TablesController : Controller
         table.AreaId = areaId;
         table.Shape = shape;
         table.Seats = seats;
-        table.X = x;
-        table.Y = y;
+        table.X = x.Value;
+        table.Y = y.Value;
         table.Rotation = rotation;
         await _context.SaveChangesAsync();
         TempData["Success"] = $"Table {table.Number}'s layout saved.";
         return Back(id);
+    }
+
+    /// <summary>
+    /// A table dragged on the plan (floor-editor.js): its new spot, snapped to the grid, and its area
+    /// (<paramref name="areaId"/> empty for Unassigned). Answers with where it was saved.
+    /// </summary>
+    [HttpPost("{tableId:int}/position")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Position(int id, int tableId, decimal x, decimal y, int? areaId)
+    {
+        var table = await TableAsync(id, tableId);
+        if (table == null) return NotFound();
+        if (areaId != null && !await _context.TableAreas.AnyAsync(a => a.Id == areaId && a.BranchId == id))
+            return BadRequest(new { message = "That area no longer exists. Reload the page." });
+
+        table.X = TableLayoutRules.Snap(x);
+        table.Y = TableLayoutRules.Snap(y);
+        table.AreaId = areaId;
+        await _context.SaveChangesAsync();
+        return Ok(new { x = table.X, y = table.Y, areaId = table.AreaId });
     }
 
     [HttpPost("floor/reservations/{reservationId:int}/seat")]
