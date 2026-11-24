@@ -14,6 +14,8 @@
     var BRANCH = Number(body.dataset.branch);
     var CURRENCY = body.dataset.currency || '';
     var TITLE = body.dataset.title || document.title;
+    // Which station this screen is (kitchen or bar): it sees and moves only that station's part of each order.
+    var STATION = body.dataset.station || 'kitchen';
     var TOKEN = (document.querySelector('input[name="__RequestVerificationToken"]') || {}).value || '';
 
     var LATE_NEW = 5, LATE_PREPARING = 20; // minutes before a card is flagged
@@ -220,7 +222,7 @@
         if (to === 'cancelled' && !window.confirm('Cancel order #' + o.number + ' for table ' + o.table + '?')) return;
         c.querySelectorAll('button').forEach(function (x) { x.disabled = true; });
         c.classList.add('is-busy');
-        post(STATUS_URL + o.id + '/status', { from: o.status, to: to })
+        post(STATUS_URL + o.id + '/status', { from: o.status, to: to, station: STATION })
             .then(function (r) {
                 if (r.status === 404) { delete orders[o.id]; render(); return; }
                 if (!r.ok && r.status !== 409) throw new Error('HTTP ' + r.status);
@@ -354,7 +356,7 @@
         });
     }
     function join() {
-        return connection.invoke('Join', BRANCH).then(function (ok) {
+        return connection.invoke('Join', BRANCH, STATION).then(function (ok) {
             if (!ok) { setDenied(); return; }
             setConn('live', 'Live');
             return load();

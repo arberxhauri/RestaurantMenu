@@ -4,6 +4,10 @@
     Layout = null;
     var canManage = ViewBag.CanManage == true;
     var tableCount = (int)ViewBag.TableCount;
+    // The same screen serves each station (docs/PLAN-backoffice.md phase 5): it shows only that station's items.
+    var station = ViewBag.Station is ServiceStation s ? s : ServiceStation.Kitchen;
+    var stationId = station == ServiceStation.Bar ? "bar" : "kitchen";
+    var stationName = station == ServiceStation.Bar ? "Bar" : "Kitchen";
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -12,7 +16,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex" />
     <meta name="theme-color" content="#16181A" />
-    <title>Kitchen - @Model.Name</title>
+    <title>@stationName - @Model.Name</title>
     <link rel="icon" href="~/favicon.ico" />
     <partial name="_HeadAssets" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
@@ -20,12 +24,13 @@
 </head>
 <body class="kitchen-page"
       data-branch="@Model.Id"
-      data-orders-url="@Url.Action("Orders", "Kitchen", new { id = Model.Id })"
+      data-station="@stationId"
+      data-orders-url="@Url.Action("Orders", "Kitchen", new { id = Model.Id, station = stationId })"
       data-status-url="@Url.Content($"~/kitchen/{Model.Id}/orders/")"
       data-pause-url="@Url.Action("Pause", "Kitchen", new { id = Model.Id })"
       data-hub-url="@Url.Content("~/hubs/kitchen")"
       data-currency="@ViewBag.Currency"
-      data-title="Kitchen · @Model.Name">
+      data-title="@stationName · @Model.Name">
     @Html.AntiForgeryToken()
 
     <header class="k-bar">
@@ -33,7 +38,7 @@
             <i class="ph ph-arrow-left" aria-hidden="true"></i>
         </a>
         <div class="k-title">
-            <h1>Kitchen</h1>
+            <h1>@stationName</h1>
             <span>@Model.Name</span>
         </div>
         <span class="k-conn" data-conn="connecting" role="status" aria-live="polite">

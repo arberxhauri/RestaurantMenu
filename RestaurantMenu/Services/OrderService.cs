@@ -16,6 +16,20 @@ public record KitchenOrder(int Id, int Number, int Table, string? TableName, str
         o.Items.OrderBy(i => i.Id).Select(i => new KitchenOrderItem(i.Quantity, i.Name, i.Options)).ToList());
 
     public static string StatusId(OrderStatus s) => s.ToString().ToLowerInvariant();
+
+    /// <summary>
+    /// An order as one station's screen shows it: only that station's items, and that station's ticket
+    /// as the status. Orders from before stations (no tickets) show whole, with the order's own status.
+    /// </summary>
+    public static KitchenOrder ForStation(Order o, ServiceStation station)
+    {
+        var ticket = o.Tickets.FirstOrDefault(t => t.Station == station);
+        if (ticket == null) return From(o);
+        return new(o.Id, o.Number, o.TableNumber, o.TableName, StationRules.ToScreen(ticket.Status),
+            DateTime.SpecifyKind(o.CreatedUtc, DateTimeKind.Utc), DateTime.SpecifyKind(o.UpdatedUtc, DateTimeKind.Utc), o.Note, o.Total,
+            o.Items.Where(i => i.Station == station).OrderBy(i => i.Id)
+                .Select(i => new KitchenOrderItem(i.Quantity, i.Name, i.Options)).ToList());
+    }
 }
 
 public record KitchenOrderItem(int Qty, string Name, string? Options);
@@ -189,18 +203,79 @@ public class OrderService
             OrderText.Status(o.Status, lang ?? o.Language), o.Total, o.Count)).ToList();
     }
 
-    /// <summary>Open orders plus the last few hours' finished ones, oldest first.</summary>
-    public async Task<List<KitchenOrder>> KitchenOrdersAsync(int branchId, DateTime utcNow)
+    /// <summary>
+    /// One station's open orders plus the last few hours' finished ones, oldest first. The kitchen also
+    /// gets orders from before stations (no tickets), by the order's own status.
+    /// </summary>
+    public async Task<List<KitchenOrder>> KitchenOrdersAsync(int branchId, ServiceStation station, DateTime utcNow)
     {
         var recent = utcNow.AddHours(-3);
-        var open = await _db.Orders.AsNoTracking().Include(o => o.Items)
-            .Where(o => o.BranchId == branchId && (o.Status == OrderStatus.New || o.Status == OrderStatus.Preparing))
+        var legacy = station == ServiceStation.Kitchen;
+        var open = await _db.Orders.AsNoTracking().Include(o => o.Items).Include(o => o.Tickets).AsSplitQuery()
+            .Where(o => o.BranchId == branchId && (
+                o.Tickets.Any(t => t.Station == station && (t.Status == TicketStatus.New || t.Status == TicketStatus.Preparing))
+                || (legacy && !o.Tickets.Any() && (o.Status == OrderStatus.New || o.Status == OrderStatus.Preparing))))
             .OrderBy(o => o.CreatedUtc).Take(200).ToListAsync();
-        var done = await _db.Orders.AsNoTracking().Include(o => o.Items)
-            .Where(o => o.BranchId == branchId && (o.Status == OrderStatus.Served || o.Status == OrderStatus.Cancelled) && o.UpdatedUtc > recent)
+        var done = await _db.Orders.AsNoTracking().Include(o => o.Items).Include(o => o.Tickets).AsSplitQuery()
+            .Where(o => o.BranchId == branchId && o.UpdatedUtc > recent && (
+                o.Tickets.Any(t => t.Station == station && (t.Status == TicketStatus.Ready || t.Status == TicketStatus.Served || t.Status == TicketStatus.Cancelled))
+                || (legacy && !o.Tickets.Any() && (o.Status == OrderStatus.Served || o.Status == OrderStatus.Cancelled))))
             .OrderByDescending(o => o.UpdatedUtc).Take(30).ToListAsync();
-        return open.Concat(done).Select(KitchenOrder.From).ToList();
+        return open.Concat(done).Select(o => KitchenOrder.ForStation(o, station)).ToList();
     }
+
+    /// <summary>
+    /// Moves one station's ticket of an order, atomically like <see cref="SetStatusAsync"/>: a second screen
+    /// tapping at once gets the order as it now is and <c>Conflict = true</c>. The order's own status then
+    /// follows all its tickets (<see cref="StationRules.OrderStatusFor"/>). Orders without tickets (from
+    /// before stations) are moved as a whole, from the kitchen only. Null when it isn't this branch's.
+    /// </summary>
+    public async Task<(KitchenOrder? Order, bool Conflict)> SetStationStatusAsync(int branchId, int orderId, ServiceStation station,
+        TicketStatus from, TicketStatus to, DateTime utcNow)
+    {
+        var hasTickets = await _db.OrderTickets.AnyAsync(t => t.OrderId == orderId && t.Order!.BranchId == branchId);
+        if (!hasTickets)
+        {
+            if (station != ServiceStation.Kitchen) return (null, false);
+            return await SetStatusAsync(branchId, orderId, AsOrderStatus(from), AsOrderStatus(to), utcNow);
+        }
+
+        // "Done" on the screen is Ready or Served (a waiter may already have served it).
+        var fromStates = from == TicketStatus.Ready ? new[] { TicketStatus.Ready, TicketStatus.Served } : new[] { from };
+        var ticket = _db.OrderTickets.Where(t => t.OrderId == orderId && t.Order!.BranchId == branchId
+            && t.Station == station && fromStates.Contains(t.Status));
+        var changed = from != to && (to switch
+        {
+            TicketStatus.Ready => await ticket.ExecuteUpdateAsync(s => s.SetProperty(t => t.Status, to).SetProperty(t => t.ReadyUtc, utcNow)),
+            TicketStatus.Preparing => await ticket.ExecuteUpdateAsync(s => s.SetProperty(t => t.Status, to)
+                .SetProperty(t => t.StartedUtc, t => (DateTime?)(t.StartedUtc ?? utcNow)).SetProperty(t => t.ReadyUtc, (DateTime?)null)),
+            _ => await ticket.ExecuteUpdateAsync(s => s.SetProperty(t => t.Status, to).SetProperty(t => t.ReadyUtc, (DateTime?)null))
+        }) == 1;
+
+        var order = await _db.Orders.AsNoTracking().Include(o => o.Items).Include(o => o.Tickets).AsSplitQuery()
+            .FirstOrDefaultAsync(o => o.Id == orderId && o.BranchId == branchId);
+        if (order == null) return (null, false);
+        if (!changed) return (KitchenOrder.ForStation(order, station), true);
+
+        var was = order.Status;
+        var now = StationRules.OrderStatusFor(order.Tickets.Select(t => t.Status)) ?? was;
+        await _db.Orders.Where(o => o.Id == orderId)
+            .ExecuteUpdateAsync(s => s.SetProperty(o => o.Status, now).SetProperty(o => o.UpdatedUtc, utcNow));
+        order.Status = now;
+        order.UpdatedUtc = utcNow;
+        // Cancelling the whole order gives the ingredients back; bringing it back uses them again.
+        if ((was == OrderStatus.Cancelled) != (now == OrderStatus.Cancelled)) await _stock.SyncOrderAsync(orderId, utcNow);
+        await NotifyAsync(order);
+        return (KitchenOrder.ForStation(order, station), false);
+    }
+
+    private static OrderStatus AsOrderStatus(TicketStatus status) => status switch
+    {
+        TicketStatus.New => OrderStatus.New,
+        TicketStatus.Preparing => OrderStatus.Preparing,
+        TicketStatus.Cancelled => OrderStatus.Cancelled,
+        _ => OrderStatus.Served
+    };
 
     /// <summary>
     /// Moves an order from <paramref name="from"/> to <paramref name="to"/> in one atomic
@@ -213,7 +288,8 @@ public class OrderService
             .Where(o => o.Id == orderId && o.BranchId == branchId && o.Status == from)
             .ExecuteUpdateAsync(s => s.SetProperty(o => o.Status, to).SetProperty(o => o.UpdatedUtc, utcNow)) == 1;
 
-        var order = await _db.Orders.AsNoTracking().Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == orderId && o.BranchId == branchId);
+        var order = await _db.Orders.AsNoTracking().Include(o => o.Items).Include(o => o.Tickets).AsSplitQuery()
+            .FirstOrDefaultAsync(o => o.Id == orderId && o.BranchId == branchId);
         if (order == null) return (null, false);
         if (changed) await NotifyAsync(order);
         // Cancelling gives the ingredients back; restoring uses them again.
@@ -226,7 +302,9 @@ public class OrderService
         await _db.Branches.Where(b => b.Id == branchId).ExecuteUpdateAsync(s => s.SetProperty(b => b.OrdersPaused, paused));
         try
         {
-            await _hub.Clients.Group(KitchenHub.Group(branchId)).SendAsync("paused", paused);
+            // Every station screen shows whether new orders are paused.
+            await _hub.Clients.Groups(KitchenHub.Group(branchId, ServiceStation.Kitchen), KitchenHub.Group(branchId, ServiceStation.Bar))
+                .SendAsync("paused", paused);
         }
         catch (Exception ex)
         {
@@ -235,12 +313,17 @@ public class OrderService
     }
 
     // Pushing is best effort: an order is saved whether or not a screen is listening, and
-    // kitchen displays reload the full list whenever they reconnect.
+    // kitchen displays reload the full list whenever they reconnect. Each station's screen gets its
+    // own view of the order (its items, its ticket's status).
     private async Task NotifyAsync(Order order)
     {
         try
         {
-            await _hub.Clients.Group(KitchenHub.Group(order.BranchId)).SendAsync("order", KitchenOrder.From(order));
+            var stations = order.Tickets.Count == 0
+                ? new[] { ServiceStation.Kitchen }
+                : order.Tickets.Select(t => t.Station).Distinct().ToArray();
+            foreach (var station in stations)
+                await _hub.Clients.Group(KitchenHub.Group(order.BranchId, station)).SendAsync("order", KitchenOrder.ForStation(order, station));
         }
         catch (Exception ex)
         {

@@ -30,6 +30,7 @@ public class BackofficeNavTests
     [InlineData("reports.insights", "/Branch/Insights/5")]
     [InlineData("reports.feedback", "/branch/5/feedback")]
     [InlineData("stations.kitchen", "/kitchen/5")]
+    [InlineData("stations.bar", "/kitchen/5/bar")]
     [InlineData("tables.floor", "/branch/5/tables/floor")]
     [InlineData("tables.tables", "/branch/5/tables")]
     [InlineData("tables.bookings", "/branch/5/bookings")]
@@ -51,7 +52,7 @@ public class BackofficeNavTests
     {
         var keys = Keys(BackofficeNav.Build(new NavContext(5, BranchRole.Editor, IsOwner: false, IsAdmin: false, AllModules))).ToList();
 
-        Assert.Equal(new[] { "dashboard", "stations.kitchen", "tables.bookings", "menu.items", "stock.items", "stock.waste", "config.shifts", "config.branches", "config.password" }, keys);
+        Assert.Equal(new[] { "dashboard", "stations.kitchen", "stations.bar", "tables.bookings", "menu.items", "stock.items", "stock.waste", "config.shifts", "config.branches", "config.password" }, keys);
     }
 
     [Fact]
@@ -107,6 +108,7 @@ public class BackofficeNavTests
     [InlineData("Branch", "Insights", "reports.insights")]
     [InlineData("Feedback", "Index", "reports.feedback")]
     [InlineData("Kitchen", "Index", "stations.kitchen")]
+    [InlineData("Kitchen", "Bar", "stations.bar")]
     [InlineData("Tables", "Index", "tables.tables")]
     [InlineData("Tables", "Floor", "tables.floor")]
     [InlineData("Bookings", "Settings", "tables.bookings")]

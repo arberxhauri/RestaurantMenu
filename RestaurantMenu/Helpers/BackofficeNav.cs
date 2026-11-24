@@ -59,6 +59,7 @@ public static class BackofficeNav
         new("reports.feedback", "reports", "Guest feedback", "ph-chat-circle-text", b => $"/branch/{b}/feedback", Audience.Branch, BranchPermission.ViewInsights),
 
         new("stations.kitchen", "stations", "Kitchen", "ph-chef-hat", b => $"/kitchen/{b}", Audience.Branch, BranchPermission.Kitchen, BillingModule.Ordering),
+        new("stations.bar", "stations", "Bar", "ph-wine", b => $"/kitchen/{b}/bar", Audience.Branch, BranchPermission.Kitchen, BillingModule.Ordering),
 
         new("tables.floor", "tables", "Live floor", "ph-armchair", b => $"/branch/{b}/tables/floor", Audience.Branch, BranchPermission.EditBranch, BillingModule.Ordering),
         new("tables.tables", "tables", "Tables & QR codes", "ph-qr-code", b => $"/branch/{b}/tables", Audience.Branch, BranchPermission.EditBranch, BillingModule.Ordering),
@@ -125,7 +126,7 @@ public static class BackofficeNav
             "manage" => "dashboard",
             "sales" => "reports.sales",
             "feedback" => "reports.feedback",
-            "kitchen" => "stations.kitchen",
+            "kitchen" => Is(action, "Bar") ? "stations.bar" : "stations.kitchen",
             "tables" => Is(action, "Floor") ? "tables.floor" : "tables.tables",
             "bookings" => "tables.bookings",
             "category" or "product" => "menu.items",

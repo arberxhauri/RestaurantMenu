@@ -37,20 +37,28 @@ public class KitchenController : Controller
     }
 
     [HttpGet("")]
-    public async Task<IActionResult> Index(int id)
+    public Task<IActionResult> Index(int id) => StationAsync(id, ServiceStation.Kitchen);
+
+    /// <summary>The bar's screen: drinks and anything else assigned to the bar (Product/Category station).</summary>
+    [HttpGet("bar")]
+    public Task<IActionResult> Bar(int id) => StationAsync(id, ServiceStation.Bar);
+
+    private async Task<IActionResult> StationAsync(int id, ServiceStation station)
     {
         var branch = await BranchAsync(id);
         if (branch == null) return NotFound();
         ViewBag.Currency = CurrencyHelper.GetCurrencySymbol(branch.Currency);
         ViewBag.CanManage = await _access.CanAsync(id, BranchPermission.EditBranch);
         ViewBag.TableCount = await _context.Tables.CountAsync(t => t.BranchId == id);
-        return View(branch);
+        ViewBag.Station = station;
+        return View("Index", branch);
     }
 
-    /// <summary>Everything the screen shows; fetched on load, after every reconnect, and every 30 seconds.</summary>
+    /// <summary>Everything a station's screen shows; fetched on load, after every reconnect, and every 30 seconds.</summary>
     [HttpGet("orders")]
-    public async Task<IActionResult> Orders(int id)
+    public async Task<IActionResult> Orders(int id, string? station)
     {
+        if (StationRules.ParseStation(station) is not { } s) return BadRequest();
         var branch = await BranchAsync(id);
         if (branch == null) return NotFound();
         Response.Headers.CacheControl = "no-store";
@@ -59,27 +67,27 @@ public class KitchenController : Controller
             enabled = branch.OrderingEnabled,
             paused = branch.OrdersPaused,
             now = DateTime.UtcNow,
-            orders = await _orders.KitchenOrdersAsync(id, DateTime.UtcNow)
+            orders = await _orders.KitchenOrdersAsync(id, s, DateTime.UtcNow)
         });
     }
 
     /// <summary>
-    /// Moves an order on. <paramref name="from"/> is the status the screen saw: if another
-    /// screen got there first, nothing changes and 409 returns the order as it is now.
+    /// Moves a station's part of an order on. <paramref name="from"/> is the column the screen saw: if
+    /// another screen got there first, nothing changes and 409 returns the order as it is now.
     /// </summary>
     [HttpPost("orders/{orderId:int}/status")]
     [AllowWhenModuleOff] // orders already sent can still be finished
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Status(int id, int orderId, [FromForm] string from, [FromForm] string to)
+    public async Task<IActionResult> Status(int id, int orderId, [FromForm] string from, [FromForm] string to, [FromForm] string? station)
     {
         if (await BranchAsync(id) == null) return NotFound();
-        if (!Enum.TryParse<OrderStatus>(from, true, out var f) || !Enum.TryParse<OrderStatus>(to, true, out var t)
-            || !Enum.IsDefined(f) || !Enum.IsDefined(t) || int.TryParse(from, out _) || int.TryParse(to, out _))
+        if (StationRules.FromScreen(from) is not { } f || StationRules.FromScreen(to) is not { } t
+            || StationRules.ParseStation(station) is not { } s)
         {
             return BadRequest();
         }
 
-        var (order, conflict) = await _orders.SetStatusAsync(id, orderId, f, t, DateTime.UtcNow);
+        var (order, conflict) = await _orders.SetStationStatusAsync(id, orderId, s, f, t, DateTime.UtcNow);
         if (order == null) return NotFound();
         return conflict ? Conflict(new { order }) : Ok(new { order });
     }

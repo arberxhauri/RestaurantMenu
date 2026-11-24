@@ -138,6 +138,7 @@
 .ph.ph-warning-circle:before { content: "\e4e2"; }
 .ph.ph-warning-octagon:before { content: "\e4e4"; }
 .ph.ph-wifi-slash:before { content: "\e4f2"; }
+.ph.ph-wine:before { content: "\e6b2"; }
 .ph.ph-x:before { content: "\e4f6"; }
 .ph.ph-x-circle:before { content: "\e4f8"; }
 @font-face { font-family: "Phosphor-Fill"; src: url("./icons-fill.woff2") format("woff2"); font-weight: normal; font-style: normal; font-display: block; }
@@ -279,5 +280,6 @@
 .ph-fill.ph-warning-circle:before { content: "\e4e2"; }
 .ph-fill.ph-warning-octagon:before { content: "\e4e4"; }
 .ph-fill.ph-wifi-slash:before { content: "\e4f2"; }
+.ph-fill.ph-wine:before { content: "\e6b2"; }
 .ph-fill.ph-x:before { content: "\e4f6"; }
 .ph-fill.ph-x-circle:before { content: "\e4f8"; }

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.SignalR;
+using RestaurantMenu.Helpers;
 using RestaurantMenu.Models;
 using RestaurantMenu.Services;
 
@@ -25,14 +26,21 @@ public class KitchenHub : Hub
 
     public static string Group(int branchId) => $"kitchen-{branchId}";
 
-    /// <summary>Returns false (and joins nothing) when this person may not see the branch's orders.</summary>
-    public async Task<bool> Join(int branchId)
+    /// <summary>One group per station screen; the kitchen keeps the original name.</summary>
+    public static string Group(int branchId, ServiceStation station) =>
+        station == ServiceStation.Bar ? $"bar-{branchId}" : Group(branchId);
+
+    /// <summary>
+    /// Joins a station's updates ("kitchen" or "bar"). Returns false (and joins nothing) when this
+    /// person may not see the branch's orders or the station is unknown.
+    /// </summary>
+    public async Task<bool> Join(int branchId, string? station)
     {
         var userId = Context.User == null ? null : _users.GetUserId(Context.User);
-        if (userId == null) return false;
+        if (userId == null || StationRules.ParseStation(station) is not { } s) return false;
         var role = await BranchAccess.RoleOfAsync(_db, userId, branchId);
         if (!BranchAccess.Allows(role, BranchPermission.Kitchen)) return false;
-        await Groups.AddToGroupAsync(Context.ConnectionId, Group(branchId));
+        await Groups.AddToGroupAsync(Context.ConnectionId, Group(branchId, s));
         return true;
     }
 }
